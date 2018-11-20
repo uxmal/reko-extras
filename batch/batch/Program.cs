@@ -250,7 +250,7 @@ namespace batch
                 while (!proc.StandardOutput.EndOfStream)
                 {
                     string line = proc.StandardOutput.ReadLine();
-                    var match = Regex.Match(line, @"decoder for the instruction (.*?) at address (.*?) \(");
+                    var match = Regex.Match(line, @"Reko: a decoder for .*? instruction (.*?) at address (.*?) has not");
                     if (!match.Success || !match.Groups[1].Success || !match.Groups[2].Success)
                         continue;
 
