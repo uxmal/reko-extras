@@ -241,7 +241,7 @@ namespace batch
             Process proc = Process.Start(new ProcessStartInfo
             {
                 FileName = REKO,
-                Arguments = $" --scan-only --arch x86-protected-64 --base 0 --loader raw --heuristic shingle \"{path}\"",
+                Arguments = $" --time-limit 120 --scan-only --arch x86-protected-64 --base 0 --loader raw --heuristic shingle \"{path}\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true
             });
