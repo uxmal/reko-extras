@@ -15,6 +15,12 @@ using System.Threading.Tasks;
 
 namespace batch
 {
+    struct ParseResult
+    {
+        public string hex;
+        public string asm;
+    }
+
     class Program
     {
         static string REKO = Environment.GetEnvironmentVariable("REKO");
@@ -50,15 +56,15 @@ namespace batch
             string bytesStr = string.Join(",", hexBytes);
 
             output.WriteLine("[Test]");
-            output.WriteLine("$public void X86Dis_{mnem}_{hex}");
+            output.WriteLine($"public void X86Dis_{mnem}_{hex}");
             output.WriteLine("{");
-            output.WriteLine("  var instr = Disassemble64({bytesStr});");
-            output.WriteLine($"  Assert.AreEqual(\"{mnem}\\t{args}\", instr.ToString());");
+            output.WriteLine($"    var instr = Disassemble64({bytesStr});");
+            output.WriteLine($"    Assert.AreEqual(\"{mnem}\\t{args}\", instr.ToString());");
             output.WriteLine("}");
             output.WriteLine();
         }
 
-        static IEnumerable<object> ParseLLVM(Process llvm)
+        static IEnumerable<ParseResult> ParseLLVM(string inputHex, Process llvm)
         {
             var stream = llvm.StandardOutput;
             bool found = false;
@@ -70,12 +76,22 @@ namespace batch
                 if(!found){
                     if (stderr != null && stderr.Contains("invalid instruction encoding"))
                     {
-                        yield return new
+                        // Discard the line LLVM complains about so we can find 
+                        // the caret on the next line.
+                        llvm.StandardError.ReadLine();
+
+                        string caretLine = llvm.StandardError.ReadLine();
+                        // llvm writes a caret where it found the encoding error
+                        // if it's at the beginning, the original hex is invalid
+                        if (caretLine.StartsWith("^"))
                         {
-                            line = line,
-                            hex = "",
-                            asm = ""
-                        };
+                            yield return new ParseResult()
+                            {
+                                hex = inputHex,
+                                asm = "(bad)"
+                            };
+                            yield break;
+                        }
                     }
                     if (line.StartsWith(".text")){
                         found = true;
@@ -95,9 +111,8 @@ namespace batch
                     .Replace("0x", "")
                     .Replace(",", "");
 
-                yield return new
+                yield return new ParseResult
                 {
-                    line = line,
                     hex = bytes,
                     asm = asm
                 };
@@ -106,7 +121,7 @@ namespace batch
             }
         }
 
-        static IEnumerable<object> ParseObjDump(Process objDump)
+        static IEnumerable<ParseResult> ParseObjDump(Process objDump)
         {
             var stream = objDump.StandardOutput;
             bool found = false;
@@ -131,9 +146,8 @@ namespace batch
 
                 string asm = parts[2].Trim();
 
-                yield return new
+                yield return new ParseResult
                 {
-                    line = line,
                     hex = hex,
                     asm = asm
                 };
@@ -146,24 +160,25 @@ namespace batch
         {
             byte[] bin = File.ReadAllBytes(chunk);
 
-            StringBuilder sb = new StringBuilder();
-            foreach(byte b in bin)
-            {
-                sb.AppendFormat("0x{0:X2},", b);
-            }
-            sb.Length--;
+
+            var asmFragment = string.Join(",", bin.Select(b => $"0x{b:X2}"));
 
             Process llvm = Process.Start(new ProcessStartInfo()
             {
-                FileName = "cmd",
-                Arguments = $"/c echo {sb.ToString()} | llvm-mc -disassemble -triple=x86_64 -show-encoding -output-asm-variant=1", //variant 1 -> Intel syntax
+                FileName = "cmd.exe",
+                Arguments = $"/c llvm-mc -disassemble -triple=x86_64 -show-encoding -output-asm-variant=1", //variant 1 -> Intel syntax
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
-                RedirectStandardError = true
+                RedirectStandardError = true,
+                RedirectStandardInput = true
             });
 
-            ParseLLVM(llvm).All((dynamic obj) =>
+            llvm.StandardInput.WriteLine(asmFragment);
+            llvm.StandardInput.Close();
+
+            string inputHex = string.Join("", bin.Select(b => $"{b:X2}"));
+            ParseLLVM(inputHex, llvm).All(obj =>
             {
                 Console.Error.WriteLine($"[LLVM] {obj.hex} => {obj.asm}");
                 if (OptGen)
@@ -185,7 +200,7 @@ namespace batch
                 RedirectStandardOutput = true
             });
 
-            ParseObjDump(objDump).All((dynamic obj) =>
+            ParseObjDump(objDump).All(obj =>
             {
                 Console.Error.WriteLine($"[OBJDUMP] {obj.hex} => {obj.asm}");
                 if (OptGen)
@@ -210,6 +225,7 @@ namespace batch
                     return;
             }
 
+            ThreadPool.SetMaxThreads(4, 4);
             ThreadPool.QueueUserWorkItem(stateInfo => CollectRekoUnimplementedInstructions(path));
         }
 
@@ -218,6 +234,10 @@ namespace batch
             Interlocked.Increment(ref running);
 
             Console.Error.WriteLine($"Processing {path}");
+            if (string.IsNullOrEmpty(REKO))
+            {
+                REKO = @"d:\dev\uxmal\reko\master\src\Drivers\CmdLine\bin\x64\Debug\decompile.exe";
+            }
             Process proc = Process.Start(new ProcessStartInfo
             {
                 FileName = REKO,
@@ -244,23 +264,15 @@ namespace batch
                         Seen.Add(hexPrefix);
                         Console.Error.WriteLine($"[NEW] {addr:X8} {hexPrefix}");
 
-                        fs.Seek(addr, SeekOrigin.Begin);
-                        byte[] buf = new byte[15];
-                        fs.Read(buf, 0, buf.Length);
-
-                        string name = buf.GetHashCode().ToString();
-
-                        string filePath = $"chunks/{name}.bin";
-
-                        File.WriteAllBytes(filePath, buf);
+                        string filePath = WriteChunkFile(fs, addr);
 
                         if (OptObjDump)
                             RunObjDump(filePath);
                         if (OptLLVM)
                             RunLLVM(filePath);
 
-							if (!OptKeepChunks)
-								File.Delete(filePath);
+                        if (!OptKeepChunks)
+                            File.Delete(filePath);
                     }
                 }
             }
@@ -270,6 +282,28 @@ namespace batch
             {
                 finished.Set();
             }
+        }
+
+        /// <summary>
+        /// Copies the 15 bytes starting at the offending offset
+        /// in the source file and writes them into a chunk file.
+        /// The chunk files are processed later by a disassembler.
+        /// </summary>
+        /// <param name="fs"></param>
+        /// <param name="addr"></param>
+        /// <returns></returns>
+        private static string WriteChunkFile(FileStream fs, long addr)
+        {
+            fs.Seek(addr, SeekOrigin.Begin);
+            byte[] buf = new byte[15];
+            fs.Read(buf, 0, buf.Length);
+
+            string name = buf.GetHashCode().ToString();
+
+            string filePath = $"chunks/{name}.bin";
+
+            File.WriteAllBytes(filePath, buf);
+            return filePath;
         }
 
         static byte[] StringToByteArray(string hex)
