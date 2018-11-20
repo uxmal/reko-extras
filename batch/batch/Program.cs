@@ -194,8 +194,6 @@ namespace batch
                 }
                 return true;
             });
-
-            File.Delete(chunk);
         }
 
         static void ProcessFile(string path)
@@ -260,6 +258,9 @@ namespace batch
                             RunObjDump(filePath);
                         if (OptLLVM)
                             RunLLVM(filePath);
+
+							if (!OptKeepChunks)
+								File.Delete(filePath);
                     }
                 }
             }
@@ -283,6 +284,7 @@ namespace batch
         private static bool OptObjDump = false;
         private static bool OptLLVM = false;
         private static bool OptGen = false;
+		private static bool OptKeepChunks = false;
 
         /// <summary>
         /// Parse the command line arguments.
@@ -315,6 +317,9 @@ namespace batch
                 case "-gentests":
                     OptGen = true;
                     break;
+				case "-keep":
+					OptKeepChunks = true;
+					break;
                 default:
                     return i;
                 }
