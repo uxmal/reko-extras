@@ -34,11 +34,10 @@ namespace batch
             string mnem = parts[0];
             mnem = Regex.Replace(mnem, @"\(|\)|\s+|\[|\]|\+|\*|\-|,|\.", "_");
 
-
             string args = string.Join(" ", parts.Skip(1));
 
             List<string> hexBytes = new List<string>();
-            if((hex.Length % 2) != 0)
+            if ((hex.Length % 2) != 0)
             {
                 output.WriteLine($"//UNHANDLED CASE {hex} {asm}");
                 return;
@@ -63,7 +62,6 @@ namespace batch
         {
             var stream = llvm.StandardOutput;
             bool found = false;
-
 
             while (!stream.EndOfStream)
             {
@@ -214,18 +212,23 @@ namespace batch
                     return;
             }
 
-            ThreadPool.QueueUserWorkItem(new WaitCallback((stateInfo) =>
-            {
-                Interlocked.Increment(ref running);
+            ThreadPool.QueueUserWorkItem(stateInfo => CollectRekoUnimplementedInstructions(path));
+        }
 
-                Console.Error.WriteLine($"Processing {path}");
-                Process proc = Process.Start(new ProcessStartInfo()
-                {
-                    FileName = REKO,
-                    Arguments = $" --arch x86-protected-64 --base 0 --loader raw --heuristic shingle \"{path}\"",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true
-                });
+        private static void CollectRekoUnimplementedInstructions(string path)
+        {
+            Interlocked.Increment(ref running);
+
+            Console.Error.WriteLine($"Processing {path}");
+            Process proc = Process.Start(new ProcessStartInfo
+            {
+                FileName = REKO,
+                Arguments = $" --scan-only --arch x86-protected-64 --base 0 --loader raw --heuristic shingle \"{path}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true
+            });
+            using (var fs = File.OpenRead(path))
+            {
                 while (!proc.StandardOutput.EndOfStream)
                 {
                     string line = proc.StandardOutput.ReadLine();
@@ -243,31 +246,29 @@ namespace batch
                         Seen.Add(hexPrefix);
                         Console.Error.WriteLine($"[NEW] {addr:X8} {hexPrefix}");
 
-                        using(var fs = File.OpenRead(path))
-                        {
-                            fs.Seek(addr, SeekOrigin.Begin);
-                            byte[] buf = new byte[15];
-                            fs.Read(buf, 0, buf.Length);
+                        fs.Seek(addr, SeekOrigin.Begin);
+                        byte[] buf = new byte[15];
+                        fs.Read(buf, 0, buf.Length);
 
-                            string name = buf.GetHashCode().ToString();
+                        string name = buf.GetHashCode().ToString();
 
-                            string filePath = $"chunks/{name}.bin";
+                        string filePath = $"chunks/{name}.bin";
 
-                            File.WriteAllBytes(filePath, buf);
+                        File.WriteAllBytes(filePath, buf);
 
-                            if(OptObjDump)
-                                RunObjDump(filePath);
-                            if (OptLLVM)
-                                RunLLVM(filePath);
-                        }
+                        if (OptObjDump)
+                            RunObjDump(filePath);
+                        if (OptLLVM)
+                            RunLLVM(filePath);
                     }
                 }
+            }
 
-                if (Interlocked.Decrement(ref running) == 0)
-                {
-                    finished.Set();
-                }
-            }));
+
+            if (Interlocked.Decrement(ref running) == 0)
+            {
+                finished.Set();
+            }
         }
 
         static byte[] StringToByteArray(string hex)
