@@ -24,7 +24,7 @@ namespace batch
         static int running = 0;
         static ManualResetEvent finished = new ManualResetEvent(false);
 
-        static void GenTest(dynamic obj)
+        static void GenTest(dynamic obj, TextWriter output)
         {
             string hex = obj.hex;
             string asm = obj.asm;
@@ -40,21 +40,23 @@ namespace batch
             List<string> hexBytes = new List<string>();
             if((hex.Length % 2) != 0)
             {
-                Console.Error.WriteLine($"//UNHANDLED CASE {hex} {asm}");
+                output.WriteLine($"//UNHANDLED CASE {hex} {asm}");
                 return;
             }
-            for(int i=0; i<hex.Length; i+= 2)
+            for (int i=0; i<hex.Length; i+= 2)
             {
                 hexBytes.Add("0x" + hex.Substring(i, 2));
             }
 
             string bytesStr = string.Join(",", hexBytes);
 
-            string tpl = "[Test]" + Environment.NewLine +
-                $"public void X86Dis_{mnem}_{hex}() {{" + Environment.NewLine +
-                $"  var instr = Disassemble64({bytesStr});" + Environment.NewLine +
-                $"  Assert.AreEqual(\"{mnem}\\t{args}\", instr.ToString());";
-            Console.Error.WriteLine(tpl);
+            output.WriteLine("[Test]");
+            output.WriteLine("$public void X86Dis_{mnem}_{hex}");
+            output.WriteLine("{");
+            output.WriteLine("  var instr = Disassemble64({bytesStr});");
+            output.WriteLine($"  Assert.AreEqual(\"{mnem}\\t{args}\", instr.ToString());");
+            output.WriteLine("}");
+            output.WriteLine();
         }
 
         static IEnumerable<object> ParseLLVM(Process llvm)
@@ -165,10 +167,10 @@ namespace batch
 
             ParseLLVM(llvm).All((dynamic obj) =>
             {
-                Console.WriteLine($"[LLVM] {obj.hex} => {obj.asm}");
+                Console.Error.WriteLine($"[LLVM] {obj.hex} => {obj.asm}");
                 if (OptGen)
                 {
-                    GenTest(obj);
+                    GenTest(obj, Console.Out);
                 }
                 return true;
             });
@@ -187,10 +189,10 @@ namespace batch
 
             ParseObjDump(objDump).All((dynamic obj) =>
             {
-                Console.WriteLine($"[OBJDUMP] {obj.hex} => {obj.asm}");
+                Console.Error.WriteLine($"[OBJDUMP] {obj.hex} => {obj.asm}");
                 if (OptGen)
                 {
-                    GenTest(obj);
+                    GenTest(obj, Console.Out);
                 }
                 return true;
             });
@@ -217,7 +219,6 @@ namespace batch
                 Interlocked.Increment(ref running);
 
                 Console.Error.WriteLine($"Processing {path}");
-
                 Process proc = Process.Start(new ProcessStartInfo()
                 {
                     FileName = REKO,
@@ -225,11 +226,9 @@ namespace batch
                     UseShellExecute = false,
                     RedirectStandardOutput = true
                 });
-
                 while (!proc.StandardOutput.EndOfStream)
                 {
                     string line = proc.StandardOutput.ReadLine();
-
                     var match = Regex.Match(line, @"decoder for the instruction (.*?) at address (.*?) \(");
                     if (!match.Success || !match.Groups[1].Success || !match.Groups[2].Success)
                         continue;
@@ -242,7 +241,7 @@ namespace batch
                     if (!Seen.Contains(hexPrefix))
                     {
                         Seen.Add(hexPrefix);
-                        Console.Error.WriteLine($"[NEW] {hexPrefix}");
+                        Console.Error.WriteLine($"[NEW] {addr:X8} {hexPrefix}");
 
                         using(var fs = File.OpenRead(path))
                         {
@@ -284,7 +283,13 @@ namespace batch
         private static bool OptLLVM = false;
         private static bool OptGen = false;
 
-        static int ParseArguments(string[] args)
+        /// <summary>
+        /// Parse the command line arguments.
+        /// </summary>
+        /// <returns>Either 
+        /// null, in which case the caller should bail out, or the index
+        /// of the first non-option parameter in 
+        static int? ParseArguments(string[] args)
         {
             int i = 0;
             for (; i < args.Length; i++)
@@ -293,6 +298,10 @@ namespace batch
                 {
                 case "--":
                     return ++i;
+                case "-help":
+                case "-h":
+                    Usage();
+                    return -1;
                 case "-mzonly":
                     OptMzOnly = true;
                     break;
@@ -302,9 +311,11 @@ namespace batch
                 case "-llvm":
                     OptLLVM = true;
                     break;
-                case "-gen":
+                case "-gentests":
                     OptGen = true;
                     break;
+                default:
+                    return i;
                 }
             }
             return i;
@@ -313,12 +324,15 @@ namespace batch
         static void Main(string[] args)
         {
 
-            int i = ParseArguments(args);
+            int? i = ParseArguments(args);
+            if (i == null)
+                return;
 
             if (!Directory.Exists("chunks"))
                 Directory.CreateDirectory("chunks");
 
-            new DirectoryIterator(args[i], ProcessFile).Run();
+            var arg = args[i.Value].TrimEnd();
+            new DirectoryIterator(arg, ProcessFile).Run();
 
             finished.WaitOne();
 
@@ -329,6 +343,25 @@ namespace batch
 
             byte[] bin = StringToByteArray(finalHex);
             File.WriteAllBytes("collected.bin", bin);*/
+        }
+
+        private static void Usage()
+        {
+            Console.WriteLine("batch [options] file...");
+            Console.WriteLine();
+            Console.WriteLine("Disassembles each file with Reko to discover instructions that");
+            Console.WriteLine("are not yet implemented. These instructions are then collated with");
+            Console.WriteLine("disassemblies from other disassemblies for comparison.");
+            Console.WriteLine("In order to run this tool, the environment variable REKO must be set");
+            Console.WriteLine("to the absolute path of the instance of Reko you wish to execute.");
+            Console.WriteLine("Options:");
+            Console.WriteLine(" -h, -help   Displays this message.");
+            Console.WriteLine(" -mzonly     Only process files that have the MZ magic number (MS-DOS or ");
+            Console.WriteLine("             PE executables).");
+            Console.WriteLine(" -objdump    Use objdump to verify disassembly of machine code.");
+            Console.WriteLine(" -llvm       Use LLVM's llvm-mc tool to verify disassembly of machine code.");
+            Console.WriteLine(" -gentests   Generate unit tests ready to incorporate into Reko unit");
+            Console.WriteLine("             test project.");
         }
     }
 }
