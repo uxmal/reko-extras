@@ -486,8 +486,8 @@ namespace batch
                 }
             }
 
-            Console.WriteLine($"DIS-ARCH  => {OptDasmArchArgs}");
-            Console.WriteLine($"REKO-ARCH => {OptRekoArchArgs}");
+            Console.Error.WriteLine($"DIS-ARCH  => {OptDasmArchArgs}");
+            Console.Error.WriteLine($"REKO-ARCH => {OptRekoArchArgs}");
 
             if (!Directory.Exists("chunks"))
                 Directory.CreateDirectory("chunks");
@@ -497,7 +497,7 @@ namespace batch
 
             if (!didStartRunning)
             {
-                Console.WriteLine("Nothing to do");
+                Console.Error.WriteLine("Nothing to do");
                 return;
             }
 
@@ -514,7 +514,7 @@ namespace batch
 
         private static void Usage()
         {
-            Console.Write(
+            Console.Error.Write(
 @"batch [options] file...
 
 Disassembles each file with Reko to discover instructions that
