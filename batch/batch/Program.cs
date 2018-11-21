@@ -28,6 +28,7 @@ namespace batch
         static BlockingCollection<string> Seen = new BlockingCollection<string>();
 
         static int running = 0;
+        static bool didStartRunning = false;
         static ManualResetEvent finished = new ManualResetEvent(false);
 
         static void GenTest(dynamic obj, TextWriter output)
@@ -78,7 +79,7 @@ namespace batch
                     {
                         // Discard the line LLVM complains about so we can find 
                         // the caret on the next line.
-                        llvm.StandardError.ReadLine();
+                        /*string cause = */ llvm.StandardError.ReadLine();
 
                         string caretLine = llvm.StandardError.ReadLine();
                         // llvm writes a caret where it found the encoding error
@@ -100,10 +101,14 @@ namespace batch
                 }
 
                 // mnem\targs  # encoding: [0xde,0xad,0xbe,0xff]
+                // mnem\targs  // encoding: [...]
 
-                var m = Regex.Match(line, @"(.*?) # encoding: \[(.*?)\]");
-                if (!m.Success || !m.Groups[1].Success || !m.Groups[2].Success)
+                var m = Regex.Match(line, @"(.*?) .* encoding: \[(.*?)\]");
+                if (!m.Success ||
+                    !m.Groups[1].Success ||
+                    !m.Groups[2].Success)
                     continue;
+
 
                 //annoying, since we need tabs for Gen, but we need to be consistent with objdump
                 string asm = m.Groups[1].Value.Replace("\t", " ");
@@ -166,7 +171,7 @@ namespace batch
             Process llvm = Process.Start(new ProcessStartInfo()
             {
                 FileName = "cmd.exe",
-                Arguments = $"/c llvm-mc -disassemble -triple=x86_64 -show-encoding -output-asm-variant=1", //variant 1 -> Intel syntax
+                Arguments = $"/c llvm-mc -disassemble -triple={OptDasmArchArgs} -show-encoding -output-asm-variant=1", //variant 1 -> Intel syntax
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -187,6 +192,8 @@ namespace batch
                 }
                 return true;
             });
+
+            llvm.WaitForExit();
         }
 
         static void RunObjDump(string chunk)
@@ -194,7 +201,7 @@ namespace batch
             Process objDump = Process.Start(new ProcessStartInfo()
             {
                 FileName = "cmd",
-                Arguments = $"/c objdump -D -Mintel,x86-64 -b binary -m i386 {chunk}",
+                Arguments = $"/c objdump -D {OptDasmArchArgs} -b binary {chunk}",
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardOutput = true
@@ -209,6 +216,8 @@ namespace batch
                 }
                 return true;
             });
+
+            objDump.WaitForExit();
         }
 
         static void ProcessFile(string path)
@@ -225,7 +234,8 @@ namespace batch
                     return;
             }
 
-            ThreadPool.SetMaxThreads(4, 4);
+            didStartRunning = true;
+
             ThreadPool.QueueUserWorkItem(stateInfo => CollectRekoUnimplementedInstructions(path));
         }
 
@@ -234,14 +244,10 @@ namespace batch
             Interlocked.Increment(ref running);
 
             Console.Error.WriteLine($"Processing {path}");
-            if (string.IsNullOrEmpty(REKO))
-            {
-                REKO = @"d:\dev\uxmal\reko\master\src\Drivers\CmdLine\bin\x64\Debug\decompile.exe";
-            }
             Process proc = Process.Start(new ProcessStartInfo
             {
                 FileName = REKO,
-                Arguments = $" --time-limit 120 --scan-only --arch x86-protected-64 --base 0 --loader raw --heuristic shingle \"{path}\"",
+                Arguments = $" --time-limit 120 --scan-only --arch {OptRekoArchArgs} --base 0 --loader raw --heuristic shingle \"{path}\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true
             });
@@ -277,6 +283,7 @@ namespace batch
                 }
             }
 
+            proc.WaitForExit();
 
             if (Interlocked.Decrement(ref running) == 0)
             {
@@ -295,7 +302,7 @@ namespace batch
         private static string WriteChunkFile(FileStream fs, long addr)
         {
             fs.Seek(addr, SeekOrigin.Begin);
-            byte[] buf = new byte[15];
+            byte[] buf = new byte[16];
             fs.Read(buf, 0, buf.Length);
 
             string name = buf.GetHashCode().ToString();
@@ -320,25 +327,92 @@ namespace batch
         private static bool OptGen = false;
 		private static bool OptKeepChunks = false;
 
+        private static string OptDasmArchArgs;
+        private static string OptRekoArchArgs;
+
+        private static int OptNumThreads = -1;
+
+        static string Unquote(string str)
+        {
+            var m = Regex.Match(str, "\"(.*)\"");
+            if (m.Success && m.Groups[1].Success)
+            {
+                str = m.Groups[1].Value;
+            }
+            return str;
+        }
+
+        /// <summary>
+        /// Parses a command line option
+        /// </summary>
+        /// <param name="args"></param>
+        /// <param name="i"></param>
+        /// <param name="value"></param>
+        /// <returns>Either 
+        /// null, in which case the caller should bail out, or the index
+        /// of the first non-option parameter in <paramref name="args"/></returns>
+        static int? ParseOption(string[] args, ref int i, out string value)
+        {
+            string val = args[i];
+            var m = Regex.Match(val, ".*?=(.*)");
+
+            int next_i = -1;
+
+            if(m.Success && m.Groups[1].Success)
+            {
+                value = m.Groups[1].Value;
+                next_i = i;
+            } else if(i + 1 < args.Length)
+            {
+                value = args[i + 1];
+                next_i = i + 1;
+            } else
+            {
+                value = null;
+                return null;
+            }
+
+            if(next_i > -1)
+            {
+                value = Unquote(value);
+                i = next_i;
+            }
+            return next_i;
+        }
+
         /// <summary>
         /// Parse the command line arguments.
         /// </summary>
-        /// <returns>Either 
+        /// <returns>
+        /// Either 
         /// null, in which case the caller should bail out, or the index
-        /// of the first non-option parameter in 
+        /// of the first non-option parameter in <paramref name="args"/></returns>
         static int? ParseArguments(string[] args)
         {
             int i = 0;
+            int? next;
             for (; i < args.Length; i++)
             {
-                switch (args[i])
+                string arg = args[i];
+                var m = Regex.Match(arg, "(.*?)=.*");
+                if(m.Success && m.Groups[1].Success)
+                {
+                    arg = m.Groups[1].Value;
+                }
+
+                switch (arg)
                 {
                 case "--":
                     return ++i;
                 case "-help":
                 case "-h":
                     Usage();
-                    return -1;
+                    return null;
+                case "-reko":
+                    next = ParseOption(args, ref i, out REKO);
+                    if (next == null)
+                        goto Usage;
+                    break;
                 case "-mzonly":
                     OptMzOnly = true;
                     break;
@@ -354,11 +428,31 @@ namespace batch
 				case "-keep":
 					OptKeepChunks = true;
 					break;
+                case "-arch-dis":
+                    next = ParseOption(args, ref i, out OptDasmArchArgs);
+                    if (next == null)
+                        goto Usage;
+                    break;
+                case "-arch-reko":
+                    next = ParseOption(args, ref i, out OptRekoArchArgs);
+                    if (next == null)
+                        goto Usage;
+                    break;
+                case "-nproc":
+                    next = ParseOption(args, ref i, out string nprocValue);
+                    if (next == null)
+                        goto Usage;
+                    OptNumThreads = int.Parse(nprocValue);
+                    break;
                 default:
                     return i;
                 }
             }
             return i;
+
+            Usage:
+            Usage();
+            return null;
         }
 
         static void Main(string[] args)
@@ -368,11 +462,44 @@ namespace batch
             if (i == null)
                 return;
 
+            if(OptDasmArchArgs == null || OptRekoArchArgs == null)
+            {
+                OptRekoArchArgs = "x86-protected-64";
+                if (OptLLVM)
+                {
+                    OptDasmArchArgs = "x86_64";
+                } else if (OptObjDump)
+                {
+                    OptDasmArchArgs = "-Mintel,x86-64 -m i386";
+                }
+            }
+
+            if (OptNumThreads > -1)
+            {
+                if(!ThreadPool.SetMinThreads(OptNumThreads, OptNumThreads))
+                {
+                    throw new ArgumentException($"Invalid value {OptNumThreads} for -nproc");
+                }
+                if(!ThreadPool.SetMaxThreads(OptNumThreads, OptNumThreads))
+                {
+                    throw new ArgumentException($"Invalid value {OptNumThreads} for -nproc");
+                }
+            }
+
+            Console.WriteLine($"DIS-ARCH  => {OptDasmArchArgs}");
+            Console.WriteLine($"REKO-ARCH => {OptRekoArchArgs}");
+
             if (!Directory.Exists("chunks"))
                 Directory.CreateDirectory("chunks");
 
             var arg = args[i.Value].TrimEnd();
             new DirectoryIterator(arg, ProcessFile).Run();
+
+            if (!didStartRunning)
+            {
+                Console.WriteLine("Nothing to do");
+                return;
+            }
 
             finished.WaitOne();
 
@@ -387,21 +514,27 @@ namespace batch
 
         private static void Usage()
         {
-            Console.WriteLine("batch [options] file...");
-            Console.WriteLine();
-            Console.WriteLine("Disassembles each file with Reko to discover instructions that");
-            Console.WriteLine("are not yet implemented. These instructions are then collated with");
-            Console.WriteLine("disassemblies from other disassemblies for comparison.");
-            Console.WriteLine("In order to run this tool, the environment variable REKO must be set");
-            Console.WriteLine("to the absolute path of the instance of Reko you wish to execute.");
-            Console.WriteLine("Options:");
-            Console.WriteLine(" -h, -help   Displays this message.");
-            Console.WriteLine(" -mzonly     Only process files that have the MZ magic number (MS-DOS or ");
-            Console.WriteLine("             PE executables).");
-            Console.WriteLine(" -objdump    Use objdump to verify disassembly of machine code.");
-            Console.WriteLine(" -llvm       Use LLVM's llvm-mc tool to verify disassembly of machine code.");
-            Console.WriteLine(" -gentests   Generate unit tests ready to incorporate into Reko unit");
-            Console.WriteLine("             test project.");
+            Console.Write(
+@"batch [options] file...
+
+Disassembles each file with Reko to discover instructions that
+are not yet implemented. These instructions are then collated with
+disassemblies from other disassemblies for comparison.
+In order to run this tool, the environment variable REKO must be set
+to the absolute path of the instance of Reko you wish to execute.
+Options:
+    -h, -help   Displays this message.
+    -mzonly     Only process files that have the MZ magic number (MS-DOS or 
+                PE executables).
+    -objdump    Use objdump to verify disassembly of machine code.
+    -llvm       Use LLVM's llvm-mc tool to verify disassembly of machine code.
+    -gentests   Generate unit tests ready to incorporate into Reko unit
+                test project.
+    -keep       Keep binary chunks
+    -arch-dis   Architecture argument(s) for the disassembler
+    -arch-reko  Architecture argument(s) for Reko
+    -nproc      Number of parallel jobs to run (for directory lookup)
+");
         }
     }
 }

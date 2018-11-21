@@ -12,13 +12,19 @@ namespace batch
         private readonly Action<string> ProcessFile;
         private readonly string path;
 
+        public static string GetLongPath(string path)
+        {
+            return @"\\?\" + path;
+        }
 
         private void ProcessDirectory(string targetDirectory)
         {
             // Process the list of files found in the directory.
             string[] fileEntries = Directory.GetFiles(targetDirectory);
             foreach (string fileName in fileEntries)
+            {
                 ProcessFile(fileName);
+            }
 
             // Recurse into subdirectories of this directory.
             string[] subdirectoryEntries = Directory.GetDirectories(targetDirectory);
@@ -29,7 +35,12 @@ namespace batch
 
         public DirectoryIterator(string path, Action<string> onFileAction)
         {
-            this.path = path;
+            string tmpPath = path;
+            if (!Path.IsPathRooted(tmpPath))
+                tmpPath = $"{Directory.GetCurrentDirectory()}/{tmpPath}";
+            tmpPath = GetLongPath(tmpPath).Replace('/', '\\');
+
+            this.path = tmpPath;
             this.ProcessFile = onFileAction;
         }
 
