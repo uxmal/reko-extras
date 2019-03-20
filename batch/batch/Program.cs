@@ -55,7 +55,7 @@ namespace batch
             string bytesStr = string.Join(",", hexBytes);
 
             output.WriteLine("[Test]");
-            output.WriteLine($"public void X86Dis_{mnem}_{hex}");
+            output.WriteLine($"public void {OptTestPrefix}_{mnem}_{hex}");
             output.WriteLine("{");
             output.WriteLine($"    var instr = Disassemble64({bytesStr});");
             output.WriteLine($"    Assert.AreEqual(\"{mnem}\\t{args}\", instr.ToString());");
@@ -346,6 +346,7 @@ namespace batch
         private static string OptLLVM = null;
         private static bool OptGen = false;
 		private static bool OptKeepChunks = false;
+        private static string OptTestPrefix = "Test";
 
         private static bool OptDebug = false;
         private static bool OptQuiet = false;
@@ -457,6 +458,9 @@ namespace batch
                 case "-gentests":
                     OptGen = true;
                     break;
+                case "-prefix":
+                    next = ParseOption(args, ref i, out OptTestPrefix);
+                    break;
                 case "-debug":
                     OptDebug = true;
                     break;
@@ -562,20 +566,21 @@ disassemblies from other disassemblies for comparison.
 In order to run this tool, the environment variable REKO must be set
 to the absolute path of the instance of Reko you wish to execute.
 Options:
-    -h, -help   Displays this message.
-    -mzonly     Only process files that have the MZ magic number (MS-DOS or 
-                PE executables).
-    -objdump    Use objdump to verify disassembly of machine code.
-    -llvm       Use LLVM's llvm-mc tool to verify disassembly of machine code.
-    -gentests   Generate unit tests ready to incorporate into Reko unit
-                test project.
-    -keep       Keep binary chunks
-    -debug      Output debugging diagnostic messages
-    -quiet      Minimize the output from the tool
-    -reko       Path to Reko's cmdline decompiler
-    -arch-dis   Architecture argument(s) for the disassembler
-    -arch-reko  Architecture argument(s) for Reko
-    -nproc      Number of parallel jobs to run (for directory lookup)
+    -h, -help        Displays this message.
+    -mzonly          Only process files that have the MZ magic number (MS-DOS or 
+                     PE executables).
+    -objdump         Use objdump to verify disassembly of machine code.
+    -llvm            Use LLVM's llvm-mc tool to verify disassembly of machine code.
+    -gentests        Generate unit tests ready to incorporate into Reko unit
+                     test project.
+    -keep            Keep binary chunks
+    -debug           Output debugging diagnostic messages
+    -quiet           Minimize the output from the tool
+    -reko            Path to Reko's cmdline decompiler
+    -arch-dis        Architecture argument(s) for the disassembler
+    -arch-reko       Architecture argument(s) for Reko
+    -nproc           Number of parallel jobs to run (for directory lookup)
+    -prefix <prefix> Use <prefix> when generating tests
 ");
         }
     }
