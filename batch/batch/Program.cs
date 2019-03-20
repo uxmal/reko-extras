@@ -23,8 +23,6 @@ namespace batch
 
     class Program
     {
-        static string REKO = Environment.GetEnvironmentVariable("REKO");
-
         static BlockingCollection<string> Seen = new BlockingCollection<string>();
 
         static int running = 0;
@@ -171,7 +169,7 @@ namespace batch
             Process llvm = Process.Start(new ProcessStartInfo()
             {
                 FileName = "cmd.exe",
-                Arguments = $"/c llvm-mc -disassemble -triple={OptDasmArchArgs} -show-encoding -output-asm-variant=1", //variant 1 -> Intel syntax
+                Arguments = $"/c {OptLLVM} -disassemble -triple={OptDasmArchArgs} -show-encoding -output-asm-variant=1", //variant 1 -> Intel syntax
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -201,7 +199,7 @@ namespace batch
             Process objDump = Process.Start(new ProcessStartInfo()
             {
                 FileName = "cmd",
-                Arguments = $"/c objdump -D {OptDasmArchArgs} -b binary {chunk}",
+                Arguments = $"/c {OptObjDump} -D {OptDasmArchArgs} -b binary {chunk}",
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardOutput = true
@@ -246,7 +244,7 @@ namespace batch
             Console.Error.WriteLine($"Processing {path}");
             Process proc = Process.Start(new ProcessStartInfo
             {
-                FileName = REKO,
+                FileName = OptRekoBinary,
                 Arguments = $" --time-limit 120 --scan-only --arch {OptRekoArchArgs} --base 0 --loader raw --heuristic shingle \"{path}\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true
@@ -272,10 +270,16 @@ namespace batch
 
                         string filePath = WriteChunkFile(fs, addr);
 
-                        if (OptObjDump)
+                        if (OptObjDump != null)
+                        {
+                            Console.WriteLine($"Starting objdump: {OptObjDump}");
                             RunObjDump(filePath);
-                        if (OptLLVM)
+                        }
+                        if (OptLLVM != null)
+                        {
+                            Console.WriteLine($"Starting llvm: {OptLLVM}");
                             RunLLVM(filePath);
+                        }
 
                         if (!OptKeepChunks)
                             File.Delete(filePath);
@@ -322,13 +326,14 @@ namespace batch
         }
 
         private static bool OptMzOnly = false;
-        private static bool OptObjDump = false;
-        private static bool OptLLVM = false;
+        private static string OptObjDump = null;
+        private static string OptLLVM = null;
         private static bool OptGen = false;
 		private static bool OptKeepChunks = false;
 
         private static string OptDasmArchArgs;
         private static string OptRekoArchArgs;
+        private static string OptRekoBinary = Environment.GetEnvironmentVariable("REKO");
 
         private static int OptNumThreads = -1;
 
@@ -409,7 +414,7 @@ namespace batch
                     Usage();
                     return null;
                 case "-reko":
-                    next = ParseOption(args, ref i, out REKO);
+                    next = ParseOption(args, ref i, out OptRekoBinary);
                     if (next == null)
                         goto Usage;
                     break;
@@ -417,10 +422,18 @@ namespace batch
                     OptMzOnly = true;
                     break;
                 case "-objdump":
-                    OptObjDump = true;
+                    next = ParseOption(args, ref i, out OptObjDump);
+                    if(string.IsNullOrWhiteSpace(OptObjDump))
+                    {
+                        OptObjDump = "objdump";
+                    }
                     break;
                 case "-llvm":
-                    OptLLVM = true;
+                    next = ParseOption(args, ref i, out OptLLVM);
+                    if(string.IsNullOrWhiteSpace(OptLLVM))
+                    {
+                        OptLLVM = "llvm-mc";
+                    }
                     break;
                 case "-gentests":
                     OptGen = true;
@@ -465,10 +478,10 @@ namespace batch
             if(OptDasmArchArgs == null || OptRekoArchArgs == null)
             {
                 OptRekoArchArgs = "x86-protected-64";
-                if (OptLLVM)
+                if (OptLLVM != null)
                 {
                     OptDasmArchArgs = "x86_64";
-                } else if (OptObjDump)
+                } else if (OptObjDump != null)
                 {
                     OptDasmArchArgs = "-Mintel,x86-64 -m i386";
                 }
@@ -531,6 +544,7 @@ Options:
     -gentests   Generate unit tests ready to incorporate into Reko unit
                 test project.
     -keep       Keep binary chunks
+    -reko       Path to Reko's cmdline decompiler
     -arch-dis   Architecture argument(s) for the disassembler
     -arch-reko  Architecture argument(s) for Reko
     -nproc      Number of parallel jobs to run (for directory lookup)
