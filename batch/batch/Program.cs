@@ -499,7 +499,11 @@ namespace batch
 
         static void Main(string[] args)
         {
-
+            if (args.Length == 0)
+            {
+                Usage();
+                return;
+            }
             int? i = ParseArguments(args);
             if (i == null)
                 return;
