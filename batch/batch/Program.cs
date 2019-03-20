@@ -131,6 +131,10 @@ namespace batch
             while (!stream.EndOfStream)
             {
                 string line = stream.ReadLine().TrimEnd();
+                if (OptDebug)
+                {
+                    Console.Error.WriteLine($"[OBJDUMP]: {line}");
+                }
                 if (!found){
                     if(line.StartsWith("00000000 <.data>:"))
                     {
@@ -199,7 +203,7 @@ namespace batch
             Process objDump = Process.Start(new ProcessStartInfo()
             {
                 FileName = "cmd",
-                Arguments = $"/c {OptObjDump} -D {OptDasmArchArgs} -b binary {chunk}",
+                Arguments = $"/c {OptObjDump} -D -m {OptDasmArchArgs} -b binary {chunk}",
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardOutput = true
@@ -254,6 +258,12 @@ namespace batch
                 while (!proc.StandardOutput.EndOfStream)
                 {
                     string line = proc.StandardOutput.ReadLine();
+
+                    if (OptDebug)
+                    {
+                        Console.Error.WriteLine($"[DEBUG]: {line}");
+                    }
+
                     var match = Regex.Match(line, @"Reko: a decoder for .*? instruction (.*?) at address (.*?) has not");
                     if (!match.Success || !match.Groups[1].Success || !match.Groups[2].Success)
                         continue;
@@ -272,12 +282,18 @@ namespace batch
 
                         if (OptObjDump != null)
                         {
-                            Console.WriteLine($"Starting objdump: {OptObjDump}");
+                            if (!OptQuiet || OptDebug)
+                            {
+                                Console.Error.WriteLine($"Starting objdump: {OptObjDump}");
+                            }
                             RunObjDump(filePath);
                         }
                         if (OptLLVM != null)
                         {
-                            Console.WriteLine($"Starting llvm: {OptLLVM}");
+                            if(!OptQuiet || OptDebug)
+                            {
+                                Console.Error.WriteLine($"Starting llvm: {OptLLVM}");
+                            }
                             RunLLVM(filePath);
                         }
 
@@ -330,6 +346,9 @@ namespace batch
         private static string OptLLVM = null;
         private static bool OptGen = false;
 		private static bool OptKeepChunks = false;
+
+        private static bool OptDebug = false;
+        private static bool OptQuiet = false;
 
         private static string OptDasmArchArgs;
         private static string OptRekoArchArgs;
@@ -438,6 +457,12 @@ namespace batch
                 case "-gentests":
                     OptGen = true;
                     break;
+                case "-debug":
+                    OptDebug = true;
+                    break;
+                case "-quiet":
+                    OptQuiet = true;
+                    break;
 				case "-keep":
 					OptKeepChunks = true;
 					break;
@@ -477,13 +502,14 @@ namespace batch
 
             if(OptDasmArchArgs == null || OptRekoArchArgs == null)
             {
+                // Fall back to x86-64 if user didn't provide any arguments for the arch.
                 OptRekoArchArgs = "x86-protected-64";
                 if (OptLLVM != null)
                 {
                     OptDasmArchArgs = "x86_64";
                 } else if (OptObjDump != null)
                 {
-                    OptDasmArchArgs = "-Mintel,x86-64 -m i386";
+                    OptDasmArchArgs = "i386 -Mintel,x86-64";
                 }
             }
 
@@ -544,6 +570,8 @@ Options:
     -gentests   Generate unit tests ready to incorporate into Reko unit
                 test project.
     -keep       Keep binary chunks
+    -debug      Output debugging diagnostic messages
+    -quiet      Minimize the output from the tool
     -reko       Path to Reko's cmdline decompiler
     -arch-dis   Architecture argument(s) for the disassembler
     -arch-reko  Architecture argument(s) for Reko
