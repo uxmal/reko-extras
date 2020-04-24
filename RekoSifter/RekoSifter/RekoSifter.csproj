@@ -3,10 +3,19 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.0</TargetFramework>
+    <Platforms>AnyCPU;x64;x86</Platforms>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="CppSharp.Runtime">
+      <HintPath>..\external\CppSharp--vs2017-x64\CppSharp.Runtime.dll</HintPath>
+    </Reference>
     <Reference Include="Reko.Arch.LatticeMico">
       <HintPath>..\..\..\master\src\Arch\LatticeMico\bin\Debug\netstandard2.0\Reko.Arch.LatticeMico.dll</HintPath>
     </Reference>

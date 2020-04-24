@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Reko.Arch.Mips;
 using Reko.Arch.X86;
@@ -10,6 +12,16 @@ using Reko.Core.Machine;
 
 namespace RekoSifter
 {
+    public struct ParseResult
+    {
+        public string hex;
+        public string asm;
+    }
+
+    public struct StreamState
+    {
+    }
+
     public class Sifter
     {
         private const string DefaultArchName = "x86-protected-32";
@@ -23,6 +35,8 @@ namespace RekoSifter
         private RekoConfigurationService cfgSvc;
         private int? seed;
         private bool useRandomBytes;
+
+        private string llvmArch = null;
 
         public Sifter(string[] args)
         {
@@ -77,6 +91,16 @@ namespace RekoSifter
                     }
                     this.seed = seed;
                     break;
+                case "-l":
+                case "-llvm":
+                    ++i;
+                    if (i < args.Length) {
+                        llvmArch = args[i];
+                    } else {
+                        Usage();
+                        Environment.Exit(-1);
+                    }
+                    break;
                 case "-h":
                 case "--help":
                     Usage();
@@ -119,15 +143,36 @@ namespace RekoSifter
                 throw new NotImplementedException();
         }
 
+        static void RenderLLVM(ParseResult obj) {
+            Console.Write("{0,-45}", obj.asm);
+            Console.WriteLine(obj.hex + " -- LLVM");
+        }
+
+        private void DasmPrintCompare(byte[] bytes, MachineInstruction instr) {
+            ObjDump od = new ObjDump();
+
+            RenderLine(instr);
+            string odOut = od.Disassemble(bytes);
+            Console.WriteLine("-- objdump");
+            Console.Write(odOut);
+        }
+
         public void Sift_Random(Random rng)
         {
             var buf = new byte[maxInstrLength];
             for (;;)
             {
+                Console.WriteLine();
                 rng.NextBytes(buf);
                 Buffer.BlockCopy(buf, 0, mem.Bytes, 0, buf.Length);
+                if (llvmArch != null) {
+                    foreach(var obj in LLVM.Disassemble(llvmArch, mem.Bytes)) {
+                        RenderLLVM(obj);
+                    }
+                }
+
                 var instr = Dasm();
-                RenderLine(instr);
+                DasmPrintCompare(buf, instr);
             }
         }
 
@@ -138,8 +183,14 @@ namespace RekoSifter
             int lastLen = 0;
             while (iLastByte >= 0)
             {
+                if (llvmArch != null) {
+                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes)) {
+                        RenderLLVM(obj);
+                    }
+                }
                 var instr = Dasm();
-                RenderLine(instr);
+                DasmPrintCompare(mem.Bytes, instr);
+
                 if (rdr.Offset != lastLen)
                 {
                     // Length changed, moved marker.
@@ -170,8 +221,14 @@ namespace RekoSifter
             int lastLen = 0;
             while (iLastByte >= 0)
             {
+                if (llvmArch != null) {
+                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes)) {
+                        RenderLLVM(obj);
+                    }
+                }
                 var instr = Dasm();
-                RenderLine(instr);
+                DasmPrintCompare(mem.Bytes, instr);
+
                 if (rdr.Offset != lastLen)
                 {
                     iLastByte = (int)rdr.Offset - 1;
@@ -203,8 +260,14 @@ namespace RekoSifter
             var writer = arch.CreateImageWriter(mem, mem.BaseAddress);
             for (; ;)
             {
+                if (llvmArch != null) {
+                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes)) {
+                        RenderLLVM(obj);
+                    }
+                }
                 var instr = Dasm();
-                RenderLine(instr);
+                DasmPrintCompare(mem.Bytes, instr);
+
                 rdr.Offset = 0;
                 var val = rdr.ReadUInt32(0);
                 if (val == 0xFFFFFFFFu)

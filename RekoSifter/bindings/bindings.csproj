@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <Platforms>AnyCPU;x64;x86</Platforms>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <PlatformTarget>x86</PlatformTarget>
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
+    <PlatformTarget>x86</PlatformTarget>
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PlatformTarget>x64</PlatformTarget>
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="CppSharp">
+      <HintPath>..\external\CppSharp--vs2017-x64\CppSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="CppSharp.AST">
+      <HintPath>..\external\CppSharp--vs2017-x64\CppSharp.AST.dll</HintPath>
+    </Reference>
+    <Reference Include="CppSharp.Generator">
+      <HintPath>..\external\CppSharp--vs2017-x64\CppSharp.Generator.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
