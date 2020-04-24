@@ -34,7 +34,9 @@ namespace RekoSifter
         private IEnumerable<MachineInstruction> dasm;
         private RekoConfigurationService cfgSvc;
         private int? seed;
+        
         private bool useRandomBytes;
+        private bool useObjDump = false;
 
         private string llvmArch = null;
 
@@ -47,81 +49,86 @@ namespace RekoSifter
             this.dasm = arch.CreateDisassembler(rdr);
         }
 
-        private void ProcessArgs(string[] args)
+        bool TryTake(IEnumerator<string> it, out string arg) {
+            if (!it.MoveNext()) {
+                arg = null;
+                return false;
+            }
+
+            arg = it.Current;
+            return true;
+        }
+
+        private void ProcessArgs(IEnumerable<string> args)
         {
             var archName = DefaultArchName;
             var maxLength = DefaultMaxInstrLength;
 
-            for (int i = 0; i < args.Length; ++i)
-            {
-                switch (args[i])
-                {
-                case "-a":
-                case "--arch":
-                    ++i;
-                    if (i < args.Length)
-                    {
-                        archName = args[i];
-                    }
-                    else
-                    {
-                        Usage();
-                        Environment.Exit(-1);
-                    }
-                    break;
-                case "--maxlen":
-                    ++i;
-                    if (i >= args.Length || !int.TryParse(args[i], out maxLength))
-                    {
-                        Usage();
-                        Environment.Exit(-1);
-                    }
-                    break;
-                case "-r":
-                case "--random":
-                    this.useRandomBytes = true;
-                    if (i >= args.Length - 1)
-                        break; 
-                    ++i;
-                    if (args[i] == "-")
+            var it = args.GetEnumerator();
+
+            while (it.MoveNext()) {
+                bool res = true;
+                string arg = (string)it.Current;
+                
+                switch (arg) {
+                    case "-a":
+                    case "--arch":
+                        res = TryTake(it, out archName);
                         break;
-                    if (!Int32.TryParse(args[i], out int seed))
-                    {
-                        Console.Error.WriteLine("Invalid seed value '{0}'.", args[i]);
-                    }
-                    this.seed = seed;
-                    break;
-                case "-l":
-                case "-llvm":
-                    ++i;
-                    if (i < args.Length) {
-                        llvmArch = args[i];
-                    } else {
-                        Usage();
-                        Environment.Exit(-1);
-                    }
-                    break;
-                case "-h":
-                case "--help":
+                    case "--maxlen":
+                        res = TryTake(it, out string maxLengthStr) && int.TryParse(maxLengthStr, out maxLength);
+                        break;
+                    case "-r":
+                    case "--random":
+                        this.useRandomBytes = true;
+                        int seedValue;
+                        if(TryTake(it, out string seedString)){
+                            if (int.TryParse(seedString, out seedValue)) {
+                                this.seed = seedValue;
+                            } else {
+                                Console.Error.WriteLine("Invalid seed value '{0}'.", seedString);
+                            }
+                        }
+                        break;
+                    case "-l":
+                    case "--llvm":
+                        res = TryTake(it, out this.llvmArch);
+                        break;
+                    case "-o":
+                    case "--objdump":
+                        this.useObjDump = true;
+                        break;
+                    case "-h":
+                    case "--help":
+                        res = false;
+                        break;
+                }
+
+                if (!res) {
                     Usage();
-                    break;
+                    Environment.Exit(1);
                 }
             }
+
             this.arch = cfgSvc.GetArchitecture(archName);
             this.maxInstrLength = maxLength;
         }
 
         private void Usage()
         {
-            Console.WriteLine("RekoSifter test tool");
-            Console.WriteLine();
-            Console.WriteLine("Usage:");
-            Console.WriteLine("  RekoSifter -a=<name> | --arch=<name>");
-            Console.WriteLine("Options:");
-            Console.WriteLine("  -a --arch <name>       Use processor architecture <name>");
-            Console.WriteLine("  --maxlen <length>      Maximum instruction length");
-            Console.WriteLine("  -r --random [seed|-]   Generate random byte sequences (using");
-            Console.WriteLine("                         optional seed.");
+            Console.Write(
+@"RekoSifter test tool
+
+Usage:
+    RekoSifter -a=<name> | --arch=<name>
+Options:
+    -a --arch <name>       Use processor architecture <name>
+    --maxlen <length>      Maximum instruction length
+    -r --random [seed|-]   Generate random byte sequences (using
+                            optional seed.
+    -l --llvm <llvmarch>   Enable llvm comparison and use arch <llvmarch>
+    -o --objdump           Enable Objdump comparison (hardcoded to x64 for now)
+"          );
         }
 
         public void Sift()
@@ -149,12 +156,14 @@ namespace RekoSifter
         }
 
         private void DasmPrintCompare(byte[] bytes, MachineInstruction instr) {
-            ObjDump od = new ObjDump();
-
             RenderLine(instr);
-            string odOut = od.Disassemble(bytes);
-            Console.WriteLine("-- objdump");
-            Console.Write(odOut);
+
+            if (useObjDump) {
+                ObjDump od = new ObjDump();
+                string odOut = od.Disassemble(bytes);
+                Console.WriteLine("-- objdump");
+                Console.Write(odOut);
+            }
         }
 
         public void Sift_Random(Random rng)
