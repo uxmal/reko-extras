@@ -161,7 +161,9 @@ Options:
     -r --random [seed|-]   Generate random byte sequences (using
                             optional seed.
     -l --llvm <llvmarch>   Enable llvm comparison and use arch <llvmarch>.
-    -o --objdump           Enable Objdump comparison (hardcoded to x64 for now).
+    -o --objdump <arch>    Enable Objdump comparison
+                           Uses the opcodes-* library that contains <arch> in the library name
+                           The default (generic) architecture will be used
     -c <count>             Disassemble <count> instructions, then stop.
 ");
         }
