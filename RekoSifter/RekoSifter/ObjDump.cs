@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using libopcodes;
 using Reko.Arch.X86;
@@ -38,15 +39,47 @@ namespace RekoSifter
         };
 
         private delegate IntPtr BfdScanArchDelegate([MarshalAs(UnmanagedType.LPUTF8Str)] string @string);
+        private delegate IntPtr BfdArchListDelegate();
 
-        private static IntPtr FindArchitectureLibrary(string architecture) {
+        private Dictionary<string, List<string>> libToArches = new Dictionary<string, List<string>>();
+
+        private void PrintAvailableArchitectures() {
+            foreach(var pair in libToArches) {
+                Console.WriteLine($"[{pair.Key}]");
+                foreach(string arch in pair.Value) {
+                    Console.WriteLine($" -- {arch}");
+                }
+                Console.WriteLine();
+            }
+        }
+
+        private unsafe IntPtr FindArchitectureLibrary(string architecture) {
             var libraries = Directory.GetFiles(".", "opcodes-*.dll");
             foreach (string libName in libraries) {
-                IntPtr hLib = NativeLibrary.Load(libName);
-                IntPtr bfd_scan_arch = NativeLibrary.GetExport(hLib, "bfd_scan_arch");
+                List<string> archList = new List<string>();
 
-                BfdScanArchDelegate scanArch = Marshal.GetDelegateForFunctionPointer<BfdScanArchDelegate>(bfd_scan_arch);
-                IntPtr res = scanArch(architecture);
+                IntPtr hLib = NativeLibrary.Load(libName);
+
+                IntPtr bfd_scan_arch = NativeLibrary.GetExport(hLib, "bfd_scan_arch");
+                IntPtr bfd_arch_list = NativeLibrary.GetExport(hLib, "bfd_arch_list");
+
+                BfdScanArchDelegate scanArchFn = Marshal.GetDelegateForFunctionPointer<BfdScanArchDelegate>(bfd_scan_arch);
+                BfdArchListDelegate archListFn = Marshal.GetDelegateForFunctionPointer<BfdArchListDelegate>(bfd_arch_list);
+
+                sbyte **archListPtr = (sbyte **)archListFn();
+                if (archListPtr != null) {
+                    for (sbyte** sptr = archListPtr; *sptr != null; sptr++) {
+                        IntPtr strPtr = new IntPtr(*sptr);
+                        string arch = Marshal.PtrToStringAnsi(strPtr);
+                        archList.Add(arch);
+                    }
+                }
+
+                // populate local list
+                // ($TODO: should be done in another function to make this function stateless)
+                libToArches[libName] = archList;
+
+                IntPtr res = scanArchFn(architecture);
                 if (res != IntPtr.Zero) {
                     return hLib;
                 }
@@ -71,6 +104,7 @@ namespace RekoSifter
         public ObjDump(string arch) {
             hLib = FindArchitectureLibrary(arch);
             if(hLib == IntPtr.Zero) {
+                PrintAvailableArchitectures();
                 throw new NotSupportedException($"No opcode library found for architecture '{arch}'");
             }
 
