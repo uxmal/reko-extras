@@ -27,36 +27,52 @@ namespace RekoSifter
         public static extern int _vscprintf(string format,IntPtr ptr);
 
         private readonly BfdArchInfo arch;
-        private BfdMachine mach;
+        private BfdMachine mach = 0;
 
         private StringBuilder buf;
 
-        private readonly string archNameParam;
-
-        private IEnumerable<string> libraries;
+        private readonly IntPtr hLib;
 
         private Dictionary<string, BfdMachine> defaultMachine = new Dictionary<string, BfdMachine>() {
             { "i386", BfdMachine.i386_i386 | BfdMachine.i386_i386_intel_syntax }
         };
 
+        private delegate IntPtr BfdScanArchDelegate([MarshalAs(UnmanagedType.LPUTF8Str)] string @string);
+
+        private static IntPtr FindArchitectureLibrary(string architecture) {
+            var libraries = Directory.GetFiles(".", "opcodes-*.dll");
+            foreach (string libName in libraries) {
+                IntPtr hLib = NativeLibrary.Load(libName);
+                IntPtr bfd_scan_arch = NativeLibrary.GetExport(hLib, "bfd_scan_arch");
+
+                BfdScanArchDelegate scanArch = Marshal.GetDelegateForFunctionPointer<BfdScanArchDelegate>(bfd_scan_arch);
+                IntPtr res = scanArch(architecture);
+                if (res != IntPtr.Zero) {
+                    return hLib;
+                }
+                NativeLibrary.Free(hLib);
+            }
+            return IntPtr.Zero;
+        }
+
         private IntPtr ImportResolver(string libraryName, Assembly asm, DllImportSearchPath? searchPath) {
             switch (libraryName) {
                 case "bfd":
                 case "opcodes":
-                    // find the proper opcodes-* library
-                    string libName = libraries.Where(l => l.Contains($"-{archNameParam}-")).First();
-                    return NativeLibrary.Load(libName);
+                    return hLib;
             }
             return IntPtr.Zero;
         }
 
         private void SetResolver() {
-            libraries = Directory.GetFiles(".", "opcodes-*.dll");
             NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), ImportResolver);
         }
 
         public ObjDump(string arch) {
-            this.archNameParam = arch;
+            hLib = FindArchitectureLibrary(arch);
+            if(hLib == IntPtr.Zero) {
+                throw new NotSupportedException($"No opcode library found for architecture '{arch}'");
+            }
 
             SetResolver();
             BfdArchInfo ai = Bfd.BfdScanArch(arch);
