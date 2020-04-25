@@ -53,7 +53,7 @@ namespace RekoSifter
             IntPtr ssPtr = Marshal.AllocHGlobal(Marshal.SizeOf<StreamState>());
             Marshal.StructureToPtr(ss, ssPtr, false);
 
-            libopcodes.DisassembleInfo disasm_info = new libopcodes.DisassembleInfo();
+            var disasm_info = new libopcodes.DisassembleInfo();
             dis_asm.InitDisassembleInfo(disasm_info, ssPtr, fprintf);
 
             fixed(byte* dptr = bytes) {

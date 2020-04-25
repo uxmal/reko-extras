@@ -26,9 +26,6 @@
     <Reference Include="CppSharp.Runtime">
       <HintPath>..\external\CppSharp--vs2017-x64\CppSharp.Runtime.dll</HintPath>
     </Reference>
-    <Reference Include="Reko.Arch.LatticeMico">
-      <HintPath>..\..\..\master\src\Arch\LatticeMico\bin\Debug\netstandard2.0\Reko.Arch.LatticeMico.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>

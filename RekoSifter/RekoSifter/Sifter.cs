@@ -28,14 +28,14 @@ namespace RekoSifter
         private const string DefaultArchName = "x86-protected-32";
         private const int DefaultMaxInstrLength = 15;
 
-        private MemoryArea mem;
+        private readonly MemoryArea mem;
         private IProcessorArchitecture arch;
+        private readonly EndianImageReader rdr;
+        private readonly IEnumerable<MachineInstruction> dasm;
+        private readonly RekoConfigurationService cfgSvc;
         private int maxInstrLength;
-        private EndianImageReader rdr;
-        private IEnumerable<MachineInstruction> dasm;
-        private RekoConfigurationService cfgSvc;
         private int? seed;
-
+        private long? count;
         private bool useRandomBytes;
         private string llvmArch = null;
         private Action<byte[], MachineInstruction> processInstr;
@@ -74,7 +74,7 @@ namespace RekoSifter
             while (it.MoveNext())
             {
                 bool res = true;
-                string arg = (string)it.Current;
+                string arg = it.Current;
 
                 switch (arg)
                 {
@@ -114,6 +114,17 @@ namespace RekoSifter
                         objDump = new ObjDump(BfdArchitecture.BfdArchI386, BfdMachine.x86_64 | BfdMachine.i386_intel_syntax);
                         processInstr = this.CompareWithObjdump;
                         break;
+                    case "-c":
+                    case "--count":
+                        if (TryTake(it, out var sCount) && long.TryParse(sCount, out var count))
+                        {
+                            this.count = count;
+                        }
+                        else
+                        {
+                            res = false;
+                        }
+                        break; 
                     case "-h":
                     case "--help":
                         res = false;
@@ -139,12 +150,13 @@ namespace RekoSifter
 Usage:
     RekoSifter -a=<name> | --arch=<name>
 Options:
-    -a --arch <name>       Use processor architecture <name>
-    --maxlen <length>      Maximum instruction length
+    -a --arch <name>       Use processor architecture <name>.
+    --maxlen <length>      Maximum instruction length.
     -r --random [seed|-]   Generate random byte sequences (using
                             optional seed.
-    -l --llvm <llvmarch>   Enable llvm comparison and use arch <llvmarch>
-    -o --objdump           Enable Objdump comparison (hardcoded to x64 for now)
+    -l --llvm <llvmarch>   Enable llvm comparison and use arch <llvmarch>.
+    -o --objdump           Enable Objdump comparison (hardcoded to x64 for now).
+    -c <count>             Disassemble <count> instructions, then stop.
 ");
         }
 
@@ -167,45 +179,65 @@ Options:
                 throw new NotImplementedException();
         }
 
-        static void RenderLLVM(ParseResult obj)
+        static string RenderLLVM(ParseResult obj)
         {
-            Console.Write("L:{0,-45}", obj.asm);
-            Console.WriteLine(obj.hex + " -- LLVM");
+            return string.Format("L:{0,-45}{1}", obj.asm, obj.hex);
         }
 
         public void ProcessInstruction(byte[] bytes, MachineInstruction instr)
         {
-            RenderLine("", instr);
+            Console.WriteLine(RenderLine("", instr));
         }
 
 
         public void CompareWithLlvm(byte[] bytes, MachineInstruction instr)
         {
-            RenderLine("R:", instr);
+            var reko = RenderLine("R:", instr);
+            Console.WriteLine(reko);
             foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
             {
-                RenderLLVM(obj);
+                var llvm = RenderLLVM(obj);
+                Console.WriteLine(llvm);
                 break; // cheaper than Take(1), less GC.
             }
         }
 
         private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
         {
-            RenderLine("R:", instr);
+            Console.WriteLine(RenderLine("R:", instr));
 
             string odOut = objDump.Disassemble(bytes);
             Console.WriteLine("O:{0}", odOut);
             if (instr.ToString().Contains("illegal") ^ odOut.Contains("(bad)"))
             {
+                if (!odOut.Contains("bad"))
+                {
+                    EmitUnitTest(bytes, odOut);
+                }
                 Console.WriteLine("*** discrepancy between Reko disassembler and objdump");
                 Console.In.ReadLine();
+            }
+        }
+
+        private void EmitUnitTest(byte[] bytes, string expected)
+        {
+            if (this.dasm is DisassemblerBase dasm)
+            {
+                var hex = string.Join("", bytes.Select(b => $"{b:X2}"));
+                var testPrefix = arch.Name.Replace('-', '_') + "Dis";
+                dasm.EmitUnitTest(arch.Name, hex, "", testPrefix, mem.BaseAddress, w =>
+                {
+                    w.WriteLine("    AssertCode(\"{0}\", \"{1}\");",
+                        expected.Trim(),
+                        hex);
+                });
             }
         }
 
         public void Sift_Random(Random rng)
         {
             var buf = new byte[maxInstrLength];
-            for (; ; )
+            while (DecrementCount())
             {
                 //Console.WriteLine();
                 rng.NextBytes(buf);
@@ -213,6 +245,7 @@ Options:
                 
                 var instr = Dasm();
                 processInstr(buf, instr);
+                --this.count;
             }
         }
 
@@ -221,7 +254,7 @@ Options:
             var stack = mem.Bytes;
             int iLastByte = 0;
             int lastLen = 0;
-            while (iLastByte >= 0)
+            while (iLastByte >= 0 && DecrementCount())
             {
                 var instr = Dasm();
                 processInstr(mem.Bytes, instr);
@@ -254,15 +287,8 @@ Options:
             var writer = arch.CreateImageWriter(mem, mem.BaseAddress);
             int iLastByte = 0;
             int lastLen = 0;
-            while (iLastByte >= 0)
+            while (iLastByte >= 0 && DecrementCount())
             {
-                if (llvmArch != null)
-                {
-                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
-                    {
-                        RenderLLVM(obj);
-                    }
-                }
                 var instr = Dasm();
                 processInstr(mem.Bytes, instr);
 
@@ -295,15 +321,8 @@ Options:
         public void Sift_32Bit()
         {
             var writer = arch.CreateImageWriter(mem, mem.BaseAddress);
-            for (; ; )
+            while (DecrementCount())
             {
-                if (llvmArch != null)
-                {
-                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
-                    {
-                        RenderLLVM(obj);
-                    }
-                }
                 var instr = Dasm();
                 processInstr(mem.Bytes, instr);
 
@@ -335,7 +354,19 @@ Options:
             }
         }
 
-        private void RenderLine(string prefix, MachineInstruction instr)
+        private bool DecrementCount()
+        {
+            if (count.HasValue)
+            {
+                --count;
+                return count > 0;
+            }
+            else
+            {
+                return true;
+            }
+        }
+        private string RenderLine(string prefix, MachineInstruction instr)
         {
             var sb = new StringBuilder(prefix);
             var sInstr = instr != null
@@ -347,7 +378,7 @@ Options:
             {
                 sb.AppendFormat(" {0:X2}", (uint)bytes[i]);
             }
-            Console.WriteLine(sb.ToString());
+            return sb.ToString();
         }
     }
 }
