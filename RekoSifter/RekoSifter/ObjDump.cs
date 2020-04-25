@@ -5,6 +5,7 @@ using libopcodes;
 
 namespace RekoSifter
 {
+
     /// <summary>
     /// This class uses the runtime library used by objdump to disassemble instructions.
     /// </summary>
@@ -17,7 +18,14 @@ namespace RekoSifter
         [DllImport("msvcrt.dll", CallingConvention = System.Runtime.InteropServices.CallingConvention.Cdecl)]
         public static extern int _vscprintf(string format,IntPtr ptr);
 
+        private BfdArchitecture arch;
+        private BfdMachine machine;
         private StringBuilder buf;
+
+        public ObjDump(BfdArchitecture arch, BfdMachine machine) {
+            this.arch = arch;
+            this.machine = machine;
+        }
 
         public int fprintf(IntPtr h, string fmt, IntPtr args) {
             GCHandle argsH = GCHandle.Alloc(args, GCHandleType.Pinned);
@@ -33,7 +41,7 @@ namespace RekoSifter
             return 0;
         }
 
-        private int BufferReadMemory(ulong memaddr, byte* myaddr, uint length, global::System.IntPtr dinfo) {
+        private int BufferReadMemory(ulong memaddr, byte* myaddr, uint length, IntPtr dinfo) {
             DisassembleInfo di = new DisassembleInfo(dinfo.ToPointer());
             return dis_asm.BufferReadMemory(memaddr, myaddr, length, di);
         }
@@ -48,14 +56,9 @@ namespace RekoSifter
             libopcodes.DisassembleInfo disasm_info = new libopcodes.DisassembleInfo();
             dis_asm.InitDisassembleInfo(disasm_info, ssPtr, fprintf);
 
-
-            //$TODO: hardcoded (for now), needs to be added as an option
-            uint x86_64 = 1 << 3;
-            uint intel_syntax = 1 << 0;
-
             fixed(byte* dptr = bytes) {
-                disasm_info.Arch = BfdArchitecture.BfdArchI386;
-                disasm_info.Mach = x86_64 | intel_syntax;
+                disasm_info.Arch = this.arch;
+                disasm_info.Mach = (uint)this.machine;
                 disasm_info.ReadMemoryFunc = BufferReadMemory;
                 disasm_info.Buffer = dptr;
                 disasm_info.BufferVma = 0;
@@ -63,7 +66,11 @@ namespace RekoSifter
 
                 dis_asm.DisassembleInitForTarget(disasm_info);
 
-                DisassemblerFtype disasm = dis_asm.Disassembler(BfdArchitecture.BfdArchI386, 0, x86_64, null);
+                DisassemblerFtype disasm = dis_asm.Disassembler(this.arch, 0, (uint)this.machine, null);
+                if(disasm == null) {
+                    string archName = Enum.GetName(typeof(BfdArchitecture), arch);
+                    throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
+                }
 
                 ulong pc = 0;
                 while(pc < (ulong)bytes.Length) {

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using libopcodes;
 using Reko.Arch.Mips;
 using Reko.Arch.X86;
 using Reko.Core;
@@ -39,6 +40,7 @@ namespace RekoSifter
         private string llvmArch = null;
         private Action<byte[], MachineInstruction> processInstr;
 
+        private ObjDump objDump;
 
         public Sifter(string[] args)
         {
@@ -109,6 +111,7 @@ namespace RekoSifter
                         break;
                     case "-o":
                     case "--objdump":
+                        objDump = new ObjDump(BfdArchitecture.BfdArchI386, BfdMachine.x86_64 | BfdMachine.i386_intel_syntax);
                         processInstr = this.CompareWithObjdump;
                         break;
                     case "-h":
@@ -190,12 +193,7 @@ Options:
         {
             RenderLine("R:", instr);
 
-            //$PERFORMANCE: this is going to spam the GC with lots of little
-            // allocations, but it's possible the gen-0 GC will scoop them up.
-            // Don't do any real work refactoring this until you've measured
-            // whether this is a real problem.
-            ObjDump od = new ObjDump();
-            string odOut = od.Disassemble(bytes);
+            string odOut = objDump.Disassemble(bytes);
             Console.WriteLine("O:{0}", odOut);
             if (instr.ToString().Contains("illegal") ^ odOut.Contains("(bad)"))
             {
