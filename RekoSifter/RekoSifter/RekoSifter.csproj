@@ -26,9 +26,6 @@
     <Reference Include="CppSharp.Runtime">
       <HintPath>..\external\CppSharp--vs2017-x64\CppSharp.Runtime.dll</HintPath>
     </Reference>
-    <Reference Include="Reko.Arch.X86">
-      <HintPath>bin\x64\Debug\netcoreapp3.0\Reko.Arch.X86.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>

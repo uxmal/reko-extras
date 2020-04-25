@@ -5,11 +5,17 @@ using System.Text;
 
 namespace RekoSifter
 {
-    public abstract class InstrRenderer
+    public class InstrRenderer
     {
-        public abstract string RenderAsObjdump(MachineInstruction i);
+        public virtual string RenderAsObjdump(MachineInstruction i)
+        {
+            return i.ToString();
+        }
 
-        public abstract string RenderAsLlvm(MachineInstruction i);
+        public virtual string RenderAsLlvm(MachineInstruction i)
+        {
+            return i.ToString();
+        }
 
         public static InstrRenderer Create(string archName)
         {
