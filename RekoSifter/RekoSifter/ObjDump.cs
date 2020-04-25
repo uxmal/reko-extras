@@ -112,7 +112,7 @@ namespace RekoSifter
             this.arch = ai;
         }
 
-        public int fprintf(IntPtr h, string fmt, IntPtr args) {
+        private int fprintf(IntPtr h, string fmt, IntPtr args) {
             GCHandle argsH = GCHandle.Alloc(args, GCHandleType.Pinned);
             IntPtr pArgs = argsH.AddrOfPinnedObject();
             
