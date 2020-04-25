@@ -10,7 +10,6 @@ namespace RekoSifter
 {
     public class X86Renderer : InstrRenderer
     {
-        //$TODO: make general; currently hard-wired to x86.
         /// <summary>
         /// Render a Reko <see cref="MachineInstruction"/> so that it looks like 
         /// the output of objdump.
