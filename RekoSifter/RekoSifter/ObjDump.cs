@@ -44,7 +44,7 @@ namespace RekoSifter
                 case "bfd":
                 case "opcodes":
                     // find the proper opcodes-* library
-                    string libName = libraries.Where(l => l.Contains(archNameParam)).First();
+                    string libName = libraries.Where(l => l.Contains($"-{archNameParam}-")).First();
                     return NativeLibrary.Load(libName);
             }
             return IntPtr.Zero;
