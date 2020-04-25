@@ -27,11 +27,17 @@ namespace RekoSifter
         public static extern int _vscprintf(string format,IntPtr ptr);
 
         private readonly BfdArchInfo arch;
+        private BfdMachine mach;
+
         private StringBuilder buf;
 
         private readonly string archNameParam;
 
         private IEnumerable<string> libraries;
+
+        private Dictionary<string, BfdMachine> defaultMachine = new Dictionary<string, BfdMachine>() {
+            { "i386", BfdMachine.i386_i386 | BfdMachine.i386_i386_intel_syntax }
+        };
 
         private IntPtr ImportResolver(string libraryName, Assembly asm, DllImportSearchPath? searchPath) {
             switch (libraryName) {
@@ -56,6 +62,10 @@ namespace RekoSifter
             BfdArchInfo ai = Bfd.BfdScanArch(arch);
             if(ai == null) {
                 throw new NotSupportedException($"This build of binutils doesn't support architecture '{arch}'");
+            }
+
+            if (defaultMachine.ContainsKey(ai.ArchName)) {
+                this.mach = defaultMachine[ai.ArchName];
             }
 
             this.arch = ai;
@@ -92,7 +102,7 @@ namespace RekoSifter
 
             fixed(byte* dptr = bytes) {
                 disasm_info.Arch = arch.Arch;
-                disasm_info.Mach = arch.Mach;
+                disasm_info.Mach = (uint)this.mach;
                 disasm_info.ReadMemoryFunc = BufferReadMemory;
                 disasm_info.Buffer = dptr;
                 disasm_info.BufferVma = 0;
@@ -100,7 +110,7 @@ namespace RekoSifter
 
                 dis_asm.DisassembleInitForTarget(disasm_info);
 
-                DisassemblerFtype disasm = dis_asm.Disassembler(arch.Arch, 0, arch.Mach, null);
+                DisassemblerFtype disasm = dis_asm.Disassembler(arch.Arch, 0, (uint)this.mach, null);
                 if(disasm == null) {
                     string archName = Enum.GetName(typeof(BfdArchitecture), arch);
                     throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
