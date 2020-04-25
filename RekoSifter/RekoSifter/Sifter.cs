@@ -25,6 +25,7 @@ namespace RekoSifter
 
         private readonly MemoryArea mem;
         private IProcessorArchitecture arch;
+        private InstrRenderer instrRenderer;
         private readonly EndianImageReader rdr;
         private readonly IEnumerable<MachineInstruction> dasm;
         private readonly RekoConfigurationService cfgSvc;
@@ -145,6 +146,7 @@ namespace RekoSifter
             }
 
             this.arch = cfgSvc.GetArchitecture(archName);
+            this.instrRenderer = InstrRenderer.Create(archName);
             this.maxInstrLength = maxLength;
         }
 
@@ -200,7 +202,7 @@ Options:
 
         public void CompareWithLlvm(byte[] bytes, MachineInstruction instr)
         {
-            var reko = RenderLine(instr);
+            var reko = instrRenderer.RenderAsLlvm(instr);
             Console.WriteLine("R:{0}", reko);
             foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
             {
@@ -212,7 +214,7 @@ Options:
 
         private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
         {
-            var reko = objDump.RenderAsObjdump(instr);
+            var reko = instrRenderer.RenderAsObjdump(instr);
             string odOut = objDump.Disassemble(bytes);
             var rekoIsBad = instr.ToString().Contains("illegal");
             var objdIsBad = odOut.Contains("(bad)");
