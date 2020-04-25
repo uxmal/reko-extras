@@ -34,23 +34,26 @@ namespace RekoSifter
         private IEnumerable<MachineInstruction> dasm;
         private RekoConfigurationService cfgSvc;
         private int? seed;
-        
-        private bool useRandomBytes;
-        private bool useObjDump = false;
 
+        private bool useRandomBytes;
         private string llvmArch = null;
+        private Action<byte[], MachineInstruction> processInstr;
+
 
         public Sifter(string[] args)
         {
             this.cfgSvc = Reko.Core.Configuration.RekoConfigurationService.Load("reko/reko.config");
+            this.processInstr = new Action<byte[], MachineInstruction>(ProcessInstruction);
             ProcessArgs(args);
             this.mem = new MemoryArea(Address.Ptr32(0x00100000), new byte[100]);
             this.rdr = arch.CreateImageReader(mem, 0);
             this.dasm = arch.CreateDisassembler(rdr);
         }
 
-        bool TryTake(IEnumerator<string> it, out string arg) {
-            if (!it.MoveNext()) {
+        bool TryTake(IEnumerator<string> it, out string arg)
+        {
+            if (!it.MoveNext())
+            {
                 arg = null;
                 return false;
             }
@@ -66,11 +69,13 @@ namespace RekoSifter
 
             var it = args.GetEnumerator();
 
-            while (it.MoveNext()) {
+            while (it.MoveNext())
+            {
                 bool res = true;
                 string arg = (string)it.Current;
-                
-                switch (arg) {
+
+                switch (arg)
+                {
                     case "-a":
                     case "--arch":
                         res = TryTake(it, out archName);
@@ -82,10 +87,14 @@ namespace RekoSifter
                     case "--random":
                         this.useRandomBytes = true;
                         int seedValue;
-                        if(TryTake(it, out string seedString)){
-                            if (int.TryParse(seedString, out seedValue)) {
+                        if (TryTake(it, out string seedString))
+                        {
+                            if (int.TryParse(seedString, out seedValue))
+                            {
                                 this.seed = seedValue;
-                            } else {
+                            }
+                            else
+                            {
                                 Console.Error.WriteLine("Invalid seed value '{0}'.", seedString);
                             }
                         }
@@ -93,10 +102,14 @@ namespace RekoSifter
                     case "-l":
                     case "--llvm":
                         res = TryTake(it, out this.llvmArch);
+                        if (res)
+                        {
+                            processInstr = this.CompareWithLlvm;
+                        }
                         break;
                     case "-o":
                     case "--objdump":
-                        this.useObjDump = true;
+                        processInstr = this.CompareWithObjdump;
                         break;
                     case "-h":
                     case "--help":
@@ -104,7 +117,8 @@ namespace RekoSifter
                         break;
                 }
 
-                if (!res) {
+                if (!res)
+                {
                     Usage();
                     Environment.Exit(1);
                 }
@@ -128,7 +142,7 @@ Options:
                             optional seed.
     -l --llvm <llvmarch>   Enable llvm comparison and use arch <llvmarch>
     -o --objdump           Enable Objdump comparison (hardcoded to x64 for now)
-"          );
+");
         }
 
         public void Sift()
@@ -150,38 +164,57 @@ Options:
                 throw new NotImplementedException();
         }
 
-        static void RenderLLVM(ParseResult obj) {
-            Console.Write("{0,-45}", obj.asm);
+        static void RenderLLVM(ParseResult obj)
+        {
+            Console.Write("L:{0,-45}", obj.asm);
             Console.WriteLine(obj.hex + " -- LLVM");
         }
 
-        private void DasmPrintCompare(byte[] bytes, MachineInstruction instr) {
-            RenderLine(instr);
+        public void ProcessInstruction(byte[] bytes, MachineInstruction instr)
+        {
+            RenderLine("", instr);
+        }
 
-            if (useObjDump) {
-                ObjDump od = new ObjDump();
-                string odOut = od.Disassemble(bytes);
-                Console.WriteLine("-- objdump");
-                Console.Write(odOut);
+
+        public void CompareWithLlvm(byte[] bytes, MachineInstruction instr)
+        {
+            RenderLine("R:", instr);
+            foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
+            {
+                RenderLLVM(obj);
+                break; // cheaper than Take(1), less GC.
+            }
+        }
+
+        private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
+        {
+            RenderLine("R:", instr);
+
+            //$PERFORMANCE: this is going to spam the GC with lots of little
+            // allocations, but it's possible the gen-0 GC will scoop them up.
+            // Don't do any real work refactoring this until you've measured
+            // whether this is a real problem.
+            ObjDump od = new ObjDump();
+            string odOut = od.Disassemble(bytes);
+            Console.WriteLine("O:{0}", odOut);
+            if (instr.ToString().Contains("illegal") ^ odOut.Contains("(bad)"))
+            {
+                Console.WriteLine("*** discrepancy between Reko disassembler and objdump");
+                Console.In.ReadLine();
             }
         }
 
         public void Sift_Random(Random rng)
         {
             var buf = new byte[maxInstrLength];
-            for (;;)
+            for (; ; )
             {
-                Console.WriteLine();
+                //Console.WriteLine();
                 rng.NextBytes(buf);
                 Buffer.BlockCopy(buf, 0, mem.Bytes, 0, buf.Length);
-                if (llvmArch != null) {
-                    foreach(var obj in LLVM.Disassemble(llvmArch, mem.Bytes)) {
-                        RenderLLVM(obj);
-                    }
-                }
-
+                
                 var instr = Dasm();
-                DasmPrintCompare(buf, instr);
+                processInstr(buf, instr);
             }
         }
 
@@ -192,13 +225,8 @@ Options:
             int lastLen = 0;
             while (iLastByte >= 0)
             {
-                if (llvmArch != null) {
-                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes)) {
-                        RenderLLVM(obj);
-                    }
-                }
                 var instr = Dasm();
-                DasmPrintCompare(mem.Bytes, instr);
+                processInstr(mem.Bytes, instr);
 
                 if (rdr.Offset != lastLen)
                 {
@@ -230,13 +258,15 @@ Options:
             int lastLen = 0;
             while (iLastByte >= 0)
             {
-                if (llvmArch != null) {
-                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes)) {
+                if (llvmArch != null)
+                {
+                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
+                    {
                         RenderLLVM(obj);
                     }
                 }
                 var instr = Dasm();
-                DasmPrintCompare(mem.Bytes, instr);
+                processInstr(mem.Bytes, instr);
 
                 if (rdr.Offset != lastLen)
                 {
@@ -267,15 +297,17 @@ Options:
         public void Sift_32Bit()
         {
             var writer = arch.CreateImageWriter(mem, mem.BaseAddress);
-            for (; ;)
+            for (; ; )
             {
-                if (llvmArch != null) {
-                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes)) {
+                if (llvmArch != null)
+                {
+                    foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
+                    {
                         RenderLLVM(obj);
                     }
                 }
                 var instr = Dasm();
-                DasmPrintCompare(mem.Bytes, instr);
+                processInstr(mem.Bytes, instr);
 
                 rdr.Offset = 0;
                 var val = rdr.ReadUInt32(0);
@@ -305,9 +337,9 @@ Options:
             }
         }
 
-        private void RenderLine(MachineInstruction instr)
+        private void RenderLine(string prefix, MachineInstruction instr)
         {
-            var sb = new StringBuilder();
+            var sb = new StringBuilder(prefix);
             var sInstr = instr != null
                 ? instr.ToString()
                 : "*** ERROR ***";

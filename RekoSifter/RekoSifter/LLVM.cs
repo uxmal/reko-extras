@@ -5,6 +5,10 @@ using System.Text.RegularExpressions;
 
 namespace RekoSifter
 {
+    /// <summary>
+    /// This class uses LLVM to disassemble instructions. It does so by spawning
+    /// LLVM in a separate process.
+    /// </summary>
 	public class LLVM
     {
         static IEnumerable<ParseResult> ParseLLVM(string inputHex, Process llvm) {

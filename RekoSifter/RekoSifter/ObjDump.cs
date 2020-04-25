@@ -5,6 +5,9 @@ using libopcodes;
 
 namespace RekoSifter
 {
+    /// <summary>
+    /// This class uses the runtime library used by objdump to disassemble instructions.
+    /// </summary>
 	public unsafe class ObjDump
     {
 
@@ -46,6 +49,7 @@ namespace RekoSifter
             dis_asm.InitDisassembleInfo(disasm_info, ssPtr, fprintf);
 
 
+            //$TODO: hardcoded (for now), needs to be added as an option
             uint x86_64 = 1 << 3;
             uint intel_syntax = 1 << 0;
 
@@ -75,9 +79,6 @@ namespace RekoSifter
             Marshal.FreeHGlobal(ssPtr);
 
             return buf.ToString();
-        }
-
-        public ObjDump() {    
         }
     }
 }
