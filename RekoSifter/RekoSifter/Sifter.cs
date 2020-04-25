@@ -14,10 +14,6 @@ namespace RekoSifter
         public string asm;
     }
 
-    public struct StreamState
-    {
-    }
-
     public class Sifter
     {
         private const string DefaultArchName = "x86-protected-32";
@@ -216,7 +212,7 @@ Options:
         private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
         {
             var reko = instrRenderer.RenderAsObjdump(instr);
-            string odOut = objDump.Disassemble(bytes);
+            (string odOut, byte[] odBytes) = objDump.Disassemble(bytes);
             var sInstr = instr.ToString();
             var rekoIsBad = sInstr.Contains("illegal") || sInstr.Contains("invalid");
             var objdIsBad = odOut.Contains("(bad)");
@@ -236,7 +232,8 @@ Options:
                 {
                     progress.Reset();
                     Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instr.Length).Select(b => $"{b:X2}")));
-                    Console.WriteLine("O:{0}", odOut);
+                    Console.WriteLine("O:{0,-40} {1}", odOut, string.Join(" ", odBytes.Select(b => $"{b:X2}")));
+                    Console.WriteLine();
                 }
                 else
                 {

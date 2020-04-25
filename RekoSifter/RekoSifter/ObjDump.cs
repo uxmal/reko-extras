@@ -131,46 +131,46 @@ namespace RekoSifter
             return dis_asm.BufferReadMemory(memaddr, myaddr, length, di);
         }
 
-        public string Disassemble(byte[] bytes) {
+        public (string, byte[]) Disassemble(byte[] bytes) {
             buf = new StringBuilder();
-            StreamState ss = new StreamState();
 
-            IntPtr ssPtr = Marshal.AllocHGlobal(Marshal.SizeOf<StreamState>());
-            Marshal.StructureToPtr(ss, ssPtr, false);
+            var disasm_info = new DisassembleInfo();
+            dis_asm.InitDisassembleInfo(disasm_info, IntPtr.Zero, fprintf);
 
-            var disasm_info = new libopcodes.DisassembleInfo();
-            dis_asm.InitDisassembleInfo(disasm_info, ssPtr, fprintf);
+            GCHandle hBytes = GCHandle.Alloc(bytes, GCHandleType.Pinned);
 
-            fixed(byte* dptr = bytes) {
-                disasm_info.Arch = arch.Arch;
-                disasm_info.Mach = arch.Mach;
-                disasm_info.ReadMemoryFunc = BufferReadMemory;
-                disasm_info.Buffer = dptr;
-                disasm_info.BufferVma = 0;
-                disasm_info.BufferLength = (ulong)bytes.Length;
+            disasm_info.Arch = arch.Arch;
+            disasm_info.Mach = arch.Mach;
+            disasm_info.ReadMemoryFunc = BufferReadMemory;
+            disasm_info.Buffer = (byte *)hBytes.AddrOfPinnedObject();
+            disasm_info.BufferVma = 0;
+            disasm_info.BufferLength = (ulong)bytes.Length;
 
-                dis_asm.DisassembleInitForTarget(disasm_info);
+            dis_asm.DisassembleInitForTarget(disasm_info);
 
-                DisassemblerFtype disasm = dis_asm.Disassembler(arch.Arch, 0, arch.Mach, null);
-                if(disasm == null) {
-                    string archName = Enum.GetName(typeof(BfdArchitecture), arch);
-                    throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
-                }
-
-                ulong pc = 0;
-                while(pc < (ulong)bytes.Length) {
-                    int insn_size = disasm(pc, disasm_info.__Instance);
-                    pc += (ulong)insn_size;
-                    
-                    buf.AppendLine();
-
-                    break; //only first instruction
-                }
+            DisassemblerFtype disasm = dis_asm.Disassembler(arch.Arch, 0, arch.Mach, null);
+            if(disasm == null) {
+                string archName = Enum.GetName(typeof(BfdArchitecture), arch);
+                throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
             }
 
-            Marshal.FreeHGlobal(ssPtr);
+            byte[] ibytes = null;
 
-            return buf.ToString();
+            ulong pc = 0;
+            while(pc < (ulong)bytes.Length) {
+                int insn_size = disasm(pc, disasm_info.__Instance);
+
+                ibytes = new byte[insn_size];
+                Buffer.BlockCopy(bytes, (int)pc, ibytes, 0, insn_size);
+
+                pc += (ulong)insn_size;
+
+                break; //only first instruction
+            }
+
+            hBytes.Free();
+
+            return (buf.ToString(), ibytes);
         }
     }
 }
