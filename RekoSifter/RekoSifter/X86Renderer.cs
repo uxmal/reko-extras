@@ -105,7 +105,7 @@ namespace RekoSifter
                 {
                     sb.Append("+");
                     sb.Append(mem.Index.Name);
-                    if (mem.Scale > 1)
+                    if (mem.Scale >= 1)
                     {
                         sb.AppendFormat("*{0}", mem.Scale);
                     }

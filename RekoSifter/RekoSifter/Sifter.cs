@@ -35,8 +35,8 @@ namespace RekoSifter
         private bool useRandomBytes;
         private string llvmArch = null;
         private Action<byte[], MachineInstruction> processInstr;
-
         private ObjDump objDump;
+        private Progress progress;
 
         public Sifter(string[] args)
         {
@@ -47,6 +47,7 @@ namespace RekoSifter
             this.mem = new MemoryArea(baseAddress, new byte[100]);
             this.rdr = arch.CreateImageReader(mem, 0);
             this.dasm = arch.CreateDisassembler(rdr);
+            this.progress = new Progress();
         }
 
         bool TryTake(IEnumerator<string> it, out string arg)
@@ -221,6 +222,7 @@ Options:
             var objdIsBad = odOut.Contains("(bad)");
             if (rekoIsBad ^ objdIsBad)
             {
+                progress.Reset();
                 if (!odOut.Contains("bad"))
                 {
                     EmitUnitTest(bytes, odOut);
@@ -232,10 +234,14 @@ Options:
             {
                 if (odOut.Trim() != reko.Trim())
                 {
+                    progress.Reset();
                     Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instr.Length).Select(b => $"{b:X2}")));
                     Console.WriteLine("O:{0}", odOut);
                 }
-
+                else
+                {
+                    progress.Advance();
+                }
             }
         }
 
