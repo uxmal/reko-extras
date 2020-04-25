@@ -100,13 +100,13 @@ namespace RekoSifter
             hLib = FindArchitectureLibrary(arch);
             if(hLib == IntPtr.Zero) {
                 PrintAvailableArchitectures();
-                throw new NotSupportedException($"No opcode library found for architecture '{arch}'");
+                throw new NotSupportedException($"No opcode library found for architecture '{arch}'.");
             }
 
             SetResolver();
             BfdArchInfo ai = Bfd.BfdScanArch(arch);
             if(ai == null) {
-                throw new NotSupportedException($"This build of binutils doesn't support architecture '{arch}'");
+                throw new NotSupportedException($"This build of binutils doesn't support architecture '{arch}'.");
             }
 
             this.arch = ai;

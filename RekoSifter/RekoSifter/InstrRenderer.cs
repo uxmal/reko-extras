@@ -32,7 +32,7 @@ namespace RekoSifter
                 case "ppc-le-64":
                     return new PowerPcRenderer();
                 default:
-                    throw new NotImplementedException($"No instruction renderer for architecture '{archName}'.");
+                    return new InstrRenderer();
             }
         }
     }

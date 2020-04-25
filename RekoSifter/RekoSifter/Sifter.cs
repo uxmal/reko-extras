@@ -216,7 +216,8 @@ Options:
         {
             var reko = instrRenderer.RenderAsObjdump(instr);
             string odOut = objDump.Disassemble(bytes);
-            var rekoIsBad = instr.ToString().Contains("illegal");
+            var sInstr = instr.ToString();
+            var rekoIsBad = sInstr.Contains("illegal") || sInstr.Contains("invalid");
             var objdIsBad = odOut.Contains("(bad)");
             if (rekoIsBad ^ objdIsBad)
             {
