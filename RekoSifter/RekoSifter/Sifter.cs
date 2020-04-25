@@ -111,8 +111,18 @@ namespace RekoSifter
                         break;
                     case "-o":
                     case "--objdump":
-                        objDump = new ObjDump(BfdArchitecture.BfdArchI386, BfdMachine.x86_64 | BfdMachine.i386_intel_syntax);
-                        processInstr = this.CompareWithObjdump;
+                        res = TryTake(it, out string objdumpTarget);
+                        if (res) {
+                            var parts = objdumpTarget.Split(',', 2);
+                            string arch = parts[0];
+                            
+                            // $TODO: machine parameter
+                            // string mach = parts[1];
+                            // $TODO: convert machine to uint (BfdMachine)
+
+                            objDump = new ObjDump(arch);
+                            processInstr = this.CompareWithObjdump;
+                        }
                         break;
                     case "-c":
                     case "--count":
