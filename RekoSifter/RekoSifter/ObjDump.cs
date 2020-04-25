@@ -121,10 +121,7 @@ namespace RekoSifter
 
             argsH.Free();
 
-            var formattedMessage = sb.ToString();
-            if (formattedMessage == "(null)") {
-                formattedMessage = "\t";
-            }
+            var formattedMessage = sb.ToString().Replace("(null)", "\t");
             buf.Append(formattedMessage);
             return 0;
         }
