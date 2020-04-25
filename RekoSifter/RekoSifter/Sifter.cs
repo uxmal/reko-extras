@@ -1,14 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using Reko.Arch.Mips;
-using Reko.Arch.X86;
-using Reko.Core;
+﻿using Reko.Core;
 using Reko.Core.Configuration;
 using Reko.Core.Machine;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace RekoSifter
 {
@@ -45,7 +41,8 @@ namespace RekoSifter
             this.cfgSvc = Reko.Core.Configuration.RekoConfigurationService.Load("reko/reko.config");
             this.processInstr = new Action<byte[], MachineInstruction>(ProcessInstruction);
             ProcessArgs(args);
-            this.mem = new MemoryArea(Address.Ptr32(0x00100000), new byte[100]);
+            var baseAddress = Address.Ptr32(0x00000000);    //$TODO allow customization?
+            this.mem = new MemoryArea(baseAddress, new byte[100]);
             this.rdr = arch.CreateImageReader(mem, 0);
             this.dasm = arch.CreateDisassembler(rdr);
         }
@@ -183,14 +180,14 @@ Options:
 
         public void ProcessInstruction(byte[] bytes, MachineInstruction instr)
         {
-            Console.WriteLine(RenderLine("", instr));
+            Console.WriteLine(RenderLine(instr));
         }
 
 
         public void CompareWithLlvm(byte[] bytes, MachineInstruction instr)
         {
-            var reko = RenderLine("R:", instr);
-            Console.WriteLine(reko);
+            var reko = RenderLine(instr);
+            Console.WriteLine("R:{0}", reko);
             foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
             {
                 var llvm = RenderLLVM(obj);
@@ -201,16 +198,16 @@ Options:
 
         private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
         {
-            Console.WriteLine(RenderLine("R:", instr));
-
             //$PERFORMANCE: this is going to spam the GC with lots of little
             // allocations, but it's possible the gen-0 GC will scoop them up.
             // Don't do any real work refactoring this until you've measured
             // whether this is a real problem.
             ObjDump od = new ObjDump();
+            var reko = od.RenderAsObjdump(instr);
             string odOut = od.Disassemble(bytes);
-            Console.WriteLine("O:{0}", odOut);
-            if (instr.ToString().Contains("illegal") ^ odOut.Contains("(bad)"))
+            var rekoIsBad = instr.ToString().Contains("illegal");
+            var objdIsBad = odOut.Contains("(bad)");
+            if (rekoIsBad ^ objdIsBad)
             {
                 if (!odOut.Contains("bad"))
                 {
@@ -218,6 +215,15 @@ Options:
                 }
                 Console.WriteLine("*** discrepancy between Reko disassembler and objdump");
                 Console.In.ReadLine();
+            }
+            else if (!rekoIsBad)
+            {
+                if (odOut.Trim() != reko.Trim())
+                {
+                    Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instr.Length).Select(b => $"{b:X2}")));
+                    Console.WriteLine("O:{0}", odOut);
+                }
+
             }
         }
 
@@ -368,9 +374,10 @@ Options:
                 return true;
             }
         }
-        private string RenderLine(string prefix, MachineInstruction instr)
+
+        private string RenderLine(MachineInstruction instr)
         {
-            var sb = new StringBuilder(prefix);
+            var sb = new StringBuilder();
             var sInstr = instr != null
                 ? instr.ToString()
                 : "*** ERROR ***";
@@ -382,5 +389,6 @@ Options:
             }
             return sb.ToString();
         }
+
     }
 }
