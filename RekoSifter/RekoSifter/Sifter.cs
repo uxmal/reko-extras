@@ -197,6 +197,37 @@ Options:
             Console.WriteLine();
         }
 
+        // These are X86 opcodes that objdump renders in a dramatically different
+        // way than Reko, and we're 100% sure Reko is doing it right.
+        private static readonly HashSet<byte> objDumpSkips = new HashSet<byte>()
+        {
+            0x6C,       // insb
+            0x6D,       // ins
+            0x6E,       // outsb
+            0x6F,       // outs
+
+            0x73,       // jnc / jae
+            0x74,       // jz / je
+            0x75,       // jnz / jne
+            0x7A,       // jp/ jpe
+            0x7B,       // jpo/ jnp
+            0x98,       // cbw / cwde (check this)
+            0x9B,       // fwait
+
+            0xA0,       // Objdump calls it 'movabs'. D'oh.
+            0xA4,       // movsb
+            0xA5,       // movs
+            0xA7,       // cmps
+            0xAA,       // stosb,
+            0xAB,       // stos,
+            0xAC,       // lodsb
+            0xAD,       // lods
+            0xAE,       // scasb
+            0xAF,       // scas
+            0xCC,       // int3
+            0xD7,       // xlat
+        };
+
         private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
         {
             var reko = instrRenderer.RenderAsObjdump(instr);
@@ -218,10 +249,17 @@ Options:
             {
                 if (odOut.Trim() != reko.Trim())
                 {
-                    progress.Reset();
-                    Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instr.Length).Select(b => $"{b:X2}")));
+                    if (objDumpSkips.Contains(bytes[0]))
+                    {
+                        progress.Advance();
+                    }
+                    else
+                    {
+                        progress.Reset();
+                        Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instr.Length).Select(b => $"{b:X2}")));
                     Console.WriteLine("O:{0,-40} {1}", odOut, string.Join(" ", odBytes.Select(b => $"{b:X2}")));
                     Console.WriteLine();
+                    }
                 }
                 else
                 {
