@@ -67,8 +67,8 @@ namespace RekoSifter
                 if (archListPtr != null) {
                     for (sbyte** sptr = archListPtr; *sptr != null; sptr++) {
                         IntPtr strPtr = new IntPtr(*sptr);
-                        string arch = Marshal.PtrToStringAnsi(strPtr);
-                        archList.Add(arch);
+                        string? arch = Marshal.PtrToStringAnsi(strPtr);
+                        archList.Add(arch ?? "(null)");
                     }
                 }
 
@@ -110,6 +110,7 @@ namespace RekoSifter
             if(ai == null) {
                 throw new NotSupportedException($"This build of binutils doesn't support architecture '{arch}'.");
             }
+            this.buf = new StringBuilder();
             this.arch = ai;
         }
 
@@ -142,7 +143,10 @@ namespace RekoSifter
             info.ReadMemoryFunc = BufferReadMemory;
             info.Buffer = (byte *)hBytes.AddrOfPinnedObject();
             info.BufferVma = 0;
-            info.BufferLength = (ulong)((byte[])hBytes.Target).Length;
+            if (hBytes.Target != null)
+                info.BufferLength = (ulong)((byte[])hBytes.Target).Length;
+            else
+                info.BufferLength = 0;
 
             dis_asm.DisassembleInitForTarget(info);
             
@@ -151,32 +155,34 @@ namespace RekoSifter
             return (info, disasm);
         }
 
-        public (string, byte[]) Disassemble(byte[] bytes)
+        public (string, byte[]?) Disassemble(byte[] bytes)
         {
-            buf = new StringBuilder();
+            buf.Clear();
 
             ulong pc = 0;
-            byte[] ibytes = null;
+            byte[]? ibytes = null;
 
-            using (DisposableGCHandle hBytes = DisposableGCHandle.Pin(bytes)) {
+            using (DisposableGCHandle hBytes = DisposableGCHandle.Pin(bytes))
+            {
                 DisassembleInfo disasmInfo;
                 DisassemblerFtype disasm;
                 (disasmInfo, disasm) = InitDisassembler(hBytes);
-                if (disasm == null) {
-                    string archName = Enum.GetName(typeof(BfdArchitecture), arch.Arch);
-                throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
-            }
+                if (disasm == null)
+                {
+                    string? archName = Enum.GetName(typeof(BfdArchitecture), arch.Arch);
+                    throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
+                }
 
-            while (pc < (ulong)bytes.Length)
-            {
+                while (pc < (ulong)bytes.Length)
+                {
                     int insn_size = disasm(pc, disasmInfo.__Instance);
 
-                ibytes = new byte[insn_size];
+                    ibytes = new byte[insn_size];
                     Array.Copy(bytes, (long)pc, ibytes, 0, insn_size);
 
-                pc += (ulong)insn_size;
-                break; //only first instruction
-            }
+                    pc += (ulong)insn_size;
+                    break; //only first instruction
+                }
             }
 
             string sInstr = SanitizeObjdumpOutput();
@@ -193,11 +199,9 @@ namespace RekoSifter
                 int iHash = sInstr.IndexOf('#');
                 if (iHash >= 0)
                 {
-                    sInstr.ToString();      //$DEBUG
                     return sInstr.Remove(iHash);
                 }
             }
-
             return sInstr;
         }
     }

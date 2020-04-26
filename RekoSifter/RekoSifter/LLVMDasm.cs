@@ -67,7 +67,7 @@ namespace RekoSifter
 
 			sbyte[] buf = new sbyte[80];
 			uint instrSize;
-			string disassembled;
+			string? disassembled;
 
 			using (DisposableGCHandle hBytes = DisposableGCHandle.Pin(instr))
 			using (DisposableGCHandle hBuf = DisposableGCHandle.Pin(buf)) {
@@ -86,7 +86,7 @@ namespace RekoSifter
 			byte[] ibytes = new byte[instrSize];
 			Array.Copy(instr, 0, ibytes, 0, instrSize);
 
-			disassembled = disassembled.TrimStart(new[] { ' ', '\t' });
+			disassembled = (disassembled ?? "").TrimStart(new[] { ' ', '\t' });
 			return (disassembled, ibytes);
 		}
 	}

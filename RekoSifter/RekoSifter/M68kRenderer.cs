@@ -44,6 +44,20 @@ namespace RekoSifter
                 case PredecrementMemoryOperand pre:
                     sb.AppendFormat("{0}@-", RegName(pre.Register));
                     break;
+                case MemoryOperand mem:
+                    sb.Append(RegName(mem.Base));
+                    if (mem.Offset != null && mem.Offset.IsValid)
+                    {
+                        sb.AppendFormat("@({0})", mem.Offset.ToInt32());
+                    }
+                    else
+                    {
+                        sb.Append("@");
+                    }
+                    break;
+                case M68kAddressOperand addrOp:
+                    sb.AppendFormat("0x{0}", addrOp.Address);
+                    break;
                 default:
                     sb.AppendFormat("[OPTYPE:{0}]", op.GetType().Name);
                     break;

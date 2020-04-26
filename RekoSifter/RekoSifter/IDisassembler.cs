@@ -6,6 +6,6 @@ namespace RekoSifter
 {
 	public interface IDisassembler
 	{
-		(string, byte[]) Disassemble(byte[] instruction);
+		(string, byte[]?) Disassemble(byte[] instruction);
 	}
 }

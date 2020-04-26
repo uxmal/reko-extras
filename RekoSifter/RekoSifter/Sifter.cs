@@ -1,4 +1,5 @@
-﻿using Reko.Core;
+﻿ 
+using Reko.Core;
 using Reko.Core.Configuration;
 using Reko.Core.Machine;
 using System;
@@ -8,37 +9,30 @@ using System.Text;
 
 namespace RekoSifter
 {
-    public struct ParseResult
-    {
-        public string hex;
-        public string asm;
-    }
-
     public class Sifter
     {
         private const string DefaultArchName = "x86-protected-32";
         private const int DefaultMaxInstrLength = 15;
 
         private readonly MemoryArea mem;
-        private IProcessorArchitecture arch;
-        private InstrRenderer instrRenderer;
+        private readonly IProcessorArchitecture arch;
+        private readonly InstrRenderer instrRenderer;
         private readonly EndianImageReader rdr;
         private readonly IEnumerable<MachineInstruction> dasm;
         private readonly RekoConfigurationService cfgSvc;
+        private readonly Progress progress;
         private int maxInstrLength;
         private int? seed;
         private long? count;
         private bool useRandomBytes;
-        private string llvmArch = null;
-        private Action<byte[], MachineInstruction> processInstr;
-        private ObjDump objDump;
-        private Progress progress;
+        private Action<byte[], MachineInstruction?> processInstr;
+        private IDisassembler? otherDasm;
 
         public Sifter(string[] args)
         {
-            this.cfgSvc = Reko.Core.Configuration.RekoConfigurationService.Load("reko/reko.config");
-            this.processInstr = new Action<byte[], MachineInstruction>(ProcessInstruction);
-            ProcessArgs(args);
+            this.cfgSvc = RekoConfigurationService.Load("reko/reko.config");
+            this.processInstr = new Action<byte[], MachineInstruction?>(ProcessInstruction);
+            (this.arch, this.instrRenderer) = ProcessArgs(args);
             var baseAddress = Address.Ptr32(0x00000000);    //$TODO allow customization?
             this.mem = new MemoryArea(baseAddress, new byte[100]);
             this.rdr = arch.CreateImageReader(mem, 0);
@@ -46,7 +40,7 @@ namespace RekoSifter
             this.progress = new Progress();
         }
 
-        bool TryTake(IEnumerator<string> it, out string arg)
+        bool TryTake(IEnumerator<string> it, out string? arg)
         {
             if (!it.MoveNext())
             {
@@ -58,9 +52,9 @@ namespace RekoSifter
             return true;
         }
 
-        private void ProcessArgs(IEnumerable<string> args)
+        private (IProcessorArchitecture, InstrRenderer) ProcessArgs(IEnumerable<string> args)
         {
-            var archName = DefaultArchName;
+            string? archName = DefaultArchName;
             var maxLength = DefaultMaxInstrLength;
 
             var it = args.GetEnumerator();
@@ -77,13 +71,13 @@ namespace RekoSifter
                         res = TryTake(it, out archName);
                         break;
                     case "--maxlen":
-                        res = TryTake(it, out string maxLengthStr) && int.TryParse(maxLengthStr, out maxLength);
+                        res = TryTake(it, out string? maxLengthStr) && int.TryParse(maxLengthStr, out maxLength);
                         break;
                     case "-r":
                     case "--random":
                         this.useRandomBytes = true;
                         int seedValue;
-                        if (TryTake(it, out string seedString))
+                        if (TryTake(it, out string? seedString))
                         {
                             if (int.TryParse(seedString, out seedValue))
                             {
@@ -97,24 +91,25 @@ namespace RekoSifter
                         break;
                     case "-l":
                     case "--llvm":
-                        res = TryTake(it, out this.llvmArch);
+                        res = TryTake(it, out string? llvmArch);
                         if (res)
                         {
                             processInstr = this.CompareWithLlvm;
                         }
+                        otherDasm = new LLVMDasm(llvmArch!);
                         break;
                     case "-o":
                     case "--objdump":
-                        res = TryTake(it, out string objdumpTarget);
+                        res = TryTake(it, out string? objdumpTarget);
                         if (res) {
-                            var parts = objdumpTarget.Split(',', 2);
+                            var parts = objdumpTarget!.Split(',', 2);
                             string arch = parts[0];
                             
                             // $TODO: machine parameter
                             // string mach = parts[1];
                             // $TODO: convert machine to uint (BfdMachine)
 
-                            objDump = new ObjDump(arch);
+                            otherDasm = new ObjDump(arch);
                             processInstr = this.CompareWithObjdump;
                         }
                         break;
@@ -142,9 +137,10 @@ namespace RekoSifter
                 }
             }
 
-            this.arch = cfgSvc.GetArchitecture(archName);
-            this.instrRenderer = InstrRenderer.Create(archName);
             this.maxInstrLength = maxLength;
+            return (
+                cfgSvc.GetArchitecture(archName),
+                InstrRenderer.Create(archName!));
         }
 
         private void Usage()
@@ -186,27 +182,30 @@ Options:
                 throw new NotImplementedException();
         }
 
-        static string RenderLLVM(ParseResult obj)
-        {
-            return string.Format("L:{0,-45}{1}", obj.asm, obj.hex);
-        }
-
-        public void ProcessInstruction(byte[] bytes, MachineInstruction instr)
+        public void ProcessInstruction(byte[] bytes, MachineInstruction? instr)
         {
             Console.WriteLine(RenderLine(instr));
         }
 
-
-        public void CompareWithLlvm(byte[] bytes, MachineInstruction instr)
+        public void CompareWithLlvm(byte[] bytes, MachineInstruction? instr)
         {
-            var reko = instrRenderer.RenderAsLlvm(instr);
-            Console.WriteLine("R:{0}", reko);
-            foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
+            string reko;
+            int instrLength;
+            if (instr != null)
             {
-                var llvm = RenderLLVM(obj);
-                Console.WriteLine(llvm);
-                break; // cheaper than Take(1), less GC.
+                reko = instrRenderer.RenderAsLlvm(instr);
+                instrLength = instr.Length;
             }
+            else
+            {
+                reko = "(null)";
+                instrLength = 0;
+            }
+            (string llvmOut, byte[]? llvmBytes) = otherDasm!.Disassemble(bytes);
+
+            Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}")));
+            Console.WriteLine("L:{0,-40} {1}", llvmOut, string.Join(" ", llvmBytes.Select(b => $"{b:X2}")));
+            Console.WriteLine();
         }
 
         // These are X86 opcodes that objdump renders in a dramatically different
@@ -241,12 +240,22 @@ Options:
             0xD7,       // xlat
         };
 
-        private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
+        private void CompareWithObjdump(byte[] bytes, MachineInstruction? instr)
         {
-            var reko = instrRenderer.RenderAsObjdump(instr);
-            (string odOut, byte[] odBytes) = objDump.Disassemble(bytes);
-            var sInstr = instr.ToString();
-            var rekoIsBad = sInstr.Contains("illegal") || sInstr.Contains("invalid");
+            string reko;
+            int instrLength;
+            if (instr != null)
+            {
+                reko = instrRenderer.RenderAsObjdump(instr);
+                instrLength = instr.Length;
+            }
+            else
+            {
+                reko = "(null)";
+                instrLength = 0;
+            }
+            (string odOut, byte[]? odBytes) = otherDasm!.Disassemble(bytes);
+            var rekoIsBad = reko.Contains("illegal") || reko.Contains("invalid");
             var objdIsBad = odOut.Contains("(bad)");
             if (rekoIsBad ^ objdIsBad)
             {
@@ -255,8 +264,8 @@ Options:
                 {
                     EmitUnitTest(bytes, odOut);
                 }
-                //Console.WriteLine("*** discrepancy between Reko disassembler and objdump");
-                //Console.In.ReadLine();
+                Console.WriteLine("*** discrepancy between Reko disassembler and objdump");
+                Console.In.ReadLine();
             }
             else if (!rekoIsBad)
             {
@@ -269,9 +278,9 @@ Options:
                     else
                     {
                         progress.Reset();
-                        Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instr.Length).Select(b => $"{b:X2}")));
-                    Console.WriteLine("O:{0,-40} {1}", odOut, string.Join(" ", odBytes.Select(b => $"{b:X2}")));
-                    Console.WriteLine();
+                        Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}")));
+                        Console.WriteLine("O:{0,-40} {1}", odOut, string.Join(" ", odBytes.Select(b => $"{b:X2}")));
+                        Console.WriteLine();
                     }
                 }
                 else
@@ -401,7 +410,7 @@ Options:
         }
 
 
-        private MachineInstruction Dasm()
+        private MachineInstruction? Dasm()
         {
             rdr.Offset = 0;
             try
@@ -429,7 +438,7 @@ Options:
             }
         }
 
-        private string RenderLine(MachineInstruction instr)
+        private string RenderLine(MachineInstruction? instr)
         {
             var sb = new StringBuilder();
             var sInstr = instr != null
