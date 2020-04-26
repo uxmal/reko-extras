@@ -19,7 +19,7 @@ namespace RekoSifter
     /// <summary>
     /// This class uses the runtime library used by objdump to disassemble instructions.
     /// </summary>
-	public class ObjDump : IDisassembler
+	public class ObjDump : IDisassembler, IDisposable
     {
 
         [DllImport("msvcrt.dll", CharSet = CharSet.Ansi, CallingConvention = System.Runtime.InteropServices.CallingConvention.Cdecl)]
@@ -41,6 +41,9 @@ namespace RekoSifter
 
         private readonly FprintfFtype fprintfDelegate;
         private readonly libopcodes.Delegates.Func_int_ulong_bytePtr_uint_IntPtr bufferReadMemoryDelegate;
+
+        private readonly DisassembleInfo dasmInfo;
+        private readonly DisassemblerFtype dasm;
 
         private void PrintAvailableArchitectures() {
             foreach(var pair in libToArches) {
@@ -118,6 +121,8 @@ namespace RekoSifter
 
             fprintfDelegate = new FprintfFtype(fprintf);
             bufferReadMemoryDelegate = new libopcodes.Delegates.Func_int_ulong_bytePtr_uint_IntPtr(BufferReadMemory);
+
+            (dasmInfo, dasm) = InitDisassembler();
         }
 
         private int fprintf(IntPtr h, string fmt, IntPtr args) {
@@ -139,7 +144,7 @@ namespace RekoSifter
             return dis_asm.BufferReadMemory(memaddr, myaddr, length, di);
         }
 
-        private unsafe (DisassembleInfo, DisassemblerFtype) InitDisassembler(DisposableGCHandle hBytes)
+        private unsafe (DisassembleInfo, DisassemblerFtype) InitDisassembler()
         {
             DisassembleInfo info = new DisassembleInfo();
             dis_asm.InitDisassembleInfo(info, IntPtr.Zero, fprintfDelegate);
@@ -147,21 +152,23 @@ namespace RekoSifter
             info.Arch = arch.Arch;
             info.Mach = arch.Mach;
             info.ReadMemoryFunc = bufferReadMemoryDelegate;
-            info.Buffer = (byte *)hBytes.AddrOfPinnedObject();
+            info.Buffer = null;
             info.BufferVma = 0;
-            if (hBytes.Target != null)
-                info.BufferLength = (ulong)((byte[])hBytes.Target).Length;
-            else
-                info.BufferLength = 0;
-
+            info.BufferLength = 0;
+            
             dis_asm.DisassembleInitForTarget(info);
             
             // create disassembler, returns a function pointer
             DisassemblerFtype disasm = dis_asm.Disassembler(arch.Arch, 0, arch.Mach, null);
+            if (disasm == null) {
+                string? archName = Enum.GetName(typeof(BfdArchitecture), arch.Arch);
+                throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
+            }
+
             return (info, disasm);
         }
 
-        public (string, byte[]?) Disassemble(byte[] bytes)
+        public unsafe (string, byte[]?) Disassemble(byte[] bytes)
         {
             buf.Clear();
 
@@ -170,18 +177,12 @@ namespace RekoSifter
 
             using (DisposableGCHandle hBytes = DisposableGCHandle.Pin(bytes))
             {
-                DisassembleInfo disasmInfo;
-                DisassemblerFtype disasm;
-                (disasmInfo, disasm) = InitDisassembler(hBytes);
-                if (disasm == null)
-                {
-                    string? archName = Enum.GetName(typeof(BfdArchitecture), arch.Arch);
-                    throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
-                }
+                dasmInfo.Buffer = (byte *)hBytes.AddrOfPinnedObject();
+                dasmInfo.BufferLength = (ulong)bytes.Length;
 
                 while (pc < (ulong)bytes.Length)
                 {
-                    int insn_size = disasm(pc, disasmInfo.__Instance);
+                    int insn_size = dasm(pc, dasmInfo.__Instance);
 
                     ibytes = new byte[insn_size];
                     Array.Copy(bytes, (long)pc, ibytes, 0, insn_size);
@@ -189,8 +190,6 @@ namespace RekoSifter
                     pc += (ulong)insn_size;
                     break; //only first instruction
                 }
-
-                disasmInfo.Dispose();
             }
 
             string sInstr = SanitizeObjdumpOutput();
@@ -211,6 +210,10 @@ namespace RekoSifter
                 }
             }
             return sInstr;
+        }
+
+        public void Dispose() {
+            dasmInfo.Dispose();
         }
     }
 }

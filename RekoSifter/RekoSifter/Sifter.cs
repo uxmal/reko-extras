@@ -180,6 +180,10 @@ Options:
                 Sift_16Bit();
             else
                 throw new NotImplementedException();
+
+            if(otherDasm is IDisposable disposable) {
+                disposable.Dispose();
+            }
         }
 
         public void ProcessInstruction(byte[] bytes, MachineInstruction? instr)
