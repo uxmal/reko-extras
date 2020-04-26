@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -43,6 +44,7 @@ namespace RekoSifter
                 Console.WriteLine($"[{pair.Key}]");
                 foreach(string arch in pair.Value) {
                     Console.WriteLine($" -- {arch}");
+                    Debug.Print($" -- {arch}");
                 }
                 Console.WriteLine();
             }
@@ -108,7 +110,6 @@ namespace RekoSifter
             if(ai == null) {
                 throw new NotSupportedException($"This build of binutils doesn't support architecture '{arch}'.");
             }
-
             this.arch = ai;
         }
 
@@ -116,9 +117,9 @@ namespace RekoSifter
             StringBuilder sb;
             
             using (DisposableGCHandle argsH = DisposableGCHandle.Pin(args)) {
-                IntPtr pArgs = argsH.AddrOfPinnedObject();
+            IntPtr pArgs = argsH.AddrOfPinnedObject();
                 sb = new StringBuilder(_vscprintf(fmt, pArgs) + 1);
-                vsprintf(sb, fmt, pArgs);
+            vsprintf(sb, fmt, pArgs);
             }
 
             var formattedMessage = sb.ToString().Replace("(null)", "\t");
@@ -131,7 +132,8 @@ namespace RekoSifter
             return dis_asm.BufferReadMemory(memaddr, myaddr, length, di);
         }
 
-        private unsafe (DisassembleInfo, DisassemblerFtype) InitDisassembler(DisposableGCHandle hBytes) {
+        private unsafe (DisassembleInfo, DisassemblerFtype) InitDisassembler(DisposableGCHandle hBytes)
+        {
             DisassembleInfo info = new DisassembleInfo();
             dis_asm.InitDisassembleInfo(info, IntPtr.Zero, fprintf);
 
@@ -149,7 +151,8 @@ namespace RekoSifter
             return (info, disasm);
         }
 
-        public (string, byte[]) Disassemble(byte[] bytes) {
+        public (string, byte[]) Disassemble(byte[] bytes)
+        {
             buf = new StringBuilder();
 
             ulong pc = 0;
@@ -161,21 +164,41 @@ namespace RekoSifter
                 (disasmInfo, disasm) = InitDisassembler(hBytes);
                 if (disasm == null) {
                     string archName = Enum.GetName(typeof(BfdArchitecture), arch.Arch);
-                    throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
-                }
+                throw new NotSupportedException($"This build of binutils doesn't support architecture '{archName}'");
+            }
 
-                while(pc < (ulong)bytes.Length) {
+            while (pc < (ulong)bytes.Length)
+            {
                     int insn_size = disasm(pc, disasmInfo.__Instance);
 
-                    ibytes = new byte[insn_size];
+                ibytes = new byte[insn_size];
                     Array.Copy(bytes, (long)pc, ibytes, 0, insn_size);
 
-                    pc += (ulong)insn_size;
-                    break; //only first instruction
+                pc += (ulong)insn_size;
+                break; //only first instruction
+            }
+            }
+
+            string sInstr = SanitizeObjdumpOutput();
+            return (sInstr, ibytes);
+        }
+
+        private string SanitizeObjdumpOutput()
+        {
+            var sInstr = buf.ToString();
+            if (arch.Arch == BfdArchitecture.BfdArchI386)
+            {
+                // Trim # only on architectures where # is not used 
+                // in the actual disassembled code.
+                int iHash = sInstr.IndexOf('#');
+                if (iHash >= 0)
+                {
+                    sInstr.ToString();      //$DEBUG
+                    return sInstr.Remove(iHash);
                 }
             }
 
-            return (buf.ToString(), ibytes);
+            return sInstr;
         }
     }
 }

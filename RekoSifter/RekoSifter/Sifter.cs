@@ -1,5 +1,4 @@
-﻿using LLVMSharp.Interop;
-using Reko.Core;
+﻿using Reko.Core;
 using Reko.Core.Configuration;
 using Reko.Core.Machine;
 using System;
@@ -9,6 +8,12 @@ using System.Text;
 
 namespace RekoSifter
 {
+    public struct ParseResult
+    {
+        public string hex;
+        public string asm;
+    }
+
     public class Sifter
     {
         private const string DefaultArchName = "x86-protected-32";
@@ -24,8 +29,9 @@ namespace RekoSifter
         private int? seed;
         private long? count;
         private bool useRandomBytes;
+        private string llvmArch = null;
         private Action<byte[], MachineInstruction> processInstr;
-        private IDisassembler otherDasm;
+        private ObjDump objDump;
         private Progress progress;
 
         public Sifter(string[] args)
@@ -91,12 +97,11 @@ namespace RekoSifter
                         break;
                     case "-l":
                     case "--llvm":
-                        res = TryTake(it, out string llvmArch);
+                        res = TryTake(it, out this.llvmArch);
                         if (res)
                         {
                             processInstr = this.CompareWithLlvm;
                         }
-                        otherDasm = new LLVMDasm(llvmArch);
                         break;
                     case "-o":
                     case "--objdump":
@@ -109,7 +114,7 @@ namespace RekoSifter
                             // string mach = parts[1];
                             // $TODO: convert machine to uint (BfdMachine)
 
-                            otherDasm = new ObjDump(arch);
+                            objDump = new ObjDump(arch);
                             processInstr = this.CompareWithObjdump;
                         }
                         break;
@@ -181,6 +186,11 @@ Options:
                 throw new NotImplementedException();
         }
 
+        static string RenderLLVM(ParseResult obj)
+        {
+            return string.Format("L:{0,-45}{1}", obj.asm, obj.hex);
+        }
+
         public void ProcessInstruction(byte[] bytes, MachineInstruction instr)
         {
             Console.WriteLine(RenderLine(instr));
@@ -190,11 +200,13 @@ Options:
         public void CompareWithLlvm(byte[] bytes, MachineInstruction instr)
         {
             var reko = instrRenderer.RenderAsLlvm(instr);
-            (string llvmOut, byte[] llvmBytes) = otherDasm.Disassemble(bytes);
-
-            Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instr.Length).Select(b => $"{b:X2}")));
-            Console.WriteLine("L:{0,-40} {1}", llvmOut, string.Join(" ", llvmBytes.Select(b => $"{b:X2}")));
-            Console.WriteLine();
+            Console.WriteLine("R:{0}", reko);
+            foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
+            {
+                var llvm = RenderLLVM(obj);
+                Console.WriteLine(llvm);
+                break; // cheaper than Take(1), less GC.
+            }
         }
 
         // These are X86 opcodes that objdump renders in a dramatically different
@@ -215,6 +227,7 @@ Options:
             0x9B,       // fwait
 
             0xA0,       // Objdump calls it 'movabs'. D'oh.
+            0xA1,       // movabs
             0xA4,       // movsb
             0xA5,       // movs
             0xA7,       // cmps
@@ -231,7 +244,7 @@ Options:
         private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
         {
             var reko = instrRenderer.RenderAsObjdump(instr);
-            (string odOut, byte[] odBytes) = otherDasm.Disassemble(bytes);
+            (string odOut, byte[] odBytes) = objDump.Disassemble(bytes);
             var sInstr = instr.ToString();
             var rekoIsBad = sInstr.Contains("illegal") || sInstr.Contains("invalid");
             var objdIsBad = odOut.Contains("(bad)");
@@ -242,8 +255,8 @@ Options:
                 {
                     EmitUnitTest(bytes, odOut);
                 }
-                Console.WriteLine("*** discrepancy between Reko disassembler and objdump");
-                Console.In.ReadLine();
+                //Console.WriteLine("*** discrepancy between Reko disassembler and objdump");
+                //Console.In.ReadLine();
             }
             else if (!rekoIsBad)
             {

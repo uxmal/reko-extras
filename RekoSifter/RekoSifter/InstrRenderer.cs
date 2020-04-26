@@ -31,6 +31,8 @@ namespace RekoSifter
                 case "ppc-be-64":
                 case "ppc-le-64":
                     return new PowerPcRenderer();
+                case "m68k":
+                    return new M68kRenderer();
                 default:
                     return new InstrRenderer();
             }

@@ -6,8 +6,14 @@ namespace RekoSifter
     {
         static void Main(string[] args)
         {
-            var sifter = new Sifter(args);
-            sifter.Sift();
+            try
+            {
+                var sifter = new Sifter(args);
+                sifter.Sift();
+            } catch
+            {
+                Console.WriteLine("Beume");
+            }
         }
     }
 }

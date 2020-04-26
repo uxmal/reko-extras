@@ -93,7 +93,7 @@ namespace RekoSifter
                 case 2: sb.Append("WORD PTR"); break;
                 case 4: sb.Append("DWORD PTR"); break;
                 case 8: sb.Append("QWORD PTR"); break;
-                case 10: sb.Append("TWORD PTR"); break;
+                case 10: sb.Append("TBYTE PTR"); break;
                 default: sb.AppendFormat("[SIZE {0} PTR]", mem.Width.Size); break;
             }
             sb.AppendFormat(" {0}[", mem.SegOverride != null && mem.SegOverride != RegisterStorage.None
