@@ -6,7 +6,7 @@ The project runs on .NET Core, but is currently limited to Windows operating sys
 If the need arises, it can be made compatible with Linux too.
 
 ### LLVM
-The easiest way to prepare an LLVM setup is to install msys2 and install the `llvm-svn` package.
+The easiest way to prepare an LLVM setup is to install msys2 and install the `mingw-w64-x86_64-llvm` package.
 
 This will install `libLLVM`, required by LLVMSharp.
 
