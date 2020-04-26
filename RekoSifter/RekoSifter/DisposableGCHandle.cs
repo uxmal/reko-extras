@@ -21,6 +21,10 @@ namespace RekoSifter
 			return new DisposableGCHandle(value, GCHandleType.Pinned);
 		}
 
+		public object? Target {
+			get => gch.Target;
+		}
+
 		public IntPtr AddrOfPinnedObject() => gch.AddrOfPinnedObject();
 
 		public void Dispose() {
