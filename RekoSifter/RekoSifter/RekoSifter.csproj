@@ -19,6 +19,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="LLVMSharp" Version="10.0.0-beta" />
     <PackageReference Include="Reko.Decompiler.Runtime" Version="0.9.1" />
