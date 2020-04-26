@@ -189,6 +189,8 @@ namespace RekoSifter
                     pc += (ulong)insn_size;
                     break; //only first instruction
                 }
+
+                disasmInfo.Dispose();
             }
 
             string sInstr = SanitizeObjdumpOutput();
