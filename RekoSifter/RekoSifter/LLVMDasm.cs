@@ -20,7 +20,7 @@ namespace RekoSifter
 		PrintLatency = 16
 	}
 
-	public class LLVMDasm
+	public class LLVMDasm : IDisassembler
 	{
 		private LLVMDisasmContextRef hDasm;
 

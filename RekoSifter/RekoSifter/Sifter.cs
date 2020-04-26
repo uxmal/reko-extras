@@ -31,8 +31,7 @@ namespace RekoSifter
         private long? count;
         private bool useRandomBytes;
         private Action<byte[], MachineInstruction> processInstr;
-        private ObjDump objDump;
-        private LLVMDasm llvmDasm;
+        private IDisassembler otherDasm;
         private Progress progress;
 
         public Sifter(string[] args)
@@ -103,7 +102,7 @@ namespace RekoSifter
                         {
                             processInstr = this.CompareWithLlvm;
                         }
-                        llvmDasm = new LLVMDasm(llvmArch);
+                        otherDasm = new LLVMDasm(llvmArch);
                         break;
                     case "-o":
                     case "--objdump":
@@ -116,7 +115,7 @@ namespace RekoSifter
                             // string mach = parts[1];
                             // $TODO: convert machine to uint (BfdMachine)
 
-                            objDump = new ObjDump(arch);
+                            otherDasm = new ObjDump(arch);
                             processInstr = this.CompareWithObjdump;
                         }
                         break;
@@ -202,8 +201,7 @@ Options:
         public void CompareWithLlvm(byte[] bytes, MachineInstruction instr)
         {
             var reko = instrRenderer.RenderAsLlvm(instr);
-            (string llvmOut, byte[] llvmBytes) = llvmDasm.Disassemble(bytes);
-
+            (string llvmOut, byte[] llvmBytes) = otherDasm.Disassemble(bytes);
 
             Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instr.Length).Select(b => $"{b:X2}")));
             Console.WriteLine("L:{0,-40} {1}", llvmOut, string.Join(" ", llvmBytes.Select(b => $"{b:X2}")));
@@ -213,7 +211,7 @@ Options:
         private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
         {
             var reko = instrRenderer.RenderAsObjdump(instr);
-            (string odOut, byte[] odBytes) = objDump.Disassemble(bytes);
+            (string odOut, byte[] odBytes) = otherDasm.Disassemble(bytes);
             var sInstr = instr.ToString();
             var rekoIsBad = sInstr.Contains("illegal") || sInstr.Contains("invalid");
             var objdIsBad = odOut.Contains("(bad)");

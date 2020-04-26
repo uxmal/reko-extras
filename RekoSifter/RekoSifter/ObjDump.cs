@@ -18,7 +18,7 @@ namespace RekoSifter
     /// <summary>
     /// This class uses the runtime library used by objdump to disassemble instructions.
     /// </summary>
-	public unsafe class ObjDump
+	public class ObjDump : IDisassembler
     {
 
         [DllImport("msvcrt.dll", CharSet = CharSet.Ansi, CallingConvention = System.Runtime.InteropServices.CallingConvention.Cdecl)]
@@ -126,12 +126,12 @@ namespace RekoSifter
             return 0;
         }
 
-        private int BufferReadMemory(ulong memaddr, byte* myaddr, uint length, IntPtr dinfo) {
+        private unsafe int BufferReadMemory(ulong memaddr, byte* myaddr, uint length, IntPtr dinfo) {
             DisassembleInfo di = new DisassembleInfo(dinfo.ToPointer());
             return dis_asm.BufferReadMemory(memaddr, myaddr, length, di);
         }
 
-        private (DisassembleInfo, DisassemblerFtype) InitDisassembler(DisposableGCHandle hBytes) {
+        private unsafe (DisassembleInfo, DisassemblerFtype) InitDisassembler(DisposableGCHandle hBytes) {
             DisassembleInfo info = new DisassembleInfo();
             dis_asm.InitDisassembleInfo(info, IntPtr.Zero, fprintf);
 
