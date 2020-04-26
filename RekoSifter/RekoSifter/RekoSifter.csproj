@@ -19,6 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="LLVMSharp" Version="10.0.0-beta" />
     <PackageReference Include="Reko.Decompiler.Runtime" Version="0.9.1" />
   </ItemGroup>
 

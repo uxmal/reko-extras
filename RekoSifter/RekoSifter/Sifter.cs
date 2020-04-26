@@ -1,4 +1,5 @@
-﻿using Reko.Core;
+﻿using LLVMSharp.Interop;
+using Reko.Core;
 using Reko.Core.Configuration;
 using Reko.Core.Machine;
 using System;
@@ -29,9 +30,9 @@ namespace RekoSifter
         private int? seed;
         private long? count;
         private bool useRandomBytes;
-        private string llvmArch = null;
         private Action<byte[], MachineInstruction> processInstr;
         private ObjDump objDump;
+        private LLVMDasm llvmDasm;
         private Progress progress;
 
         public Sifter(string[] args)
@@ -97,11 +98,12 @@ namespace RekoSifter
                         break;
                     case "-l":
                     case "--llvm":
-                        res = TryTake(it, out this.llvmArch);
+                        res = TryTake(it, out string llvmArch);
                         if (res)
                         {
                             processInstr = this.CompareWithLlvm;
                         }
+                        llvmDasm = new LLVMDasm(llvmArch);
                         break;
                     case "-o":
                     case "--objdump":
@@ -200,13 +202,12 @@ Options:
         public void CompareWithLlvm(byte[] bytes, MachineInstruction instr)
         {
             var reko = instrRenderer.RenderAsLlvm(instr);
-            Console.WriteLine("R:{0}", reko);
-            foreach (var obj in LLVM.Disassemble(llvmArch, mem.Bytes))
-            {
-                var llvm = RenderLLVM(obj);
-                Console.WriteLine(llvm);
-                break; // cheaper than Take(1), less GC.
-            }
+            (string llvmOut, byte[] llvmBytes) = llvmDasm.Disassemble(bytes);
+
+
+            Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instr.Length).Select(b => $"{b:X2}")));
+            Console.WriteLine("L:{0,-40} {1}", llvmOut, string.Join(" ", llvmBytes.Select(b => $"{b:X2}")));
+            Console.WriteLine();
         }
 
         private void CompareWithObjdump(byte[] bytes, MachineInstruction instr)
