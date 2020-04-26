@@ -40,6 +40,7 @@ namespace RekoSifter
         private Dictionary<string, List<string>> libToArches = new Dictionary<string, List<string>>();
 
         private readonly FprintfFtype fprintfDelegate;
+        private readonly libopcodes.Delegates.Func_int_ulong_bytePtr_uint_IntPtr bufferReadMemoryDelegate;
 
         private void PrintAvailableArchitectures() {
             foreach(var pair in libToArches) {
@@ -100,7 +101,7 @@ namespace RekoSifter
             NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), ImportResolver);
         }
 
-        public ObjDump(string arch) {
+        public unsafe ObjDump(string arch) {
             hLib = FindArchitectureLibrary(arch);
             if(hLib == IntPtr.Zero) {
                 PrintAvailableArchitectures();
@@ -116,6 +117,7 @@ namespace RekoSifter
             this.arch = ai;
 
             fprintfDelegate = new FprintfFtype(fprintf);
+            bufferReadMemoryDelegate = new libopcodes.Delegates.Func_int_ulong_bytePtr_uint_IntPtr(BufferReadMemory);
         }
 
         private int fprintf(IntPtr h, string fmt, IntPtr args) {
@@ -144,7 +146,7 @@ namespace RekoSifter
 
             info.Arch = arch.Arch;
             info.Mach = arch.Mach;
-            info.ReadMemoryFunc = BufferReadMemory;
+            info.ReadMemoryFunc = bufferReadMemoryDelegate;
             info.Buffer = (byte *)hBytes.AddrOfPinnedObject();
             info.BufferVma = 0;
             if (hBytes.Target != null)
