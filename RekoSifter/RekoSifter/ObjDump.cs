@@ -39,6 +39,8 @@ namespace RekoSifter
 
         private Dictionary<string, List<string>> libToArches = new Dictionary<string, List<string>>();
 
+        private readonly FprintfFtype fprintfDelegate;
+
         private void PrintAvailableArchitectures() {
             foreach(var pair in libToArches) {
                 Console.WriteLine($"[{pair.Key}]");
@@ -112,6 +114,8 @@ namespace RekoSifter
             }
             this.buf = new StringBuilder();
             this.arch = ai;
+
+            fprintfDelegate = new FprintfFtype(fprintf);
         }
 
         private int fprintf(IntPtr h, string fmt, IntPtr args) {
@@ -136,7 +140,7 @@ namespace RekoSifter
         private unsafe (DisassembleInfo, DisassemblerFtype) InitDisassembler(DisposableGCHandle hBytes)
         {
             DisassembleInfo info = new DisassembleInfo();
-            dis_asm.InitDisassembleInfo(info, IntPtr.Zero, fprintf);
+            dis_asm.InitDisassembleInfo(info, IntPtr.Zero, fprintfDelegate);
 
             info.Arch = arch.Arch;
             info.Mach = arch.Mach;
