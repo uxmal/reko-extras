@@ -9,12 +9,6 @@ using System.Text;
 
 namespace RekoSifter
 {
-    public struct ParseResult
-    {
-        public string hex;
-        public string asm;
-    }
-
     public class Sifter
     {
         private const string DefaultArchName = "x86-protected-32";
@@ -185,11 +179,6 @@ Options:
                 Sift_16Bit();
             else
                 throw new NotImplementedException();
-        }
-
-        static string RenderLLVM(ParseResult obj)
-        {
-            return string.Format("L:{0,-45}{1}", obj.asm, obj.hex);
         }
 
         public void ProcessInstruction(byte[] bytes, MachineInstruction instr)
