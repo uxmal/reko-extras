@@ -39,20 +39,20 @@ namespace RekoSifter
 			LLVM.InitializeAllDisassemblers();
 
 			byte[] tripleBytes = Encoding.ASCII.GetBytes(triple);
-			GCHandle hTriple = GCHandle.Alloc(tripleBytes, GCHandleType.Pinned);
 
-			LLVMDisasmContextRef hDasm = new LLVMDisasmContextRef(
-				new IntPtr(LLVM.CreateDisasm(
-					(sbyte *)hTriple.AddrOfPinnedObject(),
-					null, 0, IntPtr.Zero, IntPtr.Zero
-				))
-			);
+			LLVMDisasmContextRef hDasm;
+			using (DisposableGCHandle hTriple = DisposableGCHandle.Pin(tripleBytes)) {
+				hDasm = new LLVMDisasmContextRef(
+					new IntPtr(LLVM.CreateDisasm(
+						(sbyte*)hTriple.AddrOfPinnedObject(),
+						null, 0, IntPtr.Zero, IntPtr.Zero
+					))
+				);
+			}
 
 			if(hDasm == null) {
 				throw new Exception("CreateDisasm failed");
 			}
-
-			hTriple.Free();
 
 			LLVM.SetDisasmOptions(
 				hDasm.Handle.ToPointer(),
@@ -64,28 +64,27 @@ namespace RekoSifter
 		}
 
 		public unsafe (string, byte[]) Disassemble(byte[] instr) {		
-			GCHandle hBytes = GCHandle.Alloc(instr, GCHandleType.Pinned);
 
 			sbyte[] buf = new sbyte[80];
+			uint instrSize;
+			string disassembled;
 
-			GCHandle hBuf = GCHandle.Alloc(buf, GCHandleType.Pinned);
+			using (DisposableGCHandle hBytes = DisposableGCHandle.Pin(instr))
+			using (DisposableGCHandle hBuf = DisposableGCHandle.Pin(buf)) {
+				instrSize = LLVM.DisasmInstruction(
+					hDasm.Handle.ToPointer(),
+					(byte*)hBytes.AddrOfPinnedObject(),
+					(ulong)instr.Length,
+					0,
+					(sbyte*)hBuf.AddrOfPinnedObject(),
+					new UIntPtr((uint)buf.Length)
+				).ToUInt32();
 
-			UIntPtr instrSize = LLVM.DisasmInstruction(
-				hDasm.Handle.ToPointer(),
-				(byte*)hBytes.AddrOfPinnedObject(),
-				(ulong)instr.Length,
-				0,
-				(sbyte*)hBuf.AddrOfPinnedObject(),
-				new UIntPtr((uint)buf.Length)
-			);
+				disassembled = Marshal.PtrToStringAnsi(hBuf.AddrOfPinnedObject());
+			}
 
-			byte[] ibytes = new byte[instrSize.ToUInt32()];
-			Array.Copy(instr, 0, ibytes, 0, instrSize.ToUInt32());
-
-			string disassembled = Marshal.PtrToStringAnsi(hBuf.AddrOfPinnedObject());
-
-			hBytes.Free();
-			hBuf.Free();
+			byte[] ibytes = new byte[instrSize];
+			Array.Copy(instr, 0, ibytes, 0, instrSize);
 
 			disassembled = disassembled.TrimStart(new[] { ' ', '\t' });
 			return (disassembled, ibytes);

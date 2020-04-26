@@ -113,13 +113,13 @@ namespace RekoSifter
         }
 
         private int fprintf(IntPtr h, string fmt, IntPtr args) {
-            GCHandle argsH = GCHandle.Alloc(args, GCHandleType.Pinned);
-            IntPtr pArgs = argsH.AddrOfPinnedObject();
+            StringBuilder sb;
             
-            var sb = new StringBuilder(_vscprintf(fmt, pArgs) + 1);
-            vsprintf(sb, fmt, pArgs);
-
-            argsH.Free();
+            using (DisposableGCHandle argsH = DisposableGCHandle.Pin(args)) {
+                IntPtr pArgs = argsH.AddrOfPinnedObject();
+                sb = new StringBuilder(_vscprintf(fmt, pArgs) + 1);
+                vsprintf(sb, fmt, pArgs);
+            }
 
             var formattedMessage = sb.ToString().Replace("(null)", "\t");
             buf.Append(formattedMessage);
@@ -161,7 +161,7 @@ namespace RekoSifter
                 int insn_size = disasm(pc, disasm_info.__Instance);
 
                 ibytes = new byte[insn_size];
-                Buffer.BlockCopy(bytes, (int)pc, ibytes, 0, insn_size);
+                Array.Copy(bytes, (long)pc, ibytes, 0, insn_size);
 
                 pc += (ulong)insn_size;
 
