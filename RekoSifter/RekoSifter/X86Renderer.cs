@@ -40,6 +40,9 @@ namespace RekoSifter
                     case AddressOperand addr:
                         sb.AppendFormat("0x{0}", addr.Address.ToString().ToLower());
                         break;
+                    case FpuOperand fpu:
+                        sb.AppendFormat("st({0})", fpu.StNumber);
+                        break;
                     default:
                         sb.AppendFormat("[{0}]", op.GetType().Name);
                         break;
@@ -94,6 +97,8 @@ namespace RekoSifter
                 case 4: sb.Append("DWORD PTR"); break;
                 case 8: sb.Append("QWORD PTR"); break;
                 case 10: sb.Append("TBYTE PTR"); break;
+                case 16: sb.Append("XMMWORD PTR"); break;
+                case 32: sb.Append("YMMWORD PTR"); break;
                 default: sb.AppendFormat("[SIZE {0} PTR]", mem.Width.Size); break;
             }
             sb.AppendFormat(" {0}[", mem.SegOverride != null && mem.SegOverride != RegisterStorage.None

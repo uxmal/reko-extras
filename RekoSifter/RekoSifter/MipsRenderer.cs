@@ -53,7 +53,12 @@ namespace RekoSifter
 
         private static readonly HashSet<Mnemonic> coprocInstrs = new HashSet<Mnemonic>
         {
+            Mnemonic.ldc1,
+            Mnemonic.ldc2,
+            Mnemonic.lwc1,
             Mnemonic.lwc2,
+            Mnemonic.sdc1,
+            Mnemonic.sdc2,
             Mnemonic.swc2,
         };
 
@@ -85,8 +90,9 @@ namespace RekoSifter
             { "r23", "s7" },
             { "r24", "t8" },
             { "r25", "t9" },
-            { "r28", "gp" },
+            { "r26", "k0" },
             { "r27", "k1" },
+            { "r28", "gp" },
             { "r29", "k2" },
             { "r30", "s8" },
         };
@@ -96,11 +102,14 @@ namespace RekoSifter
             string abiName;
             if (rawRegisterNames)
             {
-                abiName = $"${register.Number}";
+                if (register.Name[0] == 'f')
+                    abiName = $"${register.Name}";
+                else 
+                    abiName = $"${register.Number}";
             }
             else
             {
-                if (!abiNames.TryGetValue(register.Name, out abiName))
+                if (!abiNames.TryGetValue(register.Name, out abiName!))
                     abiName = register.Name;
             }
             sb.Append(abiName);

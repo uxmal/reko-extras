@@ -7,5 +7,7 @@ namespace RekoSifter
 	public interface IDisassembler
 	{
 		(string, byte[]?) Disassemble(byte[] instruction);
+
+		bool IsInvalidInstruction(string sInstr);
 	}
 }

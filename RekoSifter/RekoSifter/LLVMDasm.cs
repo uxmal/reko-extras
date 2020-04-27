@@ -89,5 +89,10 @@ namespace RekoSifter
 			disassembled = (disassembled ?? "").TrimStart(new[] { ' ', '\t' });
 			return (disassembled, ibytes);
 		}
+
+		public bool IsInvalidInstruction(string sInstr)
+		{
+			return false;
+		}
 	}
 }

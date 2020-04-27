@@ -264,21 +264,20 @@ Options:
             }
             (string odOut, byte[]? odBytes) = otherDasm!.Disassemble(bytes);
             var rekoIsBad = reko.Contains("illegal") || reko.Contains("invalid");
-            var objdIsBad = odOut.Contains("(bad)");
+            var objdIsBad = otherDasm.IsInvalidInstruction(odOut);
             if (rekoIsBad ^ objdIsBad)
             {
                 progress.Reset();
-                if (!odOut.Contains("bad"))
+                if (!objdIsBad)
                 {
                     EmitUnitTest(bytes, odOut);
                 }
-                Console.WriteLine("*** discrepancy between Reko disassembler and objdump");
-                //Console.In.ReadLine();
             }
             else if (!rekoIsBad)
             {
                 if (odOut.Trim() != reko.Trim())
                 {
+                    //$BUG: arch-dependent
                     if (objDumpSkips.Contains(bytes[0]))
                     {
                         progress.Advance();

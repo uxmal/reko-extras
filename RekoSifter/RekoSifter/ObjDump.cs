@@ -212,6 +212,19 @@ namespace RekoSifter
             return sInstr;
         }
 
+        public bool IsInvalidInstruction(string sInstr)
+        {
+            if (string.IsNullOrEmpty(sInstr))
+                return true;
+            if (sInstr.Contains("(bad)"))
+                return true;
+            if (sInstr.StartsWith("0x"))
+                return true;
+            if (sInstr.StartsWith(".short"))
+                return true;
+            return false;
+        }
+
         public void Dispose() {
             dasmInfo.Dispose();
         }
