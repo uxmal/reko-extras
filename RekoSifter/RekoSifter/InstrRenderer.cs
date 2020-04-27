@@ -33,6 +33,11 @@ namespace RekoSifter
                     return new PowerPcRenderer();
                 case "m68k":
                     return new M68kRenderer();
+                case "mips-be-32":
+                case "mips-le-32":
+                case "mips-be-64":
+                case "mips-le-64":
+                    return new MipsRenderer();
                 default:
                     return new InstrRenderer();
             }

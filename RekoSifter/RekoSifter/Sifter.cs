@@ -231,8 +231,12 @@ Options:
 
             0xA0,       // Objdump calls it 'movabs'. D'oh.
             0xA1,       // movabs
+            0xA2,       // movabs
+            0xA3,       // movabs
             0xA4,       // movsb
             0xA5,       // movs
+            0xA6,       // cmpsb
+
             0xA7,       // cmps
             0xAA,       // stosb,
             0xAB,       // stos,
@@ -269,7 +273,7 @@ Options:
                     EmitUnitTest(bytes, odOut);
                 }
                 Console.WriteLine("*** discrepancy between Reko disassembler and objdump");
-                Console.In.ReadLine();
+                //Console.In.ReadLine();
             }
             else if (!rekoIsBad)
             {
