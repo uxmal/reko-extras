@@ -21,25 +21,27 @@ namespace RekoSifter
         {
             switch (archName)
             {
-                case "x86-realmode-16":
-                case "x86-protected-16":
-                case "x86-protected-32":
-                case "x86-protected-64":
-                    return new X86Renderer();
-                case "ppc-be-32":
-                case "ppc-le-32":
-                case "ppc-be-64":
-                case "ppc-le-64":
-                    return new PowerPcRenderer();
-                case "m68k":
-                    return new M68kRenderer();
-                case "mips-be-32":
-                case "mips-le-32":
-                case "mips-be-64":
-                case "mips-le-64":
-                    return new MipsRenderer();
-                default:
-                    return new InstrRenderer();
+            case "arm-64":
+                return new AArch64Renderer();
+            case "x86-realmode-16":
+            case "x86-protected-16":
+            case "x86-protected-32":
+            case "x86-protected-64":
+                return new X86Renderer();
+            case "ppc-be-32":
+            case "ppc-le-32":
+            case "ppc-be-64":
+            case "ppc-le-64":
+                return new PowerPcRenderer();
+            case "m68k":
+                return new M68kRenderer();
+            case "mips-be-32":
+            case "mips-le-32":
+            case "mips-be-64":
+            case "mips-le-64":
+                return new MipsRenderer();
+            default:
+                return new InstrRenderer();
             }
         }
     }

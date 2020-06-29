@@ -1,10 +1,17 @@
-﻿ 
+﻿
+using Reko;
 using Reko.Core;
 using Reko.Core.Configuration;
+using Reko.Core.Lib;
 using Reko.Core.Machine;
+using Reko.Core.Services;
+using Reko.Loading;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace RekoSifter
@@ -13,13 +20,14 @@ namespace RekoSifter
     {
         private const string DefaultArchName = "x86-protected-32";
         private const int DefaultMaxInstrLength = 15;
-
         private readonly MemoryArea mem;
         private readonly IProcessorArchitecture arch;
         private readonly InstrRenderer instrRenderer;
         private readonly EndianImageReader rdr;
         private readonly IEnumerable<MachineInstruction> dasm;
         private readonly RekoConfigurationService cfgSvc;
+        private readonly ITestGenerationService testGen;
+        private readonly IFileSystemService fsSvc;
         private readonly Progress progress;
         private int maxInstrLength;
         private int? seed;
@@ -30,14 +38,48 @@ namespace RekoSifter
 
         public Sifter(string[] args)
         {
-            this.cfgSvc = RekoConfigurationService.Load("reko/reko.config");
+            var sc = new ServiceContainer();
+            testGen = new TestGenerationService(sc)
+            {
+                OutputDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+            };
+            fsSvc = new FileSystemServiceImpl();
+            this.cfgSvc = RekoConfigurationService.Load(sc, "reko/reko.config");
+            sc.AddService<ITestGenerationService>(testGen);
+            sc.AddService<IFileSystemService>(fsSvc);
+            sc.AddService<IConfigurationService>(cfgSvc);
             this.processInstr = new Action<byte[], MachineInstruction?>(ProcessInstruction);
-            (this.arch, this.instrRenderer) = ProcessArgs(args);
-            var baseAddress = Address.Ptr32(0x00000000);    //$TODO allow customization?
+            IProcessorArchitecture? arch;
+            (arch, this.instrRenderer) = ProcessArgs(args);
+            if (arch is null)
+            {
+                throw new ApplicationException("Unable to load Reko architecture.");
+            }
+            this.arch = arch;
+            var baseAddress = Address.Create(arch.PointerType, 0x00000000);    //$TODO allow customization?
             this.mem = new MemoryArea(baseAddress, new byte[100]);
             this.rdr = arch.CreateImageReader(mem, 0);
             this.dasm = arch.CreateDisassembler(rdr);
             this.progress = new Progress();
+        }
+
+        private IDecompilerService CreateDecompiler(ServiceContainer sc)
+        {
+            var dcSvc = new DecompilerService();
+            dcSvc.Decompiler = new Decompiler(new Loader(sc), sc)
+            {
+                Project = new Project
+                {
+                    Programs =
+                    {
+                        new Reko.Core.Program
+                        {
+                            DisassemblyDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
+                        }
+                    }
+                }
+            };
+            return dcSvc;
         }
 
         bool TryTake(IEnumerator<string> it, out string? arg)
@@ -52,7 +94,7 @@ namespace RekoSifter
             return true;
         }
 
-        private (IProcessorArchitecture, InstrRenderer) ProcessArgs(IEnumerable<string> args)
+        private (IProcessorArchitecture?, InstrRenderer) ProcessArgs(IEnumerable<string> args)
         {
             string? archName = DefaultArchName;
             var maxLength = DefaultMaxInstrLength;
@@ -301,14 +343,8 @@ Options:
         {
             if (this.dasm is DisassemblerBase dasm)
             {
-                var hex = string.Join("", bytes.Select(b => $"{b:X2}"));
                 var testPrefix = arch.Name.Replace('-', '_') + "Dis";
-                dasm.EmitUnitTest(arch.Name, hex, "", testPrefix, mem.BaseAddress, w =>
-                {
-                    w.WriteLine("    AssertCode(\"{0}\", \"{1}\");",
-                        expected.Trim(),
-                        hex);
-                });
+                testGen.ReportMissingDecoder(testPrefix, mem.BaseAddress, arch.CreateImageReader(mem, 0), "");
             }
         }
 

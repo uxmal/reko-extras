@@ -222,6 +222,8 @@ namespace RekoSifter
                 return true;
             if (sInstr.StartsWith(".short"))
                 return true;
+            if (sInstr.StartsWith(".inst"))
+                return true;
             return false;
         }
 
