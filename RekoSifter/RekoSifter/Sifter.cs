@@ -1,4 +1,4 @@
-﻿
+
 using Reko;
 using Reko.Core;
 using Reko.Core.Configuration;
@@ -20,11 +20,11 @@ namespace RekoSifter
     {
         private const string DefaultArchName = "x86-protected-32";
         private const int DefaultMaxInstrLength = 15;
-        private readonly MemoryArea mem;
+        private MemoryArea mem;
         private readonly IProcessorArchitecture arch;
         private readonly InstrRenderer instrRenderer;
-        private readonly EndianImageReader rdr;
-        private readonly IEnumerable<MachineInstruction> dasm;
+        private EndianImageReader rdr;
+        private IEnumerable<MachineInstruction> dasm;
         private readonly RekoConfigurationService cfgSvc;
         private readonly ITestGenerationService testGen;
         private readonly IFileSystemService fsSvc;
@@ -36,6 +36,11 @@ namespace RekoSifter
         private Action<byte[], MachineInstruction?> processInstr;
         private IDisassembler? otherDasm;
         private char endianness;
+        private string? inputFilePath = null;
+
+        private readonly Address baseAddress;
+
+        private Action mainProcessing;
 
         public Sifter(string[] args)
         {
@@ -57,11 +62,14 @@ namespace RekoSifter
                 throw new ApplicationException("Unable to load Reko architecture.");
             }
             this.arch = arch;
-            var baseAddress = Address.Create(arch.PointerType, 0x00000000);    //$TODO allow customization?
-            this.mem = new MemoryArea(baseAddress, new byte[100]);
+            this.baseAddress = Address.Create(arch.PointerType, 0x00000000);    //$TODO allow customization?
+            this.progress = new Progress();
+        }
+
+        private void InitializeRekoDisassembler()
+        {
             this.rdr = arch.CreateImageReader(mem, 0);
             this.dasm = arch.CreateDisassembler(rdr);
-            this.progress = new Progress();
         }
 
         private IDecompilerService CreateDecompiler(ServiceContainer sc)
@@ -101,6 +109,9 @@ namespace RekoSifter
             var maxLength = DefaultMaxInstrLength;
 
             var it = args.GetEnumerator();
+
+            mainProcessing = () => Sift();
+
             Func<IDisassembler>? mkOtherDasm = null;
             while (it.MoveNext())
             {
@@ -115,6 +126,11 @@ namespace RekoSifter
                         break;
                     case "--maxlen":
                         res = TryTake(it, out string? maxLengthStr) && int.TryParse(maxLengthStr, out maxLength);
+                        break;
+                    case "-i":
+                    case "--input":
+                        res = TryTake(it, out inputFilePath) && File.Exists(inputFilePath);
+                        mainProcessing = () => ProcessFile();
                         break;
                     case "-r":
                     case "--random":
@@ -210,6 +226,7 @@ Usage:
 Options:
     -a --arch <name>       Use processor architecture <name>.
     --maxlen <length>      Maximum instruction length.
+    -i --input <inputfile> Use <inputfile> as input for disassemblers
     -e --endianness <b|l>  Specify either big- or little-endianness.
     -r --random [seed|-]   Generate random byte sequences (using
                             optional seed.
@@ -221,9 +238,15 @@ Options:
 ");
         }
 
-        public void Sift()
+        public void Run() => mainProcessing();
+
+        private void Sift()
         {
+            this.mem = new MemoryArea(baseAddress, new byte[100]);
+            InitializeRekoDisassembler();
+
             otherDasm?.SetEndianness(this.endianness);
+
             if (useRandomBytes)
             {
                 var rng = seed.HasValue
@@ -365,7 +388,22 @@ Options:
             }
         }
 
-        public void Sift_Random(Random rng)
+        private void ProcessFile()
+        {
+            Memory<byte> buf = File.ReadAllBytes(inputFilePath!);
+
+            this.mem = new MemoryArea(baseAddress, buf.ToArray());
+            InitializeRekoDisassembler();
+
+            buf.CopyTo(mem.Bytes);
+
+            foreach (var instr in dasm) {
+                byte[] instrBytes = buf.Slice((int)instr.Address.ToLinear(), instr.Length).ToArray();
+                processInstr(instrBytes, instr);
+            }
+        }
+
+        private void Sift_Random(Random rng)
         {
             var buf = new byte[maxInstrLength];
             while (DecrementCount())
@@ -380,7 +418,7 @@ Options:
             }
         }
 
-        public void Sift_8Bit()
+        private void Sift_8Bit()
         {
             var stack = mem.Bytes;
             int iLastByte = 0;
@@ -413,7 +451,7 @@ Options:
             }
         }
 
-        public void Sift_16Bit()
+        private void Sift_16Bit()
         {
             var writer = arch.CreateImageWriter(mem, mem.BaseAddress);
             int iLastByte = 0;
@@ -449,7 +487,7 @@ Options:
             }
         }
 
-        public void Sift_32Bit()
+        private void Sift_32Bit()
         {
             var writer = arch.CreateImageWriter(mem, mem.BaseAddress);
             while (DecrementCount())

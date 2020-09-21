@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace RekoSifter
 {
@@ -7,7 +7,7 @@ namespace RekoSifter
         static void Main(string[] args)
         {
             var sifter = new Sifter(args);
-            sifter.Sift();
+            sifter.Run();
         }
     }
 }
