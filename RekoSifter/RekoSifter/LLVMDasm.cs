@@ -94,5 +94,10 @@ namespace RekoSifter
 		{
 			return false;
 		}
+
+		public void SetEndianness(char endianness)
+        {
+			Console.Error.WriteLine("Endianness control for LLVM is not supported yet.");
+        }
 	}
 }

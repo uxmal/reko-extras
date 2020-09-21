@@ -40,6 +40,9 @@ namespace RekoSifter
             case "mips-be-64":
             case "mips-le-64":
                 return new MipsRenderer();
+            case "sparc32":
+            case "sparc64":
+                return new SparcRenderer();
             default:
                 return new InstrRenderer();
             }

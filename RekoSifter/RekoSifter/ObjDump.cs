@@ -44,6 +44,7 @@ namespace RekoSifter
 
         private readonly DisassembleInfo dasmInfo;
         private readonly DisassemblerFtype dasm;
+        private BfdEndian endianness;
 
         private void PrintAvailableArchitectures() {
             foreach(var pair in libToArches) {
@@ -149,6 +150,7 @@ namespace RekoSifter
             DisassembleInfo info = new DisassembleInfo();
             dis_asm.InitDisassembleInfo(info, IntPtr.Zero, fprintfDelegate);
 
+            info.Endian = endianness;
             info.Arch = arch.Arch;
             info.Mach = arch.Mach;
             info.ReadMemoryFunc = bufferReadMemoryDelegate;
@@ -157,7 +159,7 @@ namespace RekoSifter
             info.BufferLength = 0;
             
             dis_asm.DisassembleInitForTarget(info);
-            
+
             // create disassembler, returns a function pointer
             DisassemblerFtype disasm = dis_asm.Disassembler(arch.Arch, 0, arch.Mach, null);
             if (disasm == null) {
@@ -229,6 +231,16 @@ namespace RekoSifter
 
         public void Dispose() {
             dasmInfo.Dispose();
+        }
+
+        public void SetEndianness(char endianness)
+        {
+            if (endianness == 'b')
+                this.endianness = BfdEndian.BFD_ENDIAN_BIG;
+            else if (endianness == 'l')
+                this.endianness = BfdEndian.BFD_ENDIAN_LITTLE;
+            else
+                this.endianness = BfdEndian.BFD_ENDIAN_UNKNOWN;
         }
     }
 }

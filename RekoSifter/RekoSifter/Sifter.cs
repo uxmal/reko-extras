@@ -35,6 +35,7 @@ namespace RekoSifter
         private bool useRandomBytes;
         private Action<byte[], MachineInstruction?> processInstr;
         private IDisassembler? otherDasm;
+        private char endianness;
 
         public Sifter(string[] args)
         {
@@ -100,7 +101,7 @@ namespace RekoSifter
             var maxLength = DefaultMaxInstrLength;
 
             var it = args.GetEnumerator();
-
+            Func<IDisassembler>? mkOtherDasm = null;
             while (it.MoveNext())
             {
                 bool res = true;
@@ -138,7 +139,7 @@ namespace RekoSifter
                         {
                             processInstr = this.CompareWithLlvm;
                         }
-                        otherDasm = new LLVMDasm(llvmArch!);
+                        mkOtherDasm = () => new LLVMDasm(llvmArch!);
                         break;
                     case "-o":
                     case "--objdump":
@@ -151,7 +152,7 @@ namespace RekoSifter
                             // string mach = parts[1];
                             // $TODO: convert machine to uint (BfdMachine)
 
-                            otherDasm = new ObjDump(arch);
+                            mkOtherDasm = () => new ObjDump(arch);
                             processInstr = this.CompareWithObjdump;
                         }
                         break;
@@ -170,6 +171,17 @@ namespace RekoSifter
                     case "--help":
                         res = false;
                         break;
+                case "-e":
+                case "--endianness":
+                    if (TryTake(it, out var sEndianness) && (sEndianness![0] == 'b' || sEndianness[0] == 'l'))
+                    {
+                        this.endianness = sEndianness[0];
+                    }
+                    else
+                    {
+                        res = false;
+                    }
+                    break;
                 }
 
                 if (!res)
@@ -180,8 +192,11 @@ namespace RekoSifter
             }
 
             this.maxInstrLength = maxLength;
+            if (mkOtherDasm != null)
+                otherDasm = mkOtherDasm();
+
             return (
-                cfgSvc.GetArchitecture(archName),
+                cfgSvc.GetArchitecture(archName!),
                 InstrRenderer.Create(archName!));
         }
 
@@ -195,6 +210,7 @@ Usage:
 Options:
     -a --arch <name>       Use processor architecture <name>.
     --maxlen <length>      Maximum instruction length.
+    -e --endianness <b|l>  Specify either big- or little-endianness.
     -r --random [seed|-]   Generate random byte sequences (using
                             optional seed.
     -l --llvm <llvmarch>   Enable llvm comparison and use arch <llvmarch>.
@@ -207,6 +223,7 @@ Options:
 
         public void Sift()
         {
+            otherDasm?.SetEndianness(this.endianness);
             if (useRandomBytes)
             {
                 var rng = seed.HasValue
