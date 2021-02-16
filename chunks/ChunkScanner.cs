@@ -23,16 +23,16 @@ namespace chunks
 
         public void doit()
         {
-            var taskUnits = new List<TaskUnit>();
+            var taskUnits = new List<RewriterTask>();
             for (int i = 0; i < workUnit.Length; i += chunkSize)
             {
-                taskUnits.Add(new TaskUnit(workUnit, i, i + chunkSize));
+                taskUnits.Add(new LinearTask(workUnit, i, i + chunkSize));
             }
             var results = new TaskResult[taskUnits.Count];
-            Parallel.ForEach(taskUnits, (src, state, n) =>
+            Time(() => Parallel.ForEach(taskUnits, (src, state, n) =>
             {
                 results[n] = src.Run();
-            });
+            }));
         }
 
         private static void Time(Action action)

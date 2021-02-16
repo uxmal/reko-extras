@@ -9,13 +9,13 @@ using System.Linq;
 
 namespace chunks
 {
-    internal class TaskUnit
+    public class RewriterTask
     {
-        private WorkUnit workUnit;
-        private int i;
-        private int v;
+        protected WorkUnit workUnit;
+        protected int i;
+        protected int v;
 
-        public TaskUnit(WorkUnit workUnit, int i, int v)
+        protected RewriterTask(WorkUnit workUnit, int i, int v)
         {
             this.workUnit = workUnit;
             this.i = i;
@@ -24,11 +24,7 @@ namespace chunks
 
         public TaskResult Run()
         {
-            var arch = workUnit.Architecture;
-            var rdr = arch.Endianness.CreateImageReader(workUnit.MemoryArea, i);
-            var state = arch.CreateProcessorState();
-            var host = new RewriterHost();
-            var rw = arch.CreateRewriter(rdr, state, new StorageBinder(), host);
+            IEnumerable<RtlInstructionCluster> rw = CreateReader();
             var clusters =
                 (from cluster in rw
                  where cluster.Address - workUnit.MemoryArea.BaseAddress < v
@@ -37,6 +33,16 @@ namespace chunks
             {
                 Clusters = clusters,
             };
+        }
+
+        protected IEnumerable<RtlInstructionCluster> CreateReader()
+        {
+            var arch = workUnit.Architecture;
+            var rdr = arch.Endianness.CreateImageReader(workUnit.MemoryArea, i);
+            var state = arch.CreateProcessorState();
+            var host = new RewriterHost();
+            var rw = arch.CreateRewriter(rdr, state, new StorageBinder(), host);
+            return rw;
         }
 
         private class RewriterHost : IRewriterHost
@@ -116,7 +122,7 @@ namespace chunks
 
             public void Warn(Address address, string format, params object[] args)
             {
-                Console.WriteLine("Warning: {0} {1}", address, string.Format(format, args));
+                // Console.WriteLine("Warning: {0} {1}", address, string.Format(format, args));
             }
         }
     }

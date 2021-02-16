@@ -4,6 +4,6 @@ namespace chunks
 {
     public class TaskResult
     {
-        public RtlInstructionCluster[] Clusters { get; internal set; }
+        public RtlInstructionCluster[]? Clusters { get; init; }
     }
 }

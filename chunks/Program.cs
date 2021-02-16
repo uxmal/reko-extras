@@ -1,5 +1,6 @@
 ﻿using Reko.Core;
 using Reko.Core.Memory;
+using Reko.Core.Services;
 using System;
 using System.ComponentModel.Design;
 
@@ -12,6 +13,8 @@ namespace chunks
         static void Main(string[] args)
         {
             var services = new ServiceContainer();
+            services.AddService<IFileSystemService>(new FileSystemServiceImpl());
+            //services.AddService<ITestGenerationService>(new TestGenerationService(services));
             var work = MakeWorkUnit(services, 42);
             var sc = new ChunkScanner(work, 0x10000);
             sc.doit();
