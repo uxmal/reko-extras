@@ -1,7 +1,9 @@
 ﻿using Reko.Core;
 using Reko.Core.Expressions;
+using Reko.Core.Memory;
 using Reko.Core.Rtl;
 using Reko.Core.Serialization;
+using Reko.Core.Services;
 using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
@@ -24,14 +26,41 @@ namespace chunks
 
         public abstract TaskResult Run();
 
-        protected IEnumerable<RtlInstructionCluster> CreateReader(int i)
+        protected IEnumerable<RtlInstructionCluster> CreateRewriter(int i)
         {
+            var rdr = CreateReader(i);
             var arch = workUnit.Architecture;
-            var rdr = arch.Endianness.CreateImageReader(workUnit.MemoryArea, i);
             var state = arch.CreateProcessorState();
             var host = new RewriterHost();
             var rw = arch.CreateRewriter(rdr, state, new StorageBinder(), host);
             return rw;
+        }
+
+        protected EndianImageReader CreateReader(int i)
+        {
+            var arch = workUnit.Architecture;
+            var rdr = arch.Endianness.CreateImageReader(workUnit.MemoryArea, i);
+            return rdr;
+        }
+
+        protected void ReportException(Exception ex, int i)
+        {
+            var testSvc = workUnit.Architecture.Services.GetService<ITestGenerationService>();
+            if (testSvc is null)
+                return;
+            if (testSvc is MutableTestGenerationService mutable)
+            {
+                mutable.IsMuted = false;
+            }
+            testSvc?.ReportMissingDecoder(
+                workUnit.Architecture.Name!,
+                workUnit.MemoryArea.BaseAddress + i,
+                CreateReader(i + 16),
+                "");
+            if (testSvc is MutableTestGenerationService mutable2)
+            {
+                mutable2.IsMuted = true;
+            }
         }
 
         private class RewriterHost : IRewriterHost

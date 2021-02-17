@@ -15,7 +15,7 @@ namespace chunks
 
         public override TaskResult Run()
         {
-            IEnumerable<RtlInstructionCluster> rw = CreateReader(iStart);
+            IEnumerable<RtlInstructionCluster> rw = CreateRewriter(iStart);
             var clusters =
                 (from cluster in rw
                  where cluster.Address - workUnit.MemoryArea.BaseAddress < iEnd

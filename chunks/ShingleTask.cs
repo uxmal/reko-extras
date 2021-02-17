@@ -1,5 +1,6 @@
 ﻿using Reko.Core;
 using Reko.Core.Rtl;
+using Reko.Core.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,8 +26,16 @@ namespace chunks
             for (int i = iStart; i < iEnd; i += step)
             {
                 var rw = GetRewriter(i);
-                if (!rw.MoveNext())
+                try
+                {
+                    if (!rw.MoveNext())
+                        continue;
+                }
+                catch (Exception ex)
+                {
+                    ReportException(ex, i);
                     continue;
+                }
                 var cluster = rw.Current;
                 rtls.Add(cluster);
 
@@ -45,7 +54,7 @@ namespace chunks
                 rewriters.Remove(i);
                 return rw;
             }
-            return base.CreateReader(i).GetEnumerator();
+            return base.CreateRewriter(i).GetEnumerator();
         }
 
         private void CacheRewriter(int i, IEnumerator<RtlInstructionCluster> rw)

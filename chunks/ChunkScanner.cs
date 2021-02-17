@@ -21,7 +21,7 @@ namespace chunks
             this.chunkSize = chunkSize;
         }
 
-        public long DoIt(RewriterTaskFactory factory)
+        public (long, int) DoIt(RewriterTaskFactory factory)
         {
             var taskUnits = new List<RewriterTask>();
             for (int i = 0; i < workUnit.Length; i += chunkSize)
@@ -29,10 +29,11 @@ namespace chunks
                 taskUnits.Add(factory.Create(workUnit, i, i + chunkSize));
             }
             var results = new TaskResult[taskUnits.Count];
-            return Time(() => Parallel.ForEach(taskUnits, (src, state, n) =>
+            var msec = Time(() => Parallel.ForEach(taskUnits, (src, state, n) =>
             {
                 results[n] = src.Run();
             }));
+            return (msec, results.Sum(r => r.Clusters!.Length));
         }
 
         private static long Time(Action action)
