@@ -9,33 +9,22 @@ using System.Linq;
 
 namespace chunks
 {
-    public class RewriterTask
+    public abstract class RewriterTask
     {
         protected WorkUnit workUnit;
-        protected int i;
-        protected int v;
+        protected int iStart;
+        protected int iEnd;
 
         protected RewriterTask(WorkUnit workUnit, int i, int v)
         {
             this.workUnit = workUnit;
-            this.i = i;
-            this.v = v;
+            this.iStart = i;
+            this.iEnd = v;
         }
 
-        public TaskResult Run()
-        {
-            IEnumerable<RtlInstructionCluster> rw = CreateReader();
-            var clusters =
-                (from cluster in rw
-                 where cluster.Address - workUnit.MemoryArea.BaseAddress < v
-                 select cluster).ToArray();
-            return new TaskResult
-            {
-                Clusters = clusters,
-            };
-        }
+        public abstract TaskResult Run();
 
-        protected IEnumerable<RtlInstructionCluster> CreateReader()
+        protected IEnumerable<RtlInstructionCluster> CreateReader(int i)
         {
             var arch = workUnit.Architecture;
             var rdr = arch.Endianness.CreateImageReader(workUnit.MemoryArea, i);
@@ -66,7 +55,6 @@ namespace chunks
 
             public void Error(Address address, string format, params object[] args)
             {
-                throw new NotImplementedException();
             }
 
             public IProcessorArchitecture GetArchitecture(string archMoniker)

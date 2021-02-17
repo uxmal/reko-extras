@@ -21,27 +21,27 @@ namespace chunks
             this.chunkSize = chunkSize;
         }
 
-        public void doit()
+        public long DoIt(RewriterTaskFactory factory)
         {
             var taskUnits = new List<RewriterTask>();
             for (int i = 0; i < workUnit.Length; i += chunkSize)
             {
-                taskUnits.Add(new LinearTask(workUnit, i, i + chunkSize));
+                taskUnits.Add(factory.Create(workUnit, i, i + chunkSize));
             }
             var results = new TaskResult[taskUnits.Count];
-            Time(() => Parallel.ForEach(taskUnits, (src, state, n) =>
+            return Time(() => Parallel.ForEach(taskUnits, (src, state, n) =>
             {
                 results[n] = src.Run();
             }));
         }
 
-        private static void Time(Action action)
+        private static long Time(Action action)
         {
             var sw = new Stopwatch();
             sw.Start();
             action();
             sw.Stop();
-            Console.WriteLine("*** Elapsed time {0}", sw.ElapsedMilliseconds);
+            return sw.ElapsedMilliseconds;
         }
     }
 }
