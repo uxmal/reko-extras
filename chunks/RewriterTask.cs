@@ -56,7 +56,7 @@ namespace chunks
                 workUnit.Architecture.Name!,
                 workUnit.MemoryArea.BaseAddress + i,
                 CreateReader(i + 16),
-                "");
+                ex.Message + "\r\n/*" + ex.StackTrace + "*/ //");
             if (testSvc is MutableTestGenerationService mutable2)
             {
                 mutable2.IsMuted = true;
@@ -74,7 +74,15 @@ namespace chunks
 
             public Expression CallIntrinsic(string name, bool isIdempotent, FunctionType fnType, params Expression[] args)
             {
-                throw new NotImplementedException();
+                if (!this.intrinsics.TryGetValue(name, out var intrinsic))
+                {
+                    intrinsic = new IntrinsicProcedure(name, isIdempotent, fnType);
+                    this.intrinsics.Add(name, intrinsic);
+                }
+                return new Application(
+                    new ProcedureConstant(new UnknownType(), intrinsic),
+                    intrinsic.ReturnType,
+                    args);
             }
 
             public IntrinsicProcedure EnsureIntrinsic(string name, bool isIdempotent, DataType returnType, int arity)

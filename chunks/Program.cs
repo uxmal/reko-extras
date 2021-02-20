@@ -18,7 +18,9 @@ namespace chunks
         static void Main(string[] args)
         {
             var cfg = MakeServices();
+            var includedArchs = new Regex("v850", RegexOptions.IgnoreCase);
             var exceptedArchs = new Regex("x86.*16|lackfin|65816|PIC", RegexOptions.IgnoreCase);
+            //foreach (var archDef in cfg.GetArchitectures().Where(a => includedArchs.IsMatch(a.Name!)))
             foreach (var archDef in cfg.GetArchitectures().Where(a => !exceptedArchs.IsMatch(a.Name!)))
             {
                 TestArchitecture(cfg, archDef);
@@ -38,7 +40,7 @@ namespace chunks
             {
                 IsMuted = true
             };
-  //        services.AddService<ITestGenerationService>(mutable);
+            services.AddService<ITestGenerationService>(mutable);
             return cfg;
         }
 
@@ -55,7 +57,7 @@ namespace chunks
             var factory = new ShingleTaskFactory();
 
             // Now do the stats.
-            for (int chunkSize = 256; chunkSize <= MemorySize; chunkSize *= 4)
+            for (int chunkSize = MemorySize; chunkSize <= MemorySize; chunkSize *= 4)
             {
                 Console.Out.WriteLine("    Shingle scan, chunk size {0}", chunkSize);
                 long sum = 0;
@@ -78,11 +80,6 @@ namespace chunks
 
         private static WorkUnit? MakeWorkUnit(IConfigurationService cfg, ArchitectureDefinition archDef, int seed)
         {
-            //var arch = cfg.GetArchitecture("risc-v")!;
-            //var arch = cfg.GetArchitecture("m68k")!;
-            //var arch = cfg.GetArchitecture("arm")!;
-            //var arch = cfg.GetArchitecture("mips-be-32")!;
-            //var arch = cfg.GetArchitecture("x86-protected-64")!;
             var arch = cfg.GetArchitecture(archDef.Name!);
             if (arch is null)
             {
