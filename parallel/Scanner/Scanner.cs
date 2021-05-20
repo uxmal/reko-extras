@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -38,14 +39,14 @@ namespace ParallelScan
                 return promise.Task;
         }
 
-        public bool TryRegisterBlockStart(Address addrStart)
+        public bool TryRegisterBlockStart(Address addrStart, Address addrProc)
         {
-            return cfg.C.TryAdd(addrStart, addrStart);
+            return cfg.C.TryAdd(addrStart, addrProc);
         }
 
-        public bool TryRegisterBlockEnd(Address addrEnd)
+        public bool TryRegisterBlockEnd(Address blockStart, Address addrEnd)
         {
-            return cfg.BlockEnds.TryAdd(addrEnd, addrEnd);
+            return cfg.BlockEnds.TryAdd(addrEnd, blockStart);
         }
 
         public bool TryRegisterProcedure(Address addrProc)
@@ -73,15 +74,65 @@ namespace ParallelScan
             }
         }
 
-        public bool RegisterBlock(Address blockStart, Address addrLastInstr, int lengthLastInstr)
+        /// <summary>
+        /// Register a block starting at address <paramref name="blockStart"/> of known size
+        /// <paramref name="blockSize"/>.
+        /// </summary>
+        /// <param name="blockStart"></param>
+        /// <param name="addrEnd"></param>
+        /// <returns>True if the block was registered, false if another thread got there first.</returns>
+        public bool RegisterBlock(Address blockStart, long blockSize)
         {
-            var blockSize = addrLastInstr - blockStart + lengthLastInstr;
-            return cfg.B.TryAdd(blockStart, new AddressRange(blockStart, blockSize));
+            return cfg.B.TryAdd(blockStart, new AddressRange(blockStart, (int)blockSize));
         }
 
         public void RegisterEdge(CfgEdge edge)
         {
-            cfg.E.TryAdd(edge, edge);
+            if (!cfg.E.TryGetValue(edge.From, out var edges))
+            {
+                edges = new(2); // The majority of blocks have at most 2 out edges.
+                cfg.E[edge.From] = edges;
+            }
+            edges.Add(edge);
+        }
+
+
+        public void SplitBlock(Address xj, IProcessorArchitecture arch, Address y)
+        {
+            Address xi = cfg.BlockEnds[y];
+            if (xi == xj)
+            {
+                return;
+            }
+            else if (xj < xi)
+            {
+                // If xi > xj, Bj is split into [xj, xi) while Bi is untouched. We then register Bj at block end
+                // address xi, which will trigger a new iteration of block split when another block has already
+                // registered block end at xi.
+                if (!TryRegisterBlockEnd(xj, xi))
+                    throw new NotImplementedException();//$TODO: what if this happens.
+                RegisterBlock(xj, y - xj);
+                RegisterEdge(new CfgEdge(EdgeType.DirectJump, arch, xj, xi));
+            }
+            else
+            {
+                // If xi < xj, Bi is split into [xi, xj) while Bj is untouched. We then replace Bi with Bj for block
+                // end address y, register Bi for block end address xj, and move out-going edges from Bi to Bj.
+                // Similar to the first case, registering Bi at xj may recursively require another block split.
+                Debug.Assert(xj > xi);
+                if (!TryRegisterBlockEnd(xi, xj))
+                    throw new NotImplementedException();
+                cfg.B[xi] = new AddressRange(xi, xj - xi);
+                RegisterBlock(xj, y - xj);
+                if (cfg.E.TryGetValue(xi, out var edges))
+                {
+                    cfg.E.TryRemove(xi, out _);
+                    var newEges = edges.Select(e => new CfgEdge(e.Type, e.Architecture, xj, e.To)).ToList();
+                    cfg.E.TryAdd(xj, newEges);
+                }
+                cfg.BlockEnds[y] = xj;
+                RegisterEdge(new CfgEdge(EdgeType.DirectJump, arch, xi, xj));
+            }
         }
     }
 }
