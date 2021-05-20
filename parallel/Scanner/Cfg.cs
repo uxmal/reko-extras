@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System;
 
 namespace ParallelScan
 {
@@ -22,7 +23,7 @@ namespace ParallelScan
         /// E ⊆ {(a → b) : a ∈ B,b ∈ B ∪C} is a set of directed edges between basic blocks, representing
         /// possible control flow executions between blocks.
         /// </summary> 
-        public readonly ConcurrentDictionary<CfgEdge, CfgEdge> E;
+        public readonly ConcurrentDictionary<Address, List<CfgEdge>> E;
 
         /// <summary> 
         /// F ⊆ B ∪C is the set of function entry blocks.
@@ -35,6 +36,9 @@ namespace ParallelScan
         /// </summary>
         public ConcurrentDictionary<Address, Address> ParentProcedure;
 
+        /// <summary>
+        /// This dictionary maps block end address to block start addresses.
+        /// </summary>
         public ConcurrentDictionary<Address, Address> BlockEnds { get; }
 
         public Cfg()
@@ -63,6 +67,11 @@ namespace ParallelScan
         public Address To { get; }
         public EdgeType Type { get; }
         public IProcessorArchitecture Architecture { get; set; }
+
+        public override string ToString()
+        {
+            return $"{Type}: {From} -> {To}";
+        }
     }
 
     public enum EdgeType
@@ -75,6 +84,13 @@ namespace ParallelScan
         IndirectJump,
     }
 
+    public enum ProcedureReturn
+    {
+        Unknown,
+        Diverges,
+        Returns,
+    }
+
     public struct AddressRange
     {
         public Address Address { get; }
@@ -83,7 +99,7 @@ namespace ParallelScan
         public AddressRange(Address addr, long size) 
         {
             this.Address = addr;
-            this.Size = size;
+            this.Size = size > 0 ? size : throw new ArgumentException(nameof(size));
         }
     }
 

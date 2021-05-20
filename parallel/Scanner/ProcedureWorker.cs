@@ -31,9 +31,10 @@ namespace ParallelScan
             this.addrProc = addrProc;
             this.scanner = scheduler;
             this.workqueue = new();
-            workqueue.Enqueue(MakeWorkItem(arch, addrProc), Priority.Linear);
-            scheduler.TryRegisterProcedure(addrProc);
-            scheduler.TryRegisterBlockStart(addrProc);
+            if (scheduler.TryRegisterProcedure(addrProc))
+            {
+                workqueue.Enqueue(MakeWorkItem(arch, addrProc), Priority.Linear);
+            }
         }
 
         private WorkItem MakeWorkItem(IProcessorArchitecture arch, Address addrProc)
@@ -50,7 +51,8 @@ namespace ParallelScan
             {
                 while (workqueue.TryDequeue(out var item))
                 {
-                    scanner.TryRegisterBlockStart(item.BlockStart);
+                    Verbose("  Processing {0}", item.BlockStart);
+                    scanner.TryRegisterBlockStart(item.BlockStart, addrProc);
                     var lastInstr = ParseLinear(item);
                     if (lastInstr is null)
                     {
@@ -61,8 +63,8 @@ namespace ParallelScan
                         var edges = RegisterBlockEnd(item, lastInstr);
                         if (edges.Count == 0)
                         {
-                            // Someone got there before us.
-                            SplitBlock(item);
+                            Verbose("  Block end already present at {0}", lastInstr.Address);
+                            SplitBlockEndingAt(item, lastInstr.Address + lastInstr.Length);
                         }
                         foreach (var edge in edges)
                         {
@@ -96,18 +98,24 @@ namespace ParallelScan
         private List<CfgEdge> RegisterBlockEnd(WorkItem item, MachineInstruction instr)
         {
             var edges = new List<CfgEdge>();
-            if (!scanner.TryRegisterBlockEnd(instr.Address))
+            var addrEnd = instr.Address + instr.Length;
+            if (!scanner.TryRegisterBlockEnd(item.BlockStart, addrEnd))
                 return edges;
 
             // We know the full extent of a block
-            scanner.RegisterBlock(item.BlockStart, instr.Address, instr.Length);
+            scanner.RegisterBlock(item.BlockStart, addrEnd - item.BlockStart);
             var addrTarget = DetermineTargetAddress(instr);
             if (instr.InstrClass.HasFlag(InstrClass.Transfer))
             {
                 if (addrTarget is not null)
                 {
+                    if (instr.InstrClass.HasFlag(InstrClass.Conditional))
+                    {
+                        var nextAddress = addrEnd; //$TODO: delay.
+                        edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, nextAddress));
+                    }
                     // Simple jump.
-                    edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, instr.Address, addrTarget));
+                    edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrTarget));
                     return edges;
                 }
                 if (instr.InstrClass.HasFlag(InstrClass.Return))
@@ -129,8 +137,9 @@ namespace ParallelScan
                 return null;
         }
 
-        private void SplitBlock(WorkItem item)
+        private void SplitBlockEndingAt(WorkItem item, Address addrEnd)
         {
+            scanner.SplitBlock(item.BlockStart, item.Architecture, addrEnd);
         }
 
         private MachineInstruction? ParseLinear(WorkItem item)
@@ -138,6 +147,7 @@ namespace ParallelScan
             while (item.Disassembler.MoveNext())
             {
                 var instr = item.Disassembler.Current;
+                item.Instructions.Add(instr);
                 if (instr.InstrClass != InstrClass.Linear)
                 {
                     Verbose("  stopping ParseLinear at {0} {1}", instr.Address, instr.ToString());
@@ -162,11 +172,13 @@ namespace ParallelScan
                 this.Architecture = arch;
                 this.BlockStart = blockStart;
                 this.Disassembler = dasm;
+                this.Instructions = new();
             }
 
             public IProcessorArchitecture Architecture { get; }
             public Address BlockStart { get; }
             public IEnumerator<MachineInstruction> Disassembler { get; }
+            public List<MachineInstruction> Instructions { get;  }
         }
     }
 }
