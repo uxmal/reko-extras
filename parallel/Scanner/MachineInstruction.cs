@@ -9,7 +9,15 @@ namespace ParallelScan
     public class MachineInstruction
     {
         private static readonly MachineOperand[] EmptyOperands = Array.Empty<MachineOperand>();
+
+        public MachineInstruction(InstrClass iclass, Mnemonic mnemonic)
+        {
+            this.InstrClass = iclass;
+            this.Mnemonic = Mnemonic;
+        }
+
         public InstrClass InstrClass { get; set; }
+        public Mnemonic Mnemonic { get; }
         public Address Address { get; set; } = default!;
 
         public MachineOperand[] Operands { get; set; } = EmptyOperands;
@@ -31,6 +39,7 @@ namespace ParallelScan
             }
             return sb.ToString();
         }
+
     }
 
     public class MachineOperand

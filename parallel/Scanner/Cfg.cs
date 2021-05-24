@@ -11,7 +11,7 @@ namespace ParallelScan
         /// contains at most one control flow instruction, which if present is the final instruction within
         /// the range, and has incoming control flow at only address s.
         /// </summary>
-        public readonly ConcurrentDictionary<Address, AddressRange> B;
+        public readonly ConcurrentDictionary<Address, Block> B;
 
         /// <summary>
         /// C is a set of candidate blocks [t], representing addresses which are known to start basic
@@ -91,15 +91,17 @@ namespace ParallelScan
         Returns,
     }
 
-    public struct AddressRange
+    public class Block
     {
         public Address Address { get; }
         public long Size { get; }
+        public MachineInstruction[] Instructions { get; }
 
-        public AddressRange(Address addr, long size) 
+        public Block(Address addr, long size, MachineInstruction[] instrs) 
         {
             this.Address = addr;
             this.Size = size > 0 ? size : throw new ArgumentException(nameof(size));
+            this.Instructions = instrs;
         }
     }
 

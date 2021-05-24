@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 
 namespace ParallelScan
 {
@@ -14,7 +16,9 @@ namespace ParallelScan
 
         private readonly IProcessorArchitecture arch;
         private readonly Address addrProc;
-        private readonly PriorityQueue<WorkItem, Priority> workqueue;
+        private PriorityQueue<WorkItem, Priority> workqueue;
+        private readonly object queueLock;
+        private readonly HashSet<Address> visited;
         private readonly Scanner scanner;
 
         public enum Priority
@@ -31,6 +35,8 @@ namespace ParallelScan
             this.addrProc = addrProc;
             this.scanner = scheduler;
             this.workqueue = new();
+            this.queueLock = new();
+            this.visited = new();
             if (scheduler.TryRegisterProcedure(addrProc))
             {
                 workqueue.Enqueue(MakeWorkItem(arch, addrProc), Priority.Linear);
@@ -49,10 +55,11 @@ namespace ParallelScan
             Verbose("Entering Processing() method");
             try
             {
-                while (workqueue.TryDequeue(out var item))
+                while (TryDequeueWorkitem(out var item))
                 {
                     Verbose("  Processing {0}", item.BlockStart);
-                    scanner.TryRegisterBlockStart(item.BlockStart, addrProc);
+                    if (!scanner.TryRegisterBlockStart(item.BlockStart, addrProc))
+                        continue;
                     var lastInstr = ParseLinear(item);
                     if (lastInstr is null)
                     {
@@ -61,24 +68,50 @@ namespace ParallelScan
                     else
                     {
                         var edges = RegisterBlockEnd(item, lastInstr);
-                        if (edges.Count == 0)
-                        {
-                            Verbose("  Block end already present at {0}", lastInstr.Address);
-                            SplitBlockEndingAt(item, lastInstr.Address + lastInstr.Length);
-                        }
                         foreach (var edge in edges)
                         {
                             ProcessEdge(edge);
                         }
                     }
                 }
+                var queue = DestroyQueue();
                 scanner.TaskCompleted(addrProc);
                 Verbose("Procedure completed.");
             }
-
             catch (Exception ex)
             {
                 scanner.TaskFailed(addrProc, ex);
+            }
+            finally
+            {
+            }
+        }
+
+        public bool TryDequeueWorkitem([MaybeNullWhen(false)] out WorkItem item)
+        {
+            lock (queueLock)
+            {
+                return workqueue.TryDequeue(out item);
+            }
+        }
+
+        public bool TryEnqueueWorkitem(WorkItem item, Priority priority)
+        {
+            lock (queueLock)
+            {
+                var queue = this.workqueue;
+                if (queue is null)
+                    return false;
+                queue.Enqueue(item, priority);
+                return true;
+            }
+        }
+
+        private PriorityQueue<WorkItem, Priority> DestroyQueue()
+        {
+            lock (queueLock)
+            {
+                return Interlocked.Exchange(ref workqueue, null!);
             }
         }
 
@@ -89,7 +122,7 @@ namespace ParallelScan
             case EdgeType.DirectJump:
                 scanner.RegisterEdge(edge);
                 var wi = MakeWorkItem(edge.Architecture, edge.To);
-                this.workqueue.Enqueue(wi, Priority.Linear);
+                TryEnqueueWorkitem(wi, Priority.Linear);
                 return;
             }
             throw new NotImplementedException();
@@ -97,24 +130,30 @@ namespace ParallelScan
 
         private List<CfgEdge> RegisterBlockEnd(WorkItem item, MachineInstruction instr)
         {
+            var block = scanner.TryRegisterBlock(item.BlockStart, instr.Address - item.BlockStart + instr.Length, item.Instructions.ToArray());
+            if (block is null)
+                throw new InvalidOperationException();
             var edges = new List<CfgEdge>();
-            var addrEnd = instr.Address + instr.Length;
-            if (!scanner.TryRegisterBlockEnd(item.BlockStart, addrEnd))
+            if (!scanner.TryRegisterBlockEnd(item.BlockStart, instr.Address))
+            {
+                // Another thread has already reached addrEnd. Now we have to reconcile the result.
+                Verbose("  Block end already present at {0}", instr.Address);
+                scanner.SplitBlock(block, item.Architecture, instr.Address);
                 return edges;
+            }
 
-            // We know the full extent of a block
-            scanner.RegisterBlock(item.BlockStart, addrEnd - item.BlockStart);
-            var addrTarget = DetermineTargetAddress(instr);
+            // We're the first thread to reach addrEnd, which means we get to create the out edges.
             if (instr.InstrClass.HasFlag(InstrClass.Transfer))
             {
+                var addrTarget = DetermineTargetAddress(instr);
                 if (addrTarget is not null)
                 {
                     if (instr.InstrClass.HasFlag(InstrClass.Conditional))
                     {
-                        var nextAddress = addrEnd; //$TODO: delay.
-                        edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, nextAddress));
+                        var addrFallthrough = instr.Address + instr.Length; //$TODO: delay
+
+                        edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrFallthrough));
                     }
-                    // Simple jump.
                     edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrTarget));
                     return edges;
                 }
@@ -135,11 +174,6 @@ namespace ParallelScan
             }
             else
                 return null;
-        }
-
-        private void SplitBlockEndingAt(WorkItem item, Address addrEnd)
-        {
-            scanner.SplitBlock(item.BlockStart, item.Architecture, addrEnd);
         }
 
         private MachineInstruction? ParseLinear(WorkItem item)
@@ -165,7 +199,7 @@ namespace ParallelScan
             Debug.Print("{0}: {1}", addrProc, string.Format(message, args));
         }
 
-        class WorkItem
+        public class WorkItem
         {
             public WorkItem(IProcessorArchitecture arch, Address blockStart, IEnumerator<MachineInstruction> dasm)
             {
