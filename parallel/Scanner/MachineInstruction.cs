@@ -13,7 +13,7 @@ namespace ParallelScan
         public MachineInstruction(InstrClass iclass, Mnemonic mnemonic)
         {
             this.InstrClass = iclass;
-            this.Mnemonic = Mnemonic;
+            this.Mnemonic = mnemonic;
         }
 
         public InstrClass InstrClass { get; set; }
@@ -26,7 +26,7 @@ namespace ParallelScan
         public override string ToString()
         {
             var sb = new StringBuilder();
-            sb.Append(InstrClass.ToString());
+            sb.Append(Mnemonic.ToString());
             if (Operands.Length > 0)
             {
                 var sep = " ";
@@ -39,7 +39,6 @@ namespace ParallelScan
             }
             return sb.ToString();
         }
-
     }
 
     public class MachineOperand

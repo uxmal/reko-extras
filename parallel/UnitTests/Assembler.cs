@@ -50,6 +50,12 @@ namespace ParallelScan.UnitTests
             EmitShort(uAddr);
         }
 
+        public void Jmp(string label)
+        {
+            Emit(0x20);
+            EmitShort(ReferToSymbol(label));
+        }
+
         public void Branch(int condition, int uAddr)
         {
             Emit(0x20 | condition);
