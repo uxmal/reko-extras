@@ -161,7 +161,7 @@ namespace ParallelScan
                         wl.Enqueue((newI, arch, sAddress));
                     }
                     if (!TryRegisterBlockEnd(newJ.Address, sAddress))
-                    { 
+                    {
                         wl.Enqueue((newJ, arch, sAddress));
                     }
                 }
@@ -178,7 +178,7 @@ namespace ParallelScan
                     var newJ = Chop(Bj, 0, j);
                     cfg.B.TryUpdate(Bj.Address, newJ, Bj);
                     RegisterEdge(new CfgEdge(EdgeType.DirectJump, arch, xj, xi));
-                    var addrLast = Bj.Instructions[^1].Address;
+                    var addrLast = newJ.Instructions[^1].Address;
                     if (!TryRegisterBlockEnd(xj, addrLast))
                     {
                         wl.Enqueue((newJ, arch, addrLast));
@@ -208,10 +208,20 @@ namespace ParallelScan
             }
         }
 
-        private Block Chop(Block iBlock, int iStart, int iEnd)
+        /// <summary>
+        /// Creates a new block from an existing block, using the instruction range
+        /// [iStart, iEnd).
+        /// </summary>
+        /// <param name="block">The block to chop.</param>
+        /// <param name="iStart">Index of first instruction in the new block.</param>
+        /// <param name="iEnd">Index of the first instruction to not include.</param>
+        /// <returns>A new, terminated but unregistered block. The caller is responsible for 
+        /// registering it.
+        /// </returns>
+        private Block Chop(Block block, int iStart, int iEnd)
         {
             var instrs = new MachineInstruction[iEnd - iStart];
-            Array.Copy(iBlock.Instructions, iStart, instrs, 0, instrs.Length);
+            Array.Copy(block.Instructions, iStart, instrs, 0, instrs.Length);
             var addr = instrs[0].Address;
             var instrLast = instrs[^1];
             var size = (instrLast.Address - addr) + instrLast.Length;

@@ -100,8 +100,13 @@ namespace ParallelScan
         public Block(Address addr, long size, MachineInstruction[] instrs) 
         {
             this.Address = addr;
-            this.Size = size > 0 ? size : throw new ArgumentException(nameof(size));
+            this.Size = size > 0 ? size : throw new ArgumentOutOfRangeException(nameof(size));
             this.Instructions = instrs;
+        }
+
+        public override string ToString()
+        {
+            return $"l{Address}";
         }
     }
 

@@ -84,7 +84,7 @@ namespace ParallelScan.UnitTests
 
             Cfg cfg = await ScanProgramAsync(addr, m);
             Assert.AreEqual(1, cfg.F.Count);
-            Assert.AreEqual(2, cfg.B.Count); 
+            Assert.AreEqual(2, cfg.B.Count);
         }
 
         [Test]
@@ -118,6 +118,45 @@ l00000006:
 ";
             #endregion
 
+            AssertCfg(sExp, cfg);
+        }
+
+        [Test]
+        public async Task Scanner_loop()
+        {
+            var addr = Address.Ptr32(0);
+            var m = new Assembler(addr);
+            m.Mov();                    // 00
+            m.Mov();                    // 01
+            m.Jmp("while_head");        // 02
+
+            m.Label("loop_body");
+            m.Mov();                    // 05
+
+            m.Label("while_head");
+            m.Mov();                    // 06
+            m.Branch(3, "loop_body");   // 07
+
+            m.Ret();                    // 0A
+
+            Cfg cfg = await ScanProgramAsync(addr, m);
+
+            var sExp =
+            #region Expected
+@"proc fn00000000
+l00000000:
+    // size: 5
+    // succ: DirectJump: 00000000 -> 00000006
+l00000005:
+    // size: 1
+    // succ: DirectJump: 00000005 -> 00000006
+l00000006:
+    // size: 4
+    // succ: DirectJump: 00000006 -> 0000000A DirectJump: 00000006 -> 00000005
+l0000000A:
+    // size: 1
+";
+            #endregion
             AssertCfg(sExp, cfg);
         }
     }

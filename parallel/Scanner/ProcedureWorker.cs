@@ -178,6 +178,7 @@ namespace ParallelScan
 
         private MachineInstruction? ParseLinear(WorkItem item)
         {
+            Verbose("  starting ParseLinear at {0}", item.BlockStart);
             while (item.Disassembler.MoveNext())
             {
                 var instr = item.Disassembler.Current;
@@ -188,6 +189,7 @@ namespace ParallelScan
                     return instr;
                 }
             }
+            Verbose("  *** ParseLinear diverges!");
             return null;
         }
 
