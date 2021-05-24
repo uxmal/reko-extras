@@ -18,7 +18,6 @@ namespace ParallelScan
         private readonly Address addrProc;
         private PriorityQueue<WorkItem, Priority> workqueue;
         private readonly object queueLock;
-        private readonly HashSet<Address> visited;
         private readonly Scanner scanner;
 
         public enum Priority
@@ -36,7 +35,6 @@ namespace ParallelScan
             this.scanner = scheduler;
             this.workqueue = new();
             this.queueLock = new();
-            this.visited = new();
             if (scheduler.TryRegisterProcedure(addrProc))
             {
                 workqueue.Enqueue(MakeWorkItem(arch, addrProc), Priority.Linear);
@@ -58,6 +56,7 @@ namespace ParallelScan
                 while (TryDequeueWorkitem(out var item))
                 {
                     Verbose("  Processing {0}", item.BlockStart);
+                    // Ensure that only this thread is processing the block at item.BlockStart.
                     if (!scanner.TryRegisterBlockStart(item.BlockStart, addrProc))
                         continue;
                     var lastInstr = ParseLinear(item);
@@ -80,10 +79,8 @@ namespace ParallelScan
             }
             catch (Exception ex)
             {
+                DestroyQueue();
                 scanner.TaskFailed(addrProc, ex);
-            }
-            finally
-            {
             }
         }
 
@@ -107,6 +104,10 @@ namespace ParallelScan
             }
         }
 
+        /// <summary>
+        /// Destroys the work queue, preventing other threads to add more work to it.
+        /// </summary>
+        /// <returns>The old queue, which might still have some items in it.</returns>
         private PriorityQueue<WorkItem, Priority> DestroyQueue()
         {
             lock (queueLock)
@@ -189,7 +190,7 @@ namespace ParallelScan
                     return instr;
                 }
             }
-            Verbose("  *** ParseLinear diverges!");
+            Verbose("  *** ParseLinear diverged!");
             return null;
         }
 
