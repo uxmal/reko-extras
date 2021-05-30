@@ -159,5 +159,35 @@ l0000000A:
             #endregion
             AssertCfg(sExp, cfg);
         }
+
+        [Test]
+        public async Task Scanner_call()
+        {
+            var addr = Address.Ptr32(0);
+            var m = new Assembler(addr);
+            m.Call("subroutine");
+            m.Ret();
+
+            m.Label("subroutine");
+            m.Mov();
+            m.Ret();
+
+            Cfg cfg = await ScanProgramAsync(addr, m);
+
+            var sExp =
+            #region Expected
+@"proc fn00000000
+l00000000:
+    // size: 3
+    // succ: Call: 00000000 -> 00000004
+l00000003:
+    // size: 1
+proc fn00000004
+l00000004:
+    // size: 2
+";
+            #endregion
+            AssertCfg(sExp, cfg);
+        }
     }
 }

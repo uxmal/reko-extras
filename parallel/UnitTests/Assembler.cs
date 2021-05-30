@@ -44,6 +44,12 @@ namespace ParallelScan.UnitTests
             Emit(0x10);
         }
 
+        public void Call(string label)
+        {
+            Emit(0x30);
+            EmitShort(ReferToSymbol(label));
+        }
+
         public void Jmp(int uAddr)
         {
             Emit(0x20);
@@ -125,5 +131,6 @@ namespace ParallelScan.UnitTests
             public int? Offset;
             public List<int> Patches = new();
         }
+
     }
 }

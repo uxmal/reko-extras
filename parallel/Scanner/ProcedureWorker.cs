@@ -7,18 +7,36 @@ using System.Threading;
 
 namespace ParallelScan
 {
-    public class ProcedureWorker
+    public class ProcedureWorker : IProcedureWorker
     {
-        private static readonly TraceSwitch trace = new TraceSwitch(nameof(ProcedureWorker), "Trace progress of workers")
+        private static readonly TraceSwitch trace = new (nameof(ProcedureWorker), "Trace progress of workers")
         {
             Level = TraceLevel.Verbose
         };
 
+        /// <summary>
+        /// A worker can be in the following states, with transitions as follows:
+        /// StateWorking
+        ///     StateSleeping   if the worker queue is empty, but there are pending call returns.
+        ///     StateFinishing  if the worker queue is empty, and there are no pending call returns.
+        ///     StateQueueBusy  if a work item is being added or removed from the queue.
+        /// StateFinishing
+        ///                     This is a terminal state, the procedureworker will soon be deleted.
+        /// 
+        /// </summary>
+        private const int StateFinishing = -1;      // This instance is closing down and releasing all resources.
+        private const int StateWorking = 0;         // This instance is working, other threads are free to enqueue work.
+        private const int StateQueueBusy = 1;       // Some other thread is enqueueing work.
+        private const int StateSuspending = 2;      // Instance about to be suspended.
+        private const int StateSuspended = 3;       // Instance is waiting for a called worker to return.
+
+        private int state;
+        private int pendingCalls;
         private readonly IProcessorArchitecture arch;
         private readonly Address addrProc;
-        private PriorityQueue<WorkItem, Priority> workqueue;
-        private readonly object queueLock;
         private readonly Scanner scanner;
+        private readonly PriorityQueue<WorkItem, Priority> workqueue;
+        private Dictionary<Address, IProcedureWorker> callsWaitingForReturn;
 
         public enum Priority
         {
@@ -34,99 +52,244 @@ namespace ParallelScan
             this.addrProc = addrProc;
             this.scanner = scheduler;
             this.workqueue = new();
-            this.queueLock = new();
+            this.callsWaitingForReturn = new();
+            this.state = StateWorking;
             if (scheduler.TryRegisterProcedure(addrProc))
             {
                 workqueue.Enqueue(MakeWorkItem(arch, addrProc), Priority.Linear);
             }
         }
 
-        private WorkItem MakeWorkItem(IProcessorArchitecture arch, Address addrProc)
+        public Address ProcedureAddress => addrProc;
+
+        public int State => state;
+
+
+
+        private WorkItem MakeWorkItem(IProcessorArchitecture arch, Address addr)
         {
-            var rdr = scanner.CreateReader(arch, addrProc);
+            var rdr = scanner.CreateReader(arch, addr);
             var dasm = arch.CreateDisassembler(rdr).GetEnumerator();
-            return new WorkItem(arch, addrProc, dasm);
+            return new WorkItem(arch, addr, dasm);
         }
 
         public void Process()
         {
-            Verbose("Entering Processing() method");
+            Verbose("Entering Processing() method on thread {0}", Thread.CurrentThread.ManagedThreadId);
             try
             {
-                while (TryDequeueWorkitem(out var item))
+                do
                 {
-                    Verbose("  Processing {0}", item.BlockStart);
-                    // Ensure that only this thread is processing the block at item.BlockStart.
-                    if (!scanner.TryRegisterBlockStart(item.BlockStart, addrProc))
-                        continue;
-                    var lastInstr = ParseLinear(item);
-                    if (lastInstr is null)
+                    ProcessWorkQueue();
+                    // Can't find more work to do. Are we waiting for callee procedures
+                    // to return?
+                    if (this.pendingCalls > 0 && TrySuspending())
                     {
-                        // Current block is garbage, discard it and any predecessors
+                        // This ends the worker thread, but this instance is still in the scanner
+                        // task queue.
+                        Verbose("Going to sleep, waiting for calls to return");
+                        return;
                     }
-                    else
-                    {
-                        var edges = RegisterBlockEnd(item, lastInstr);
-                        foreach (var edge in edges)
-                        {
-                            ProcessEdge(edge);
-                        }
-                    }
-                }
-                var queue = DestroyQueue();
-                scanner.TaskCompleted(addrProc);
-                Verbose("Procedure completed.");
+                } while (!TryFinishing());
+                scanner.WorkerFinished(addrProc);
+                Verbose("Procedure completed");
             }
             catch (Exception ex)
             {
-                DestroyQueue();
                 scanner.TaskFailed(addrProc, ex);
             }
         }
 
-        public bool TryDequeueWorkitem([MaybeNullWhen(false)] out WorkItem item)
+        private void ProcessWorkQueue()
         {
-            lock (queueLock)
+            while (TryDequeueWorkitem(out var item))
             {
-                return workqueue.TryDequeue(out item);
-            }
-        }
-
-        public bool TryEnqueueWorkitem(WorkItem item, Priority priority)
-        {
-            lock (queueLock)
-            {
-                var queue = this.workqueue;
-                if (queue is null)
-                    return false;
-                queue.Enqueue(item, priority);
-                return true;
+                Verbose("  Processing {0}", item.BlockStart);
+                // Ensure that only this thread is processing the block at item.BlockStart.
+                if (!scanner.TryRegisterBlockStart(item.BlockStart, addrProc))
+                    continue;
+                var lastInstr = ParseLinear(item);
+                if (lastInstr is null)
+                {
+                    //$TODO: Current block is garbage, discard it and any predecessors
+                }
+                else
+                {
+                    var edges = RegisterBlockEnd(item, lastInstr);
+                    ProcessEdges(edges, lastInstr);
+                }
             }
         }
 
         /// <summary>
-        /// Destroys the work queue, preventing other threads to add more work to it.
+        /// Try to get a work item from the work item queue.
         /// </summary>
-        /// <returns>The old queue, which might still have some items in it.</returns>
-        private PriorityQueue<WorkItem, Priority> DestroyQueue()
+        /// <param name="item">The returned work item.</param>
+        /// <returns>True if a work item was found in the queue, false if not.
+        /// </returns>
+        private bool TryDequeueWorkitem([MaybeNullWhen(false)] out WorkItem item)
         {
-            lock (queueLock)
+            // We can dequeue items only if no-one else is busy on the lock.
+            for (; ; )
             {
-                return Interlocked.Exchange(ref workqueue, null!);
+                var oldState = Interlocked.CompareExchange(ref this.state, StateQueueBusy, StateWorking);
+                if (oldState == StateWorking)
+                {
+                    bool result = workqueue.TryDequeue(out item);
+                    this.state = StateWorking;
+                    return result;
+                }
+                Debug.Assert(oldState != StateFinishing);
             }
         }
 
-        private void ProcessEdge(CfgEdge edge)
+        /// <summary>
+        /// This method is called by other <see cref="ProcedureWorker"/>s, running in separate threads.
+        /// </summary>
+        /// <param name="item">Item to enqueue.</param>
+        /// <param name="priority">Item priority.</param>
+        /// <returns>True if the item was successfully added to the queue, false if this <see cref="ProcedureWorker"/>
+        /// is dying.
+        /// </returns>
+        public bool TryEnqueueWorkitem(WorkItem item, Priority priority)
         {
-            switch (edge.Type)
+            for (; ; )
             {
-            case EdgeType.DirectJump:
-                scanner.RegisterEdge(edge);
-                var wi = MakeWorkItem(edge.Architecture, edge.To);
-                TryEnqueueWorkitem(wi, Priority.Linear);
+                var oldstate = Interlocked.CompareExchange(ref this.state, StateQueueBusy, StateWorking);
+                if (oldstate == StateWorking)
+                {
+                    // Noone else is spinning on this.state, so enqueue the work item.
+                    var queue = this.workqueue;
+                    queue.Enqueue(item, priority);
+                    // The following is safe, because this instance set it to StateEnqueueing and noone else
+                    // can mutate the state while it is set to StateEnqueueing.
+                    this.state = StateWorking;
+                    return true;
+                }
+                if (oldstate == StateFinishing)
+                    return false;
+                // If we reach this point, some other thread is enqueueing, so spin in the spinlock.
+            }
+        }
+
+
+        /// <summary>
+        /// This instance calls this method to see if it is safe to shut down the thread.
+        /// </summary>
+        private bool TryFinishing()
+        {
+            // We can only finish if no other thread is trying to add more work.
+            return Interlocked.CompareExchange(ref this.state, StateFinishing, StateWorking) == StateWorking;
+        }
+
+        /// <summary>
+        /// Attempt to go to sleep if the instance is waiting for another worker.
+        /// </summary>
+        private bool TrySuspending()
+        {
+            // We can sleep if no other thread is trying to add more work.
+            if (Interlocked.CompareExchange(ref this.state, StateSuspending, StateWorking) != StateWorking)
+                return false;
+            scanner.SuspendWorker(this);
+            state = StateSuspended;
+            return true;
+        }
+
+        private void ProcessEdges(List<CfgEdge> edges, MachineInstruction lastInstr)
+        {
+            foreach (var edge in edges)
+            {
+                switch (edge.Type)
+                {
+                case EdgeType.DirectJump:
+                    scanner.RegisterEdge(edge);
+                    var wi = MakeWorkItem(edge.Architecture, edge.To);
+                    TryEnqueueWorkitem(wi, Priority.Linear);
+                    break;
+                case EdgeType.Call:
+                    ProcessCall(edge, lastInstr);
+                    break;
+                case EdgeType.Return:
+                    ProcessReturn(edge, lastInstr);
+                    break;
+                default:
+                   throw new NotImplementedException();
+                }
+            }
+        }
+
+        private void ProcessCall(CfgEdge edge, MachineInstruction callInstr)
+        {
+            scanner.RegisterEdge(edge);
+            var addrProc = edge.To;
+            var retStatus = scanner.ProcedureReturnStatus(addrProc);
+            var addrNext = callInstr.Address + callInstr.Length; //$TODO: delay slot.
+            switch (retStatus)
+            {
+            case ProcedureReturn.Returns:
+                // We know the called procedure returns, so we can proceed with
+                // the instruction after the called, at address `addrNext`.
+                var fallthruEdge = new CfgEdge(EdgeType.FallThrough, arch, edge.From, addrNext);
+                scanner.RegisterEdge(fallthruEdge);
+                Verbose("  falling through after call (at {0}) to {1}", callInstr.Address, addrNext);
+                var wi = MakeWorkItem(this.arch, addrNext);
+                TryEnqueueWorkitem(wi, Priority.Linear);    // This cannot fail.
+                return;
+            case ProcedureReturn.Diverges:
                 return;
             }
-            throw new NotImplementedException();
+
+            // We have to wait until a return status is known. Find a worker and register interest 
+            //$TODO: self recursive, mutual recursive.
+            while (scanner.TryStartProcedureWorker(arch, edge.To, out var calleeWorker))
+            {
+                Interlocked.Increment(ref this.pendingCalls);
+                if (calleeWorker!.TryEnqueueCaller(this, addrNext))
+                {
+                    Verbose("  enqueued {0}, waiting for {1} to complete", this.ProcedureAddress, callInstr);
+                    return;
+                }
+                // We reach here if we couldn't enqueue work on the calleeWorker because it is terminating.
+                Interlocked.Decrement(ref this.pendingCalls);
+            }
+        }
+
+        private void ProcessReturn(CfgEdge edge, MachineInstruction instr)
+        {
+            scanner.SetProcedureStatus(this.addrProc, ProcedureReturn.Returns);
+            var emptyCalls = new Dictionary<Address, IProcedureWorker>();
+            var calls = Interlocked.Exchange(ref this.callsWaitingForReturn, emptyCalls);
+            foreach (var (addrFallthrough, caller) in calls)
+            {
+                Verbose("  waking caller {0}", caller.ProcedureAddress);
+                caller.Wake(addrFallthrough);
+            }
+        }
+
+        public void NotifyProcedureReturns(MachineInstruction instr, Address addrCallee)
+        {
+            var addrFallthrough = instr.Address + instr.Length; //$TODO: delay slot.
+            var edge = new CfgEdge(EdgeType.FallThrough, arch, instr.Address, addrFallthrough);
+            scanner.RegisterEdge(edge);
+            var workitem = MakeWorkItem(arch, addrFallthrough);
+            for (; ; )
+            {
+                var oldState = Interlocked.CompareExchange(ref this.state, StateQueueBusy, StateWorking);
+                switch (oldState)
+                {
+                case StateWorking:
+                    Interlocked.Decrement(ref pendingCalls);
+                    TryEnqueueWorkitem(workitem, Priority.DirectJump);
+                    return;
+                case StateFinishing:
+                    Interlocked.Decrement(ref pendingCalls);
+                    return;
+                case StateQueueBusy:
+                    break;
+                default:
+                    throw new InvalidOperationException($"Unexpected state {oldState}.");
+                }
+            }
         }
 
         private List<CfgEdge> RegisterBlockEnd(WorkItem item, MachineInstruction instr)
@@ -149,10 +312,14 @@ namespace ParallelScan
                 var addrTarget = DetermineTargetAddress(instr);
                 if (addrTarget is not null)
                 {
+                    if (instr.InstrClass.HasFlag(InstrClass.Call))
+                    {
+                        edges.Add(new CfgEdge(EdgeType.Call, item.Architecture, item.BlockStart, addrTarget));
+                        return edges;
+                    }
                     if (instr.InstrClass.HasFlag(InstrClass.Conditional))
                     {
                         var addrFallthrough = instr.Address + instr.Length; //$TODO: delay
-
                         edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrFallthrough));
                     }
                     edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrTarget));
@@ -160,7 +327,8 @@ namespace ParallelScan
                 }
                 if (instr.InstrClass.HasFlag(InstrClass.Return))
                 {
-                    //$TODO: mark current procedure as returning.
+                    scanner.SetProcedureStatus(this.addrProc, ProcedureReturn.Returns);
+                    edges.Add(new CfgEdge(EdgeType.Return, this.arch, item.BlockStart, this.addrProc));
                     return edges;
                 }
             }
@@ -177,6 +345,14 @@ namespace ParallelScan
                 return null;
         }
 
+        /// <summary>
+        /// Process a sequence of linear instructions, i.e. those that do not 
+        /// affect control flow.
+        /// </summary>
+        /// <param name="item">Current work item.</param>
+        /// <returns>A CFI that terminates the sequence of linear instructions,
+        /// or null if the disassembler ran out of instructions (this typically 
+        /// indicates the current sequence is diverging and invalid.</returns>
         private MachineInstruction? ParseLinear(WorkItem item)
         {
             Verbose("  starting ParseLinear at {0}", item.BlockStart);
@@ -194,12 +370,34 @@ namespace ParallelScan
             return null;
         }
 
+
+        public bool TryEnqueueCaller(IProcedureWorker procedureWorker, Address addrFallthrough)
+        {
+            lock (callsWaitingForReturn)
+            {
+                callsWaitingForReturn.Add(addrFallthrough, procedureWorker);
+            }
+            return true;
+        }
+
         [Conditional("DEBUG")]
         private void Verbose(string message, params object[] args)
         {
             if (!trace.TraceVerbose)
                 return;
             Debug.Print("{0}: {1}", addrProc, string.Format(message, args));
+        }
+
+        public void Wake(Address addrFallthrough)
+        {
+            Verbose("Woken up at {0}", addrFallthrough);
+            var oldState = Interlocked.Exchange(ref state, StateWorking);
+            Debug.Assert(oldState == StateSuspended);
+            Interlocked.Decrement(ref this.pendingCalls);
+            //$TODO: 
+            var item = MakeWorkItem(this.arch, addrFallthrough);
+            TryEnqueueWorkitem(item, Priority.DirectJump);
+            scanner.WakeWorker(this);
         }
 
         public class WorkItem

@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -11,10 +12,14 @@ namespace ParallelScan
 {
     public class Scanner
     {
-        private MemoryArea mem;
-        private Cfg cfg;
-        private TaskCompletionSource<Cfg> promise;
-        private ConcurrentDictionary<Address, ProcedureWorker> workers;
+        private readonly MemoryArea mem;
+        private readonly Cfg cfg;
+        private readonly TaskCompletionSource<Cfg> promise;
+        /// <summary>
+        /// Maintains an <see cref="IProcedureWorker"/> for each procedure address. Workers
+        /// </summary>
+        private readonly ConcurrentDictionary<Address, IProcedureWorker> workers;
+        private readonly ConcurrentDictionary<Address, IProcedureWorker> suspendedWorkers;
 
         public Scanner(MemoryArea mem)
         {
@@ -22,21 +27,42 @@ namespace ParallelScan
             this.cfg = new();
             this.promise = new();
             this.workers = new();
+            this.suspendedWorkers = new();
         }
 
+        /// <summary>
+        /// Asynchronously scans the given image. 
+        /// </summary>
+        /// <param name="symbols">Initial starting points from which to conduct the scan.</param>
+        /// <returns>An interprocedural Control Flow Graph.</returns>
         public Task<Cfg> ScanAsync(IEnumerable<ImageSymbol> symbols)
         {
             int nWorkers = 0;
             foreach (var sym in symbols.Distinct())
             {
                 ++nWorkers;
-                var worker = new ProcedureWorker(sym.Architecture, sym.Address, this);
-                Task.Run(() => worker.Process());
+                TryStartProcedureWorker(sym.Architecture, sym.Address, out _);
             }
             if (nWorkers == 0)
                 return Task.FromResult(cfg);
             else
                 return promise.Task;
+        }
+
+        public bool TryStartProcedureWorker(IProcessorArchitecture arch, Address addr, out IProcedureWorker? iworker)
+        {
+            if (suspendedWorkers.TryGetValue(addr, out iworker))
+                return true;
+            var worker = new ProcedureWorker(arch, addr, this);
+            while (!workers.TryAdd(addr, worker))
+            {
+                // There is already a worker?
+                if (workers.TryGetValue(addr, out iworker))
+                    return true;
+            }
+            Task.Run(() => worker.Process());
+            iworker = worker;
+            return true;
         }
 
         public bool TryRegisterBlockStart(Address addrStart, Address addrProc)
@@ -51,7 +77,10 @@ namespace ParallelScan
 
         public bool TryRegisterProcedure(Address addrProc)
         {
-            return cfg.F.TryAdd(addrProc, addrProc);
+            if (!cfg.F.TryAdd(addrProc, addrProc))
+                return false;
+            cfg.Procedures.TryAdd(addrProc, new Procedure(addrProc));
+            return true;
         }
 
         public ImageReader CreateReader(IProcessorArchitecture arch, Address addr)
@@ -65,10 +94,10 @@ namespace ParallelScan
             promise.TrySetException(ex);
         }
 
-        public void TaskCompleted(Address workerAddress)
+        public void WorkerFinished(Address workerAddress)
         {
             workers.TryRemove(workerAddress, out _);
-            if (workers.Count == 0)
+            if (workers.IsEmpty)
             {
                 promise.TrySetResult(cfg);
             }
@@ -209,6 +238,31 @@ namespace ParallelScan
         }
 
         /// <summary>
+        /// Suspends an <see cref="IProcedureWorker"/>.
+        /// </summary>
+        /// <param name="worker"></param>
+        /// <remarks>
+        /// This only gets called from a <see cref="ProcedureWorker" /> when it
+        /// wants to suspend itself waiting for a caller to return.
+        /// </remarks>
+        /// </summary>
+        public void SuspendWorker(IProcedureWorker worker)
+        {
+            if (this.workers.TryRemove(worker.ProcedureAddress, out _))
+            {
+                if (!this.suspendedWorkers.TryAdd(worker.ProcedureAddress, worker))
+                    throw new InvalidOperationException($"Procedure worker {worker.ProcedureAddress} is already suspended.");
+            }
+        }
+
+        public ProcedureReturn ProcedureReturnStatus(Address addrProc)
+        {
+            if (cfg.Procedures.TryGetValue(addrProc, out Procedure? proc))
+                return proc.Returns;
+            return ProcedureReturn.Unknown;
+        }
+
+        /// <summary>
         /// Creates a new block from an existing block, using the instruction range
         /// [iStart, iEnd).
         /// </summary>
@@ -218,7 +272,7 @@ namespace ParallelScan
         /// <returns>A new, terminated but unregistered block. The caller is responsible for 
         /// registering it.
         /// </returns>
-        private Block Chop(Block block, int iStart, int iEnd)
+        private static Block Chop(Block block, int iStart, int iEnd)
         {
             var instrs = new MachineInstruction[iEnd - iStart];
             Array.Copy(block.Instructions, iStart, instrs, 0, instrs.Length);
@@ -250,6 +304,19 @@ namespace ParallelScan
                 }
             }
             return (a + 1, b + 1);
+        }
+
+        public void SetProcedureStatus(Address addrProc, ProcedureReturn returns)
+        {
+            cfg.Procedures[addrProc].Returns = returns;
+        }
+
+        public void WakeWorker(IProcedureWorker caller)
+        {
+            if (!suspendedWorkers.TryRemove(caller.ProcedureAddress, out var cc))
+                throw new InvalidOperationException($"Worker {caller.ProcedureAddress} was not suspended.");
+            workers.TryAdd(caller.ProcedureAddress, caller);
+            Task.Run(() => caller.Process());
         }
     }
 }

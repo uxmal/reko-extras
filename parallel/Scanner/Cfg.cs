@@ -28,7 +28,6 @@ namespace ParallelScan
         /// <summary> 
         /// F ⊆ B ∪C is the set of function entry blocks.
         /// </summary> 
-
         public readonly ConcurrentDictionary<Address, Address> F;
 
         /// <summary>
@@ -41,6 +40,8 @@ namespace ParallelScan
         /// </summary>
         public ConcurrentDictionary<Address, Address> BlockEnds { get; }
 
+        public ConcurrentDictionary<Address, Procedure> Procedures { get; }
+
         public Cfg()
         {
             this.B = new();
@@ -49,6 +50,7 @@ namespace ParallelScan
             this.F = new();
             this.ParentProcedure = new();
             this.BlockEnds = new();
+            this.Procedures = new();
         }
     }
 
@@ -82,6 +84,7 @@ namespace ParallelScan
         IndirectCall,
         DirectJump,
         IndirectJump,
+        FallThrough,
     }
 
     public enum ProcedureReturn
@@ -102,6 +105,13 @@ namespace ParallelScan
             this.Address = addr;
             this.Size = size > 0 ? size : throw new ArgumentOutOfRangeException(nameof(size));
             this.Instructions = instrs;
+        }
+
+        public Block()
+        {
+            this.Address = Address.Ptr32(~0);
+            this.Size = 1;
+            this.Instructions = Array.Empty<MachineInstruction>();
         }
 
         public override string ToString()
