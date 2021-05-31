@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Reko.Core;
+using Reko.Core.Machine;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -281,17 +283,18 @@ namespace ParallelScan
             }
 
             // We're the first thread to reach addrEnd, which means we get to create the out edges.
-            if (instr.InstrClass.HasFlag(InstrClass.Transfer))
+            var iclass = (InstrClass)instr.InstructionClass;
+            if (iclass.HasFlag(InstrClass.Transfer))
             {
                 var addrTarget = DetermineTargetAddress(instr);
                 if (addrTarget is not null)
                 {
-                    if (instr.InstrClass.HasFlag(InstrClass.Call))
+                    if (iclass.HasFlag(InstrClass.Call))
                     {
                         edges.Add(new CfgEdge(EdgeType.Call, item.Architecture, item.BlockStart, addrTarget));
                         return edges;
                     }
-                    if (instr.InstrClass.HasFlag(InstrClass.Conditional))
+                    if (iclass.HasFlag(InstrClass.Conditional))
                     {
                         var addrFallthrough = instr.Address + instr.Length; //$TODO: delay
                         edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrFallthrough));
@@ -299,7 +302,7 @@ namespace ParallelScan
                     edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrTarget));
                     return edges;
                 }
-                if (instr.InstrClass.HasFlag(InstrClass.Return))
+                if (iclass.HasFlag(InstrClass.Return))
                 {
                     scanner.SetProcedureStatus(this.addrProc, ProcedureReturn.Returns);
                     edges.Add(new CfgEdge(EdgeType.Return, this.arch, item.BlockStart, this.addrProc));
@@ -334,7 +337,7 @@ namespace ParallelScan
             {
                 var instr = item.Disassembler.Current;
                 item.Instructions.Add(instr);
-                if (instr.InstrClass != InstrClass.Linear)
+                if ((InstrClass) instr.InstructionClass != InstrClass.Linear)
                 {
                     Verbose("  stopping ParseLinear at {0} {1}", instr.Address, instr.ToString());
                     return instr;

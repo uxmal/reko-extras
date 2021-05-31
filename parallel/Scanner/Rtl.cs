@@ -1,3 +1,5 @@
+using Reko.Core.Expressions;
+using Reko.Core;
 using System;
 using System.Collections.Generic;
 
@@ -22,15 +24,20 @@ namespace ParallelScan
     [Flags]
     public enum InstrClass
     {
-        Invalid,
-        Linear,
-        Transfer,
-
-        Delay =         0x08,
-        Padding =       0x10,
-        Conditional =   0x20,
-        Call = 0x40,
-        Return = 0x80,
+        None = 0,
+        Linear = 1,
+        Transfer = 2,
+        Conditional = 4,
+        ConditionalTransfer = 6,
+        Call = 8,
+        Delay = 16,
+        Annul = 32,
+        Terminates = 64,
+        System = 128,
+        Padding = 256,
+        Invalid = 512,
+        Zero = 1024,
+        Return = 2048,
     }
 
     public abstract class RtlInstruction

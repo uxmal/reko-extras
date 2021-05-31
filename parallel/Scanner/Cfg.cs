@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System;
+using Reko.Core;
+using Reko.Core.Machine;
 
 namespace ParallelScan
 {
@@ -109,7 +111,7 @@ namespace ParallelScan
 
         public Block()
         {
-            this.Address = Address.Ptr32(~0);
+            this.Address = Address.Ptr32(~0u);
             this.Size = 1;
             this.Instructions = Array.Empty<MachineInstruction>();
         }

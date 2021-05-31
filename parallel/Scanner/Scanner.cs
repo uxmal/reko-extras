@@ -1,4 +1,7 @@
-﻿using System;
+﻿using Reko.Core;
+using Reko.Core.Machine;
+using Reko.Core.Memory;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -83,7 +86,7 @@ namespace ParallelScan
             return true;
         }
 
-        public ImageReader CreateReader(IProcessorArchitecture arch, Address addr)
+        public EndianImageReader CreateReader(IProcessorArchitecture arch, Address addr)
         {
             return arch.CreateImageReader(mem, addr);
         }

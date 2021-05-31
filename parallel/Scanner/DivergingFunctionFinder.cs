@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Reko.Core;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace ParallelScan
@@ -76,7 +77,7 @@ the intermediate results and Gn as the final CFG.*/
 
         public HashSet<Address> FindDivergingFunctions(HashSet<Address> F, HashSet<Address> knownNonRet)
         {
-            var nonRet = knownNonRet.Intersect(F).ToHashSet();
+            var nonRet = new HashSet<Address>(knownNonRet.Intersect(F));
             var ret = new HashSet<Address>();
             var funcList = F.Except(nonRet);
             // Fixpoint calculation
@@ -105,7 +106,7 @@ the intermediate results and Gn as the final CFG.*/
                 // Determine functions to be revisited
                 funcList = F.Except(nonRet).Except(ret);
             }
-            return F.Except(ret).ToHashSet();
+            return new HashSet<Address>(F.Except(ret));
         }
 
         private bool NoBlockedCalls(object blocks, IEnumerable<Address> funcList)

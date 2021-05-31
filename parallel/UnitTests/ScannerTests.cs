@@ -1,6 +1,8 @@
 ﻿using NUnit.Framework;
+using Reko.Core;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,8 +15,8 @@ namespace ParallelScan.UnitTests
         private static async Task<Cfg> ScanProgramAsync(Address addr, Assembler m)
         {
             var s = new Scanner(m.Complete());
-            var arch = new TestArchitecture();
-            var sym = new ImageSymbol(arch, addr);
+            var arch = new TestArchitecture(new ServiceContainer(), "testArch", new Dictionary<string, object>());
+            var sym = ImageSymbol.Procedure(arch, addr);
             var cfg = await s.ScanAsync(new[] { sym });
             return cfg;
         }

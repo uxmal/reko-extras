@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Reko.Core;
+using Reko.Core.Memory;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -31,7 +33,7 @@ namespace ParallelScan.UnitTests
 
         public MemoryArea Complete()
         {
-            return new MemoryArea(addr, bytes.ToArray());
+            return new ByteMemoryArea(addr, bytes.ToArray());
         }
 
         internal void Ret()

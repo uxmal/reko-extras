@@ -10,4 +10,7 @@
       <Compile Remove="ParallelScanner.cs" />
       <Compile Remove="ParallelScannerX.cs" />
     </ItemGroup>
+    <ItemGroup>
+      <PackageReference Include="Reko.Decompiler.Runtime" Version="0.9.3" />
+    </ItemGroup>
 </Project>
