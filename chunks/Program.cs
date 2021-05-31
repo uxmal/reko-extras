@@ -12,16 +12,17 @@ namespace chunks
 {
     class Program
     {
-        private const int MemorySize = 128 * 1024;
-        private const int CReps = 3;
+        private const int MemorySize = 1024 * 1024;
+        private const int MinChunkSize =  8 * 1024;
+        private const int CReps = 1;
 
         static void Main(string[] args)
         {
             var cfg = MakeServices();
-            var includedArchs = new Regex("v850", RegexOptions.IgnoreCase);
-            var exceptedArchs = new Regex("x86.*16|lackfin|65816|PIC", RegexOptions.IgnoreCase);
+            var includedArchs = new Regex("zSer", RegexOptions.IgnoreCase);
+            var exceptedArchs = new Regex("x86.*16|65816|PIC", RegexOptions.IgnoreCase);
             //foreach (var archDef in cfg.GetArchitectures().Where(a => includedArchs.IsMatch(a.Name!)))
-            foreach (var archDef in cfg.GetArchitectures().Where(a => !exceptedArchs.IsMatch(a.Name!)))
+             foreach (var archDef in cfg.GetArchitectures().Where(a => !exceptedArchs.IsMatch(a.Name!)))
             {
                 TestArchitecture(cfg, archDef);
             }
@@ -57,7 +58,7 @@ namespace chunks
             var factory = new ShingleTaskFactory();
 
             // Now do the stats.
-            for (int chunkSize = MemorySize; chunkSize <= MemorySize; chunkSize *= 4)
+            for (int chunkSize = MinChunkSize; chunkSize <= MemorySize; chunkSize *= 16)
             {
                 Console.Out.WriteLine("    Shingle scan, chunk size {0}", chunkSize);
                 long sum = 0;
