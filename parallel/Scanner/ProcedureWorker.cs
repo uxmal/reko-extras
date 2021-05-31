@@ -64,15 +64,6 @@ namespace ParallelScan
 
         public int State => state;
 
-
-
-        private WorkItem MakeWorkItem(IProcessorArchitecture arch, Address addr)
-        {
-            var rdr = scanner.CreateReader(arch, addr);
-            var dasm = arch.CreateDisassembler(rdr).GetEnumerator();
-            return new WorkItem(arch, addr, dasm);
-        }
-
         public void Process()
         {
             Verbose("Entering Processing() method on thread {0}", Thread.CurrentThread.ManagedThreadId);
@@ -87,12 +78,11 @@ namespace ParallelScan
                     {
                         // This ends the worker thread, but this instance is still in the scanner
                         // task queue.
-                        Verbose("Going to sleep, waiting for calls to return");
                         return;
                     }
                 } while (!TryFinishing());
                 scanner.WorkerFinished(addrProc);
-                Verbose("Procedure completed");
+                Verbose("Procedure completely processed");
             }
             catch (Exception ex)
             {
@@ -119,6 +109,13 @@ namespace ParallelScan
                     ProcessEdges(edges, lastInstr);
                 }
             }
+        }
+
+        private WorkItem MakeWorkItem(IProcessorArchitecture arch, Address addr)
+        {
+            var rdr = scanner.CreateReader(arch, addr);
+            var dasm = arch.CreateDisassembler(rdr).GetEnumerator();
+            return new WorkItem(arch, addr, dasm);
         }
 
         /// <summary>
@@ -172,7 +169,6 @@ namespace ParallelScan
             }
         }
 
-
         /// <summary>
         /// This instance calls this method to see if it is safe to shut down the thread.
         /// </summary>
@@ -187,11 +183,13 @@ namespace ParallelScan
         /// </summary>
         private bool TrySuspending()
         {
+            Verbose("Suspending (because there are {0} pending calls)...", pendingCalls);
             // We can sleep if no other thread is trying to add more work.
             if (Interlocked.CompareExchange(ref this.state, StateSuspending, StateWorking) != StateWorking)
                 return false;
             scanner.SuspendWorker(this);
-            state = StateSuspended;
+            this.state = StateSuspended;
+            Verbose("...Suspended, waiting for pending calls to return ");
             return true;
         }
 
@@ -238,6 +236,7 @@ namespace ParallelScan
             case ProcedureReturn.Diverges:
                 return;
             }
+            Verbose("  enqueueing at call to {0}", edge.To);
 
             // We have to wait until a return status is known. Find a worker and register interest 
             //$TODO: self recursive, mutual recursive.
@@ -246,7 +245,7 @@ namespace ParallelScan
                 Interlocked.Increment(ref this.pendingCalls);
                 if (calleeWorker!.TryEnqueueCaller(this, addrNext))
                 {
-                    Verbose("  enqueued {0}, waiting for {1} to complete", this.ProcedureAddress, callInstr);
+                    Verbose("  enqueued caller {0}, waiting for {1} to complete", this.ProcedureAddress, callInstr);
                     return;
                 }
                 // We reach here if we couldn't enqueue work on the calleeWorker because it is terminating.
@@ -259,36 +258,11 @@ namespace ParallelScan
             scanner.SetProcedureStatus(this.addrProc, ProcedureReturn.Returns);
             var emptyCalls = new Dictionary<Address, IProcedureWorker>();
             var calls = Interlocked.Exchange(ref this.callsWaitingForReturn, emptyCalls);
+            Verbose("  Return found {0} suspended calls", calls.Count);
             foreach (var (addrFallthrough, caller) in calls)
             {
-                Verbose("  waking caller {0}", caller.ProcedureAddress);
+                Verbose("    waking caller {0}", caller.ProcedureAddress);
                 caller.Wake(addrFallthrough);
-            }
-        }
-
-        public void NotifyProcedureReturns(MachineInstruction instr, Address addrCallee)
-        {
-            var addrFallthrough = instr.Address + instr.Length; //$TODO: delay slot.
-            var edge = new CfgEdge(EdgeType.FallThrough, arch, instr.Address, addrFallthrough);
-            scanner.RegisterEdge(edge);
-            var workitem = MakeWorkItem(arch, addrFallthrough);
-            for (; ; )
-            {
-                var oldState = Interlocked.CompareExchange(ref this.state, StateQueueBusy, StateWorking);
-                switch (oldState)
-                {
-                case StateWorking:
-                    Interlocked.Decrement(ref pendingCalls);
-                    TryEnqueueWorkitem(workitem, Priority.DirectJump);
-                    return;
-                case StateFinishing:
-                    Interlocked.Decrement(ref pendingCalls);
-                    return;
-                case StateQueueBusy:
-                    break;
-                default:
-                    throw new InvalidOperationException($"Unexpected state {oldState}.");
-                }
             }
         }
 
@@ -385,16 +359,20 @@ namespace ParallelScan
         {
             if (!trace.TraceVerbose)
                 return;
-            Debug.Print("{0}: {1}", addrProc, string.Format(message, args));
+            var threadId = Thread.CurrentThread.ManagedThreadId;
+            Debug.Print("{0}({1,2}): {2}", addrProc, threadId, string.Format(message, args));
         }
 
         public void Wake(Address addrFallthrough)
         {
             Verbose("Woken up at {0}", addrFallthrough);
-            var oldState = Interlocked.Exchange(ref state, StateWorking);
-            Debug.Assert(oldState == StateSuspended);
+            for (; ; )
+            {
+                var oldState = Interlocked.Exchange(ref state, StateWorking);
+                if (oldState == StateSuspended)
+                    break;
+            }
             Interlocked.Decrement(ref this.pendingCalls);
-            //$TODO: 
             var item = MakeWorkItem(this.arch, addrFallthrough);
             TryEnqueueWorkitem(item, Priority.DirectJump);
             scanner.WakeWorker(this);
