@@ -8,3 +8,9 @@ This tool was inspired by https://github.com/xoreaxeaxeax/sandsifter, which uses
 
 ## Batch
 This tool runs through a directory, invoking Reko on binaries and collecting all instructions that Reko's disassembler reports as unimplemented. The collected instructions are then used to generate unit tests that can be used as a starting point for implementing said unimplemented instructions.
+
+# x86opcodes
+This tool uses the XML file provided at https://raw.githubusercontent.com/Barebit/x86reference/master/x86reference.xml to emit metadata about X86 instructions.
+
+# chunks
+Prototype tool to evaluate the performance of performing Reko's shingle scanning in parallel using multiple threads.
