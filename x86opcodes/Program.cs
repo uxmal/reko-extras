@@ -20,6 +20,7 @@ namespace x86opcodes
                           mnem = x.Value,
                           def = parent.Descendants("modif_f").SingleOrDefault(),
                           use = parent.Descendants("test_f").SingleOrDefault(),
+                          fvalues = parent.Descendants("f_vals").SingleOrDefault(),
                           def_fpu = parent.Descendants("modif_f_fpu").SingleOrDefault(),
                       };
             foreach (var x in ops)
@@ -32,6 +33,7 @@ namespace x86opcodes
                     DumpLine("def", x.def?.Value);
                     DumpLine("use", x.use?.Value);
                     DumpLine("fpu", x.def_fpu?.Value);
+                    DumpLine("fvl", x.fvalues?.Value);
                 }
             }
         }
