@@ -50,9 +50,9 @@ namespace ParallelScan.UnitTests
                     if (!rdr.TryReadBeUInt16(out uAddr))
                         instr = new TestMachineInstruction(InstrClass.Invalid, Mnemonic.Invalid);
                     else if ((opcode & 0xF) != 0)
-                        instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Conditional  | InstrClass.Delay, Mnemonic.braD);
+                        instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Conditional | InstrClass.Delay, Mnemonic.braD);
                     else
-                        instr = new TestMachineInstruction(InstrClass.Transfer, Mnemonic.jmpD);
+                        instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Delay, Mnemonic.jmpD);
                     instr.Operands = new MachineOperand[] { AddressOperand.Ptr32(uAddr) };
                     break;
                 case 5: // a call with delay slot.
@@ -63,7 +63,10 @@ namespace ParallelScan.UnitTests
                     instr.Operands = new MachineOperand[] { AddressOperand.Ptr32(uAddr) };
                     break;
                 case 6: // return
-                    instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Return, Mnemonic.ret);
+                    instr = new TestMachineInstruction(InstrClass.Transfer | (InstrClass)2048, Mnemonic.ret);
+                    break;
+                case 7: // return with delay slot.
+                    instr = new TestMachineInstruction(InstrClass.Transfer | (InstrClass)2048 | InstrClass.Delay, Mnemonic.ret);
                     break;
                 default:
                     instr = new TestMachineInstruction(InstrClass.Invalid , Mnemonic.Invalid);

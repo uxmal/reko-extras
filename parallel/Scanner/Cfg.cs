@@ -48,6 +48,7 @@ namespace ParallelScan
         /// This is the set of address that end up in bad code.
         /// </summary>
         public ConcurrentDictionary<Address, Address> Bad { get; }
+        
         public Cfg()
         {
             this.B = new();
@@ -57,6 +58,7 @@ namespace ParallelScan
             this.ParentProcedure = new();
             this.BlockEnds = new();
             this.Procedures = new();
+            this.Bad = new();
         }
     }
 

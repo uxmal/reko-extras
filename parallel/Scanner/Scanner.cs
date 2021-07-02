@@ -17,6 +17,9 @@ namespace ParallelScan
     {
         private readonly MemoryArea mem;
         private readonly Cfg cfg;
+        /// <summary>
+        /// When all the <see cref="ProcedureWorker"/> have finished, the promise is fulfilled.
+        /// </summary>
         private readonly TaskCompletionSource<Cfg> promise;
         /// <summary>
         /// Maintains an <see cref="IProcedureWorker"/> for each procedure address. Workers
@@ -44,7 +47,7 @@ namespace ParallelScan
             foreach (var sym in symbols.Distinct())
             {
                 ++nWorkers;
-                TryStartProcedureWorker(sym.Architecture, sym.Address, out _);
+                TryStartProcedureWorker(sym.Architecture, sym.Address!, out _);
             }
             if (nWorkers == 0)
                 return Task.FromResult(cfg);

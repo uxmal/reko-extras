@@ -315,5 +315,40 @@ l0000000E:
 #endregion
             AssertCfg(sExp, cfg);
         }
+
+        [Test]
+        public async Task Scanner_delay_jump()
+        {
+            var addr = Address.Ptr32(0);
+            var m = new Assembler(addr);
+            m.Mov();
+            m.JmpD("join1");
+            m.Mov();
+
+            m.Label("join1");
+            m.RetD();
+            m.Mov();
+
+            Cfg cfg = await ScanProgramAsync(addr, m);
+
+            var sExp =
+            #region Expected
+@"proc fn00000000
+l00000000:
+    // size: 4
+    alu
+    jmpD 00000005
+    alu
+    // succ: DirectJump: 00000000 -> 00000005
+l00000005:
+    // size: 1
+    ret
+    alu
+";
+            #endregion
+            AssertCfg(sExp, cfg);
+        }
+
+
     }
 }

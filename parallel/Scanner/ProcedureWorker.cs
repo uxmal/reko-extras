@@ -108,11 +108,7 @@ namespace ParallelScan
                 var lastInstr = ParseLinear(item);
                 if (lastInstr is null)
                 {
-                    // Current block is garbage, discard it and any predecessors
-                    if (this.scanner.TryRegisterBadBlock(item.BlockStart))
-                    {
-                        //$TODO; start eating predecessors.
-                    }
+                    MarkBadBlock(item.BlockStart);
                 }
                 else
                 {
@@ -279,10 +275,22 @@ namespace ParallelScan
 
         private List<CfgEdge> RegisterBlockEnd(WorkItem item, MachineInstruction instr)
         {
+            var edges = new List<CfgEdge>();
+
+            // If we're at a delay slot, make sure we eat the delayed instruction too.
+            if (instr.InstructionClass.HasFlag(InstrClass.Delay))
+            {
+                if (!item.Disassembler.MoveNext() ||
+                    !item.Disassembler.Current.InstructionClass.HasFlag(InstrClass.Linear))
+                {
+                    MarkBadBlock(item.BlockStart);
+                    return edges;
+                }
+                item.Instructions.Add(item.Disassembler.Current);
+            }
             var block = scanner.TryRegisterBlock(item.BlockStart, instr.Address - item.BlockStart + instr.Length, item.Instructions.ToArray());
             if (block is null)
                 throw new InvalidOperationException();
-            var edges = new List<CfgEdge>();
             if (!scanner.TryRegisterBlockEnd(item.BlockStart, instr.Address))
             {
                 // Another thread has already reached addrEnd. Now we have to reconcile the result.
@@ -305,13 +313,16 @@ namespace ParallelScan
                     }
                     if (iclass.HasFlag(InstrClass.Conditional))
                     {
-                        var addrFallthrough = instr.Address + instr.Length; //$TODO: delay
+                        var addrFallthrough = instr.Address + instr.Length;
                         edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrFallthrough));
                     }
                     edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrTarget));
                     return edges;
                 }
-                if (iclass.HasFlag(InstrClass.Return))
+                //$TODO: backwalk.
+
+                const int Return = 2048;
+                if (iclass.HasFlag((InstrClass) Return))
                 {
                     scanner.SetProcedureStatus(this.addrProc, ProcedureReturn.Returns);
                     edges.Add(new CfgEdge(EdgeType.Return, this.arch, item.BlockStart, this.addrProc));
@@ -321,7 +332,16 @@ namespace ParallelScan
             throw new NotImplementedException($"Unhandled: {iclass}, {instr}");
         }
 
-        private Address? DetermineTargetAddress(MachineInstruction instr)
+        private void MarkBadBlock(Address blockStart)
+        {
+            // Current block is garbage, discard it and any predecessors
+            if (this.scanner.TryRegisterBadBlock(blockStart))
+            {
+                //$TODO; start eating predecessors.
+            }
+        }
+
+        private static Address? DetermineTargetAddress(MachineInstruction instr)
         {
             if (instr.Operands.Length > 0)
             {

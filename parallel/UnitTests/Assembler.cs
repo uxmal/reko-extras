@@ -36,10 +36,16 @@ namespace ParallelScan.UnitTests
             return new ByteMemoryArea(addr, bytes.ToArray());
         }
 
-        internal void Ret()
+        public void Ret()
         {
             Emit(0x60);
         }
+
+        public void RetD()
+        {
+            Emit(0x70);
+        }
+
 
         public void Mov()
         {
@@ -61,6 +67,12 @@ namespace ParallelScan.UnitTests
         public void Jmp(string label)
         {
             Emit(0x20);
+            EmitShort(ReferToSymbol(label));
+        }
+
+        public void JmpD(string label)
+        {
+            Emit(0x40);
             EmitShort(ReferToSymbol(label));
         }
 

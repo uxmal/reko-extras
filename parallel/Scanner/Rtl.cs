@@ -20,7 +20,7 @@ namespace ParallelScan
         public InstrClass InstrClass { get; }
         public RtlInstruction[] Instructions { get; }
     }
-
+    /*
     [Flags]
     public enum InstrClass
     {
@@ -38,7 +38,7 @@ namespace ParallelScan
         Invalid = 512,
         Zero = 1024,
         Return = 2048,
-    }
+    }*/
 
     public abstract class RtlInstruction
     {
