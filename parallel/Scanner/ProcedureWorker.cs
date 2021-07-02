@@ -109,7 +109,10 @@ namespace ParallelScan
                 if (lastInstr is null)
                 {
                     // Current block is garbage, discard it and any predecessors
-                    this.scanner.RegisterBadBlock(item.BlockStart);
+                    if (this.scanner.TryRegisterBadBlock(item.BlockStart))
+                    {
+                        //$TODO; start eating predecessors.
+                    }
                 }
                 else
                 {

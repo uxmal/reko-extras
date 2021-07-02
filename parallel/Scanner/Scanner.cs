@@ -124,6 +124,18 @@ namespace ParallelScan
             return cfg.B.TryAdd(newBlock.Address, newBlock) ? newBlock : null;
         }
 
+        /// <summary>
+        /// Try to register an address as being a bad block.
+        /// </summary>
+        /// <param name="blockStart">Address at which the bad block starts</param>
+        /// <returns>True if the bad block hadn't been registered before, otherwise false.
+        /// </returns>
+        public bool TryRegisterBadBlock(Address blockStart)
+        {
+            return cfg.Bad.TryAdd(blockStart, blockStart);
+        }
+
+
         public void RegisterEdge(CfgEdge edge)
         {
             if (!cfg.E.TryGetValue(edge.From, out var edges))
@@ -133,6 +145,7 @@ namespace ParallelScan
             }
             edges.Add(edge);
         }
+
 
         /// <summary>
         /// Splits the existing block <paramref name="block" /> at the final instruction 

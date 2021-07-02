@@ -44,6 +44,10 @@ namespace ParallelScan
 
         public ConcurrentDictionary<Address, Procedure> Procedures { get; }
 
+        /// <summary>
+        /// This is the set of address that end up in bad code.
+        /// </summary>
+        public ConcurrentDictionary<Address, Address> Bad { get; }
         public Cfg()
         {
             this.B = new();
