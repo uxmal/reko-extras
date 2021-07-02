@@ -9,6 +9,9 @@ using System.Threading;
 
 namespace ParallelScan
 {
+    /// <summary>
+    /// This worker class performs flow-control based scan of a procedure.
+    /// </summary>
     public class ProcedureWorker : IProcedureWorker
     {
         private static readonly TraceSwitch trace = new (nameof(ProcedureWorker), "Trace progress of workers")
@@ -19,12 +22,14 @@ namespace ParallelScan
         /// <summary>
         /// A worker can be in the following states, with transitions as follows:
         /// StateWorking
-        ///     StateSleeping   if the worker queue is empty, but there are pending call returns.
+        ///     StateSuspending if the worker queue is empty, but there are pending call returns.
         ///     StateFinishing  if the worker queue is empty, and there are no pending call returns.
         ///     StateQueueBusy  if a work item is being added or removed from the queue.
         /// StateFinishing
         ///                     This is a terminal state, the procedureworker will soon be deleted.
-        /// 
+        /// StateQueueBusy
+        ///     StateWorking    An item was added to the work queue.
+        ///     
         /// </summary>
         private const int StateFinishing = -1;      // This instance is closing down and releasing all resources.
         private const int StateWorking = 0;         // This instance is working, other threads are free to enqueue work.
@@ -103,7 +108,8 @@ namespace ParallelScan
                 var lastInstr = ParseLinear(item);
                 if (lastInstr is null)
                 {
-                    //$TODO: Current block is garbage, discard it and any predecessors
+                    // Current block is garbage, discard it and any predecessors
+                    this.scanner.RegisterBadBlock(item.BlockStart);
                 }
                 else
                 {
@@ -309,7 +315,7 @@ namespace ParallelScan
                     return edges;
                 }
             }
-            throw new NotImplementedException();
+            throw new NotImplementedException($"Unhandled: {iclass}, {instr}");
         }
 
         private Address? DetermineTargetAddress(MachineInstruction instr)
@@ -336,6 +342,11 @@ namespace ParallelScan
             while (item.Disassembler.MoveNext())
             {
                 var instr = item.Disassembler.Current;
+                if (!instr.IsValid)
+                {
+                    Verbose("  encountered an invalid instruction at {0}", instr.Address);
+                    return null;
+                }
                 item.Instructions.Add(instr);
                 if ((InstrClass) instr.InstructionClass != InstrClass.Linear)
                 {
