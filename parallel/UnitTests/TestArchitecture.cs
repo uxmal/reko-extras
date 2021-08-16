@@ -1,4 +1,5 @@
 ﻿using Reko.Core;
+using Reko.Core.Emulation;
 using Reko.Core.Expressions;
 using Reko.Core.Machine;
 using Reko.Core.Memory;
@@ -23,7 +24,7 @@ namespace ParallelScan.UnitTests
             return new TestDisassembler(imageReader);
         }
 
-        public override IProcessorEmulator CreateEmulator(SegmentMap segmentMap, IPlatformEmulator envEmulator)
+        public override IProcessorEmulator CreateEmulator(SegmentMap segmentMap,  IPlatformEmulator envEmulator)
         {
             throw new NotImplementedException();
         }

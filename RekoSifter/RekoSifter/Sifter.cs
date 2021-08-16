@@ -4,6 +4,7 @@ using Reko.Core;
 using Reko.Core.Configuration;
 using Reko.Core.Lib;
 using Reko.Core.Machine;
+using Reko.Core.Memory;
 using Reko.Core.Services;
 using Reko.Loading;
 using System;
@@ -20,7 +21,7 @@ namespace RekoSifter
     {
         private const string DefaultArchName = "x86-protected-32";
         private const int DefaultMaxInstrLength = 15;
-        private MemoryArea mem;
+        private ByteMemoryArea mem;
         private readonly IProcessorArchitecture arch;
         private readonly InstrRenderer instrRenderer;
         private EndianImageReader rdr;
@@ -64,6 +65,7 @@ namespace RekoSifter
             this.arch = arch;
             this.baseAddress = Address.Create(arch.PointerType, 0x00000000);    //$TODO allow customization?
             this.progress = new Progress();
+            this.rdr = default!;
         }
 
         private void InitializeRekoDisassembler()
@@ -242,7 +244,7 @@ Options:
 
         private void Sift()
         {
-            this.mem = new MemoryArea(baseAddress, new byte[100]);
+            this.mem = new ByteMemoryArea(baseAddress, new byte[100]);
             InitializeRekoDisassembler();
 
             otherDasm?.SetEndianness(this.endianness);
@@ -392,7 +394,7 @@ Options:
         {
             Memory<byte> buf = File.ReadAllBytes(inputFilePath!);
 
-            this.mem = new MemoryArea(baseAddress, buf.ToArray());
+            this.mem = new ByteMemoryArea(baseAddress, buf.ToArray());
             InitializeRekoDisassembler();
 
             buf.CopyTo(mem.Bytes);
@@ -496,8 +498,7 @@ Options:
                 processInstr(mem.Bytes, instr);
 
                 rdr.Offset = 0;
-                var val = rdr.ReadUInt32(0);
-                if (val == 0xFFFFFFFFu)
+                if (!rdr.TryReadUInt32(out uint val) || val == 0xFFFFFFFFu)
                 {
                     break;
                 }
