@@ -7,8 +7,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace ParallelScan
@@ -55,9 +53,16 @@ namespace ParallelScan
                 return promise.Task;
         }
 
-        public bool TryStartProcedureWorker(IProcessorArchitecture arch, Address addr, out IProcedureWorker? iworker)
+        /// <summary>
+        /// Attempt to start an <see cref="IProcedureWorker"/> at address <paramref name="addr"/>. 
+        /// If a suspended worker is found, return it and wake it to life. If a suspended
+        /// worker is not found, attempt to create a new one.
+        /// </summary>
+        public bool TryStartProcedureWorker(IProcessorArchitecture arch, Address addr, [MaybeNullWhen(false)] out IProcedureWorker? iworker)
         {
             if (suspendedWorkers.TryGetValue(addr, out iworker))
+                //$TODO: there is a race condition here. Pass the work item here to prep the worker
+                // before starting it.
                 return true;
             var worker = new ProcedureWorker(arch, addr, this);
             while (!workers.TryAdd(addr, worker))
@@ -81,11 +86,12 @@ namespace ParallelScan
             return cfg.BlockEnds.TryAdd(addrEnd, blockStart);
         }
 
-        public bool TryRegisterProcedure(Address addrProc)
+        public bool TryRegisterProcedure(IProcessorArchitecture arch, Address addrProc)
         {
             if (!cfg.F.TryAdd(addrProc, addrProc))
                 return false;
-            cfg.Procedures.TryAdd(addrProc, new Procedure(addrProc));
+            var frame = arch.CreateFrame();
+            cfg.Procedures.TryAdd(addrProc, Procedure.Create(arch, addrProc, frame));
             return true;
         }
 
@@ -103,6 +109,7 @@ namespace ParallelScan
         public void WorkerFinished(Address workerAddress)
         {
             workers.TryRemove(workerAddress, out _);
+            Console.WriteLine("scanner: Worker {0} finished: now at {1}", workerAddress, workers.Count);
             if (workers.IsEmpty)
             {
                 promise.TrySetResult(cfg);
@@ -165,7 +172,7 @@ namespace ParallelScan
             {
                 var (Bj, arch, y) = item;
                 // We traced xj until we reached a CTI at address y. Some other block, starting at
-                // xi, ends at 'y'. This is the block that has the edges out from 'y'.
+                // xi, also ends at 'y'. This is the block that has the edges out from 'y'.
                 Address xi = cfg.BlockEnds[y];
                 Address xj = Bj.Address;
                 if (xi == xj)
@@ -188,7 +195,7 @@ namespace ParallelScan
                     //  xi          S    y
                     //  +-+--+--+-+ +----+
                     //      +--+--+
-                    //      xj      
+                    //      xj
                     var sAddress = Bi.Instructions[i].Address;  //$TODO: different procs, result in tail calls.
                     if (TryRegisterBlockStart(sAddress, cfg.C[xi]))
                     {
@@ -274,11 +281,29 @@ namespace ParallelScan
             }
         }
 
-        public ProcedureReturn ProcedureReturnStatus(Address addrProc)
+        /// <summary>
+        /// Moves a suspended <see cref="ProcedureWorker"/> from the suspended workers
+        /// queue to the running workers queue, and starts running it.
+        /// </summary>
+        /// <param name="caller"></param>
+        public void WakeWorker(IProcedureWorker caller)
         {
-            if (cfg.Procedures.TryGetValue(addrProc, out Procedure? proc))
-                return proc.Returns;
+            if (!suspendedWorkers.TryRemove(caller.ProcedureAddress, out var cc))
+                throw new InvalidOperationException($"Worker {caller.ProcedureAddress} was not suspended.");
+            workers.TryAdd(caller.ProcedureAddress, caller);
+            Task.Run(() => caller.Process());
+        }
+
+        public ProcedureReturn GetProcedureReturnStatus(Address addrProc)
+        {
+            if (cfg.ProcedureReturnStatuses.TryGetValue(addrProc, out ProcedureReturn pr))
+                return pr;
             return ProcedureReturn.Unknown;
+        }
+
+        public void SetProcedureReturnStatus(Address addrProc, ProcedureReturn returns)
+        {
+            cfg.ProcedureReturnStatuses[addrProc] = returns;
         }
 
         /// <summary>
@@ -311,7 +336,7 @@ namespace ParallelScan
             }
         }
 
-        private (int, int) FindCommonInstructions(MachineInstruction[] aInstrs, MachineInstruction[] bInstrs)
+        private static (int, int) FindCommonInstructions(MachineInstruction[] aInstrs, MachineInstruction[] bInstrs)
         {
             int a = aInstrs.Length - 1;
             int b = bInstrs.Length - 1;
@@ -325,17 +350,7 @@ namespace ParallelScan
             return (a + 1, b + 1);
         }
 
-        public void SetProcedureStatus(Address addrProc, ProcedureReturn returns)
-        {
-            cfg.Procedures[addrProc].Returns = returns;
-        }
 
-        public void WakeWorker(IProcedureWorker caller)
-        {
-            if (!suspendedWorkers.TryRemove(caller.ProcedureAddress, out var cc))
-                throw new InvalidOperationException($"Worker {caller.ProcedureAddress} was not suspended.");
-            workers.TryAdd(caller.ProcedureAddress, caller);
-            Task.Run(() => caller.Process());
-        }
+
     }
 }

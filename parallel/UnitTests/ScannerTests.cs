@@ -17,8 +17,12 @@ namespace ParallelScan.UnitTests
             var s = new Scanner(m.Complete());
             var arch = new TestArchitecture(new ServiceContainer(), "testArch", new Dictionary<string, object>());
             var sym = ImageSymbol.Procedure(arch, addr);
-            var cfg = await s.ScanAsync(new[] { sym });
-            return cfg;
+            var task = s.ScanAsync(new[] { sym });
+            if (await Task.WhenAny(task, Task.Delay(7_000)) != task)
+            {
+                Assert.Fail("Timed out");
+            }
+            return task.Result;
         }
 
         private void AssertCfg(string sExp, Cfg cfg)
@@ -193,14 +197,14 @@ l0000000A:
             m.Ret();
 
             Cfg cfg = await ScanProgramAsync(addr, m);
-
+            Console.WriteLine("Test: Got a result back");
             var sExp =
             #region Expected
 @"proc fn00000000
 l00000000:
     // size: 3
     call 00000004
-    // succ: Call: 00000000 -> 00000004
+    // succ: Call: 00000000 -> 00000004 FallThrough: 00000000 -> 00000003
 l00000003:
     // size: 1
     ret
@@ -237,7 +241,7 @@ l00000004:
 l00000000:
     // size: 3
     call 00000005
-    // succ: Call: 00000000 -> 00000005
+    // succ: Call: 00000000 -> 00000005 FallThrough: 00000000 -> 00000003
 l00000003:
     // size: 1
     ret
@@ -249,7 +253,7 @@ proc fn00000005
 l00000005:
     // size: 3
     call 00000004
-    // succ: Call: 00000005 -> 00000004
+    // succ: Call: 00000005 -> 00000004 FallThrough: 00000005 -> 00000008
 l00000008:
     // size: 1
     ret
@@ -291,7 +295,7 @@ l00000000:
 l00000003:
     // size: 3
     call 0000000E
-    // succ: Call: 00000003 -> 0000000E
+    // succ: Call: 00000003 -> 0000000E FallThrough: 00000003 -> 00000006
 l00000006:
     // size: 3
     jmp 0000000C
@@ -299,7 +303,7 @@ l00000006:
 l00000009:
     // size: 3
     call 0000000D
-    // succ: Call: 00000009 -> 0000000D
+    // succ: Call: 00000009 -> 0000000D FallThrough: 00000009 -> 0000000C
 l0000000C:
     // size: 1
     ret

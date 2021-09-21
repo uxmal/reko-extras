@@ -42,7 +42,8 @@ function entry point. Formally, let B′ ⊆ B and C′ ⊆ C be the sets of blo
 blocks in G reachable from any block in F without traversing e. We can then define
 OER(G, e) = ⟨B′,C′, E ∩ {(a′ → b′) : a′ ∈ B′, b′ ∈ B′ ∪ C′} \ {e}, F ⟩.
 Starting with the initial graph G0 = ⟨, F0,, F0⟩, where F0 is the set of candidate function entry
-blocks discovered via the binary’s symbol table and unwind information, the task of CFG construction can be abstracted as repeated application of these operations. We denote G1,G2 · · · ,Gn−1 as
+blocks discovered via the binary’s symbol table and unwind information, the task of CFG construction 
+can be abstracted as repeated application of these operations. We denote G1,G2 · · · ,Gn−1 as
 the intermediate results and Gn as the final CFG.*/
 
     /*
@@ -54,23 +55,23 @@ the intermediate results and Gn as the final CFG.*/
     3 funcList ← F − nonRet;
     4 oldList ← ∅;
     // Fix point calculation
-    5 while funcList 6= oldList do
-    6 oldList ← funcList;
-    // Inspect all “unknown” functions
-    7 for f ∈ funcList do
-    8 blocks ← ReachableBlocks(f, funcList);
-    // If f has a return block or tail calls a returning
-    function, it is a returning function
-    9 if ContainRetBlock(blocks) or TailCall(f, ret) then
-    10 ret←ret∪{f};
-    // If none of the control flow paths returns, f is a
-    non-returning function.
-    11 if NoBlockedCalls(blocks, funcList) and f /∈ ret then
-    12 nonRet ← nonRet ∪{f};
-    // Determine the functions to be revisited
-    13 funcList ← F −nonRet−ret;
-    // Resolve cyclic dependencies
-    14 nonRet ← F −ret;
+    5 while funcList != oldList do
+    6   oldList ← funcList;
+        // Inspect all “unknown” functions
+    7   for f ∈ funcList do
+    8       blocks ← ReachableBlocks(f, funcList);
+            // If f has a return block or tail calls a returning
+               function, it is a returning function
+    9       if ContainRetBlock(blocks) or TailCall(f, ret) then
+    10          ret←ret∪{f};
+            // If none of the control flow paths returns, f is a
+               non-returning function.
+    11      if NoBlockedCalls(blocks, funcList) and f /∈ ret then
+    12          nonRet ← nonRet ∪{f};
+            // Determine the functions to be revisited
+    13      funcList ← F − nonRet −ret;
+            // Resolve cyclic dependencies
+    14      nonRet ← F − ret;
     */
     public class DivergingFunctionFinder
     {

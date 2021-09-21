@@ -30,14 +30,16 @@ namespace ParallelScan
         /// has determined its return status.
         /// </summary>
         /// <param name="procedureWorker">The worker that should be notified when the procedure status is known.</param>
+        /// <param name="addrCall">The address of the call instruction.</param>
         /// <param name="addrFallthrough">The address to which the call instruction would fall through.</param>
         /// <returns>True if the call was accepted, false if not.</returns>
-        bool TryEnqueueCaller(IProcedureWorker procedureWorker, Address addrFallthrough);
-        
+        bool TryEnqueueCaller(IProcedureWorker procedureWorker, Address addrCall, Address addrFallthrough);
+
         /// <summary>
         /// Move this suspended worker to the working state.
         /// </summary>
+        /// <param name="addrCall">The address of the suspended call instruction.</param>
         /// <param name="addrFallThrough">The address at which to start tracing.</param>
-        void Wake(Address addrFallThrough);
+        void Wake(Address addrCall, Address addrFallThrough);
     }
 }

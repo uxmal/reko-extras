@@ -4,6 +4,7 @@ using Reko.Core.Expressions;
 using Reko.Core.Machine;
 using Reko.Core.Memory;
 using Reko.Core.Rtl;
+using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,6 +18,7 @@ namespace ParallelScan.UnitTests
         public TestArchitecture(IServiceProvider services, string archId, Dictionary<string, object> options) : base(services, archId, options)
         {
             Endianness = EndianServices.Little;
+            FramePointerType = PrimitiveType.Ptr32;
         }
 
         public override IEnumerable<MachineInstruction> CreateDisassembler(EndianImageReader imageReader)

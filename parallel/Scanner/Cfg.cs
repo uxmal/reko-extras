@@ -45,7 +45,13 @@ namespace ParallelScan
         public ConcurrentDictionary<Address, Procedure> Procedures { get; }
 
         /// <summary>
-        /// This is the set of address that end up in bad code.
+        /// This dictionary tracks the return status of procedures. A missing value is
+        /// equivalent to <see cref="ProcedureReturn.Unknown"/>.
+        /// </summary>
+        public ConcurrentDictionary<Address, ProcedureReturn> ProcedureReturnStatuses { get; }
+
+        /// <summary>
+        /// This is the set of addresses that end up in bad code.
         /// </summary>
         public ConcurrentDictionary<Address, Address> Bad { get; }
         
@@ -58,6 +64,7 @@ namespace ParallelScan
             this.ParentProcedure = new();
             this.BlockEnds = new();
             this.Procedures = new();
+            this.ProcedureReturnStatuses = new();
             this.Bad = new();
         }
     }

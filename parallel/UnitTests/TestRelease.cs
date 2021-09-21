@@ -15,10 +15,12 @@ namespace ParallelScan.UnitTests
     [TestFixture]
     public class TestRelease
     {
-        [Test]
+        [Test][Ignore("")]
         public async Task Zot()
         {
             var sc = new ServiceContainer();
+            var plSvc = new PluginLoaderService();
+            sc.AddService<IPluginLoaderService>(plSvc);
             var fsSvc = new FileSystemServiceImpl();
             sc.AddService<IFileSystemService>(fsSvc);
             var cfgSvc = RekoConfigurationService.Load(sc, @"D:\dev\uxmal\reko\extras\parallel\UnitTests\bin\Debug\net5.0\reko\reko.config");
