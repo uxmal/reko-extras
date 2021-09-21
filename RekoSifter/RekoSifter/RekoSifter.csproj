@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <Platforms>AnyCPU;x64;x86</Platforms>
-    <nullable>enable</nullable>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -25,7 +25,8 @@
 
   <ItemGroup>
     <PackageReference Include="LLVMSharp" Version="10.0.0-beta" />
-    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.10.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.2" />
+    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.10.1" />
   </ItemGroup>
 
   <ItemGroup>
