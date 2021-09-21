@@ -29,10 +29,22 @@ namespace chunks
                 taskUnits.Add(factory.Create(workUnit, i, i + chunkSize));
             }
             var results = new TaskResult[taskUnits.Count];
+#if !NO_PARALLEL_THREADS
             var msec = Time(() => Parallel.ForEach(taskUnits, (src, state, n) =>
             {
                 results[n] = src.Run();
             }));
+#else 
+            var msec = Time(() =>
+            {
+                int n = -1;
+                foreach (var task in taskUnits)
+                {
+                    ++n;
+                    results[n] = task.Run();
+                }
+            });
+#endif
             return (msec, results.Sum(r => r.Clusters!.Length));
         }
 

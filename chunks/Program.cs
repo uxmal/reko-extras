@@ -19,10 +19,10 @@ namespace chunks
         static void Main(string[] args)
         {
             var cfg = MakeServices();
-            var includedArchs = new Regex("zSer", RegexOptions.IgnoreCase);
-            var exceptedArchs = new Regex("x86.*16|65816|PIC", RegexOptions.IgnoreCase);
+            var includedArchs = new Regex("Vax", RegexOptions.IgnoreCase);
+            var exceptedArchs = new Regex("x86.*16|65816|PIC|YMP|C166|Etrax|exago|IA64|Vax", RegexOptions.IgnoreCase);
             //foreach (var archDef in cfg.GetArchitectures().Where(a => includedArchs.IsMatch(a.Name!)))
-             foreach (var archDef in cfg.GetArchitectures().Where(a => !exceptedArchs.IsMatch(a.Name!)))
+            foreach (var archDef in cfg.GetArchitectures().Where(a => !exceptedArchs.IsMatch(a.Name!)))
             {
                 TestArchitecture(cfg, archDef);
             }
@@ -86,11 +86,13 @@ namespace chunks
             {
                 return null;
             }
-            var addr = Address.Create(arch.PointerType, 0x0010_0000);
-            var mem = new ByteMemoryArea(addr, new byte[MemorySize]);
+            var bytes = new byte[MemorySize];
             var rnd = new Random(seed);
-            rnd.NextBytes(mem.Bytes);
-            return new WorkUnit(arch, mem, mem.BaseAddress, mem.Bytes.Length);
+            rnd.NextBytes(bytes);
+
+            var addr = Address.Create(arch.PointerType, 0x0010_0000);
+            var mem = arch.CreateMemoryArea(addr, bytes);
+            return new WorkUnit(arch, mem, mem.BaseAddress, (int)mem.Length);
         }
     }
 }

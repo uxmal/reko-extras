@@ -13,10 +13,12 @@ namespace chunks
     public class MutableTestGenerationService : ITestGenerationService
     {
         private ITestGenerationService svc;
+        private readonly object lockObject;
 
         public MutableTestGenerationService(ITestGenerationService svc)
         {
             this.svc = svc;
+            this.lockObject = new object();
         }
 
         public bool IsMuted { get; set; }
@@ -34,6 +36,7 @@ namespace chunks
         {
             if (IsMuted) 
                 return;
+            lock (lockObject)
             svc.ReportMissingDecoder(testPrefix, addrStart, rdr, message, hexize);
         }
 
@@ -41,6 +44,7 @@ namespace chunks
         {
             if (IsMuted)
                 return;
+            lock (lockObject)
             svc.ReportMissingRewriter(testPrefix, instr, mnemonic, rdr, message, hexize);
         }
 
@@ -48,6 +52,7 @@ namespace chunks
         {
             if (IsMuted)
                 return;
+            lock (lockObject)
             svc.ReportProcedure(fileName, testCaption, proc);
         }
     }

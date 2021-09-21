@@ -6,7 +6,7 @@ namespace chunks
     public class WorkUnit
     {
 
-        public WorkUnit(IProcessorArchitecture arch, ByteMemoryArea mem, Address addr, int length)
+        public WorkUnit(IProcessorArchitecture arch, MemoryArea mem, Address addr, int length)
         {
             this.Architecture = arch;
             this.MemoryArea = mem;
@@ -15,7 +15,7 @@ namespace chunks
         }
 
         public IProcessorArchitecture Architecture { get; }
-        public ByteMemoryArea MemoryArea { get; }
+        public MemoryArea MemoryArea { get; }
         public Address Address { get; }
         public int Length { get; }
     }

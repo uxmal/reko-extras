@@ -1,4 +1,5 @@
 ﻿using Reko.Core;
+using Reko.Core.Memory;
 using Reko.Core.Rtl;
 using Reko.Core.Services;
 using System;
@@ -21,8 +22,10 @@ namespace chunks
         
         public override TaskResult Run()
         {
+            int nExceptions = 0;
             var step = workUnit.Architecture.InstructionBitSize / workUnit.MemoryArea.CellBitSize;
             var rtls = new List<RtlInstructionCluster>();
+
             for (int i = iStart; i < iEnd; i += step)
             {
                 var rw = GetRewriter(i);
@@ -34,6 +37,9 @@ namespace chunks
                 catch (Exception ex)
                 {
                     ReportException(ex, i);
+                    ++nExceptions;
+                    if (nExceptions > 100)
+                        break;
                     continue;
                 }
                 var cluster = rw.Current;
