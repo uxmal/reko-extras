@@ -77,7 +77,7 @@ namespace RekoSifter
         private IDecompilerService CreateDecompiler(ServiceContainer sc)
         {
             var dcSvc = new DecompilerService();
-            dcSvc.Decompiler = new Decompiler(new Loader(sc), sc)
+            dcSvc.Decompiler = new Reko.Decompiler(new Loader(sc), sc)
             {
                 Project = new Project
                 {
