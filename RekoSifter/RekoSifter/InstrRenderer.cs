@@ -1,4 +1,4 @@
-﻿using Reko.Core.Machine;
+using Reko.Core.Machine;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -7,11 +7,19 @@ namespace RekoSifter
 {
     public class InstrRenderer
     {
+        /// <summary>
+        /// Render the Reko machine instruction <paramref name="i"/> the
+        /// way objdump does.
+        /// </summary>
         public virtual string RenderAsObjdump(MachineInstruction i)
         {
             return i.ToString();
         }
 
+        /// <summary>
+        /// Render the Reko machine instruction <paramref name="i"/> the
+        /// way LLVM does.
+        /// </summary>
         public virtual string RenderAsLlvm(MachineInstruction i)
         {
             return i.ToString();

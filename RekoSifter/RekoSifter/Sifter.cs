@@ -34,7 +34,7 @@ namespace RekoSifter
         private int? seed;
         private long? count;
         private bool useRandomBytes;
-        private Action<byte[], MachineInstruction?> processInstr;
+        private Action<byte[], MachineInstruction?> processInstr; // What to do with each disassembled instruction
         private IDisassembler? otherDasm;
         private char endianness;
         private string? inputFilePath = null;
@@ -256,14 +256,17 @@ Options:
                     : new Random();
                 Sift_Random(rng);
             }
-            if (arch.InstructionBitSize == 8)
-                Sift_8Bit();
-            else if (arch.InstructionBitSize == 32)
-                Sift_32Bit();
-            else if (arch.InstructionBitSize == 16)
-                Sift_16Bit();
             else
-                throw new NotImplementedException();
+            {
+                if (arch.InstructionBitSize == 8)
+                    Sift_8Bit();
+                else if (arch.InstructionBitSize == 32)
+                    Sift_32Bit();
+                else if (arch.InstructionBitSize == 16)
+                    Sift_16Bit();
+                else
+                    throw new NotImplementedException();
+            }
 
             if(otherDasm is IDisposable disposable) {
                 disposable.Dispose();
@@ -292,7 +295,7 @@ Options:
             (string llvmOut, byte[]? llvmBytes) = otherDasm!.Disassemble(bytes);
 
             Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}")));
-            Console.WriteLine("L:{0,-40} {1}", llvmOut, string.Join(" ", llvmBytes.Select(b => $"{b:X2}")));
+            Console.WriteLine("L:{0,-40} {1}", llvmOut, string.Join(" ", llvmBytes!.Select(b => $"{b:X2}")));
             Console.WriteLine();
         }
 
@@ -370,7 +373,7 @@ Options:
                     {
                         progress.Reset();
                         Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}")));
-                        Console.WriteLine("O:{0,-40} {1}", odOut, string.Join(" ", odBytes.Select(b => $"{b:X2}")));
+                        Console.WriteLine("O:{0,-40} {1}", odOut, string.Join(" ", odBytes!.Select(b => $"{b:X2}")));
                         Console.WriteLine();
                     }
                 }
@@ -410,13 +413,11 @@ Options:
             var buf = new byte[maxInstrLength];
             while (DecrementCount())
             {
-                //Console.WriteLine();
                 rng.NextBytes(buf);
                 Buffer.BlockCopy(buf, 0, mem.Bytes, 0, buf.Length);
                 
                 var instr = Dasm();
                 processInstr(buf, instr);
-                --this.count;
             }
         }
 

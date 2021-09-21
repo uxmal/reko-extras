@@ -1,4 +1,4 @@
-﻿using Reko.Arch.Arm.AArch64;
+using Reko.Arch.Arm.AArch64;
 using Reko.Core.Machine;
 using System.Text;
 
@@ -36,7 +36,7 @@ namespace RekoSifter
                     break;
                 case MemoryOperand mem:
                     sb.Append('[');
-                    sb.Append(mem.Base.Name);
+                    sb.Append(mem.Base!.Name);
                     if (mem.Offset != null && !mem.Offset.IsZero)
                     {
                         sb.AppendFormat(", #{0}", mem.Offset.ToInt32());

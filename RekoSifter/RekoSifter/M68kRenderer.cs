@@ -1,4 +1,4 @@
-﻿using Reko.Arch.M68k;
+using Reko.Arch.M68k;
 using Reko.Core;
 using Reko.Core.Machine;
 using Reko.Core.Types;
@@ -79,7 +79,7 @@ namespace RekoSifter
             }
         }
 
-        private string DataSizeSuffix(PrimitiveType dataWidth)
+        private string DataSizeSuffix(PrimitiveType? dataWidth)
         {
             if (dataWidth == null)
                 return "";
