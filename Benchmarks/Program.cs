@@ -6,6 +6,7 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
 using Reko.Core;
+using Reko.Core.Lib;
 using Reko.Core.Machine;
 using Reko.Core.Memory;
 using Reko.Core.Rtl;
@@ -23,6 +24,7 @@ namespace Reko.Benchmarks
         private readonly IProcessorArchitecture archX86;
         private readonly IProcessorArchitecture archArm;
         private ulong sum;
+        private NullDecompilerEventListener eventListener;
 
         public static void Main(string[] args) =>
             BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, DefaultConfig.Instance
@@ -39,6 +41,9 @@ namespace Reko.Benchmarks
             this.sc = new ServiceContainer();
             sc.AddService<IFileSystemService>(new FileSystemServiceImpl());
             sc.AddService<ITestGenerationService>(new TestGenerationService(sc));
+            this.eventListener = new NullDecompilerEventListener();
+            sc.AddService<DecompilerEventListener>(eventListener);
+
             var options = new Dictionary<string, object>();
             this.archX86 = new Reko.Arch.X86.X86ArchitectureFlat32(sc, "", options);
             this.archArm = new Reko.Arch.Arm.Arm32Architecture(sc, "", options);
@@ -140,10 +145,12 @@ namespace Reko.Benchmarks
             var platform = new DefaultPlatform(this.sc, archX86);
             var segmentMap = new SegmentMap(new ImageSegment("code", mem.BaseAddress, mem, AccessMode.ReadExecute));
             var program = new Reko.Core.Program(segmentMap, archX86, platform);
-            var eventListener = new NullDecompilerEventListener();
-            sc.AddService<DecompilerEventListener>(eventListener);
             var scanner = new Reko.Scanning.ScannerInLinq(sc, program, new RewriterHost(program.Architecture), eventListener);
             var sr = new Scanning.ScanResults();
+            sr.ICFG = new DiGraph<Reko.Scanning.RtlBlock>();
+            sr.KnownProcedures = new HashSet<Address>();
+            sr.KnownAddresses = new Dictionary<Address, ImageSymbol>();
+
             scanner.ScanImage(sr);
         }
     }
