@@ -1,4 +1,4 @@
-using Reko.Core.Machine;
+ using Reko.Core.Machine;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -48,6 +48,8 @@ namespace RekoSifter
             case "mips-be-64":
             case "mips-le-64":
                 return new MipsRenderer();
+            case "rl78":
+                return new Rl78Renderer();
             case "sparc32":
             case "sparc64":
                 return new SparcRenderer();
