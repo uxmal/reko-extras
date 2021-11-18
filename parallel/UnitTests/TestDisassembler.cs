@@ -63,10 +63,10 @@ namespace ParallelScan.UnitTests
                     instr.Operands = new MachineOperand[] { AddressOperand.Ptr32(uAddr) };
                     break;
                 case 6: // return
-                    instr = new TestMachineInstruction(InstrClass.Transfer | (InstrClass)2048, Mnemonic.ret);
+                    instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Return, Mnemonic.ret);
                     break;
                 case 7: // return with delay slot.
-                    instr = new TestMachineInstruction(InstrClass.Transfer | (InstrClass)2048 | InstrClass.Delay, Mnemonic.ret);
+                    instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Return | InstrClass.Delay, Mnemonic.ret);
                     break;
                 default:
                     instr = new TestMachineInstruction(InstrClass.Invalid , Mnemonic.Invalid);
