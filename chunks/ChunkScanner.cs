@@ -21,6 +21,9 @@ namespace chunks
             this.chunkSize = chunkSize;
         }
 
+        /// <summary>
+        /// Starts a number of parallel tasks.
+        /// </summary>
         public (long, int) DoIt(RewriterTaskFactory factory)
         {
             var taskUnits = new List<RewriterTask>();

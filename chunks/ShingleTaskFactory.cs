@@ -8,6 +8,8 @@ namespace chunks
 {
     public class ShingleTaskFactory : RewriterTaskFactory
     {
+        public override string Name => "Shingle scan";
+
         public override RewriterTask Create(WorkUnit workUnit, int iStart, int iEnd)
         {
             return new ShingleTask(workUnit, iStart, iEnd);

@@ -19,8 +19,8 @@ namespace chunks
         static void Main(string[] args)
         {
             var cfg = MakeServices();
-            var includedArchs = new Regex("Vax", RegexOptions.IgnoreCase);
-            var exceptedArchs = new Regex("x86.*16|65816|PIC|YMP|C166|Etrax|exago|IA64|Vax", RegexOptions.IgnoreCase);
+            var includedArchs = new Regex("arc", RegexOptions.IgnoreCase);
+            var exceptedArchs = new Regex("x86.*16|65816|8670|PIC|YMP|C166|Etrax|exago|IA64|Vax", RegexOptions.IgnoreCase);
             //foreach (var archDef in cfg.GetArchitectures().Where(a => includedArchs.IsMatch(a.Name!)))
             foreach (var archDef in cfg.GetArchitectures().Where(a => !exceptedArchs.IsMatch(a.Name!)))
             {
@@ -54,13 +54,22 @@ namespace chunks
                 Console.Out.WriteLine("*** Failed to load {0}", archDef.Name);
                 return;
             }
-            //var factory = new LinearTaskFactory();
-            var factory = new ShingleTaskFactory();
+            var factories = new RewriterTaskFactory[] {
+                new LinearTaskFactory(),
+                new ShingleTaskFactory(),
+                new LinearShingleTaskFactory()
+            };
+            foreach (var factory in factories)
+            {
+                CollectStatistics(work, factory);
+            }
+        }
 
-            // Now do the stats.
+        private static void CollectStatistics(WorkUnit work, RewriterTaskFactory factory)
+        {
             for (int chunkSize = MinChunkSize; chunkSize <= MemorySize; chunkSize *= 16)
             {
-                Console.Out.WriteLine("    Shingle scan, chunk size {0}", chunkSize);
+                Console.Out.WriteLine("    {0}, chunk size {1}", factory.Name, chunkSize);
                 long sum = 0;
                 long totClusters = 0;
                 for (int rep = 0; rep < CReps; ++rep)
@@ -75,7 +84,7 @@ namespace chunks
                 }
                 var avg = sum / (double)CReps;
                 var perInstr = sum * 1000.0 / totClusters;
-                Console.Out.WriteLine(", avg: {0:0.000} msec; {1:0.000} usec/rtl cluster;", avg, perInstr);
+                Console.Out.WriteLine(", avg: {0:0.000} msec; {1:0.000} usec/rtl cluster {2,6} clusters;", avg, perInstr, totClusters);
             }
         }
 

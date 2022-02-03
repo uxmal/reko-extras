@@ -13,16 +13,26 @@ namespace chunks
         {
         }
 
-        public override TaskResult Run()
+        protected override TaskResult DoRun()
         {
-            IEnumerable<RtlInstructionCluster> rw = CreateRewriter(iStart);
-            var clusters =
-                (from cluster in rw
-                 where cluster.Address - workUnit.MemoryArea.BaseAddress < iEnd
-                 select cluster).ToArray();
+            var clusters = new List<RtlInstructionCluster>();
+            int iMark = iStart;
+            try
+            {
+                var rw = CreateRewriter(iStart).GetEnumerator();
+                while (iMark < iEnd && rw.MoveNext())
+                {
+                    clusters.Add(rw.Current);
+                    iMark += rw.Current.Length;
+                }
+            } 
+            catch (Exception ex)
+            {
+                ReportException(ex, iMark);
+            }
             return new TaskResult
             {
-                Clusters = clusters,
+                Clusters = clusters.ToArray()
             };
         }
     }

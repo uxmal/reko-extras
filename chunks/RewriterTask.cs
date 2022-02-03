@@ -16,6 +16,7 @@ namespace chunks
         protected WorkUnit workUnit;
         protected int iStart;
         protected int iEnd;
+        private int nExceptions;
 
         protected RewriterTask(WorkUnit workUnit, int i, int v)
         {
@@ -24,7 +25,13 @@ namespace chunks
             this.iEnd = v;
         }
 
-        public abstract TaskResult Run();
+        public TaskResult Run()
+        {
+            nExceptions = 0;
+            return DoRun();
+        }
+
+        protected abstract TaskResult DoRun();
 
         protected IEnumerable<RtlInstructionCluster> CreateRewriter(int i)
         {
@@ -43,11 +50,15 @@ namespace chunks
             return rdr;
         }
 
-        protected void ReportException(Exception ex, int i)
+        protected bool ReportException(Exception ex, int i)
         {
+            ++nExceptions;
+            if (nExceptions > 100)
+                return true;
+
             var testSvc = workUnit.Architecture.Services.GetService<ITestGenerationService>();
             if (testSvc is null)
-                return;
+                return false;
             if (testSvc is MutableTestGenerationService mutable)
             {
                 mutable.IsMuted = false;
@@ -61,6 +72,7 @@ namespace chunks
             {
                 mutable2.IsMuted = true;
             }
+            return false;
         }
 
         private class RewriterHost : IRewriterHost

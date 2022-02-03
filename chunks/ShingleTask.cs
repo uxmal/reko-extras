@@ -20,32 +20,28 @@ namespace chunks
             rewriters = new Dictionary<int, IEnumerator<RtlInstructionCluster>>();
         }
         
-        public override TaskResult Run()
+        protected override TaskResult DoRun()
         {
-            int nExceptions = 0;
             var step = workUnit.Architecture.InstructionBitSize / workUnit.MemoryArea.CellBitSize;
             var rtls = new List<RtlInstructionCluster>();
 
             for (int i = iStart; i < iEnd; i += step)
             {
-                var rw = GetRewriter(i);
                 try
                 {
+                    var rw = GetRewriter(i);
                     if (!rw.MoveNext())
                         continue;
+                    var cluster = rw.Current;
+                    rtls.Add(cluster);
+
+                    CacheRewriter(i + cluster.Length, rw);
                 }
                 catch (Exception ex)
                 {
-                    ReportException(ex, i);
-                    ++nExceptions;
-                    if (nExceptions > 100)
-                        break;
-                    continue;
+                    if (ReportException(ex, i))
+                       break;
                 }
-                var cluster = rw.Current;
-                rtls.Add(cluster);
-
-                CacheRewriter(i + cluster.Length, rw);
             }
             return new TaskResult
             {
