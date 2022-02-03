@@ -37,6 +37,7 @@ namespace RekoSifter
         private Action<byte[], MachineInstruction?> processInstr; // What to do with each disassembled instruction
         private IDisassembler? otherDasm;
         private char endianness;
+        private string syntax;
         private string? inputFilePath = null;
 
         private readonly Address baseAddress;
@@ -200,6 +201,13 @@ namespace RekoSifter
                         res = false;
                     }
                     break;
+                case "-s":
+                case "--syntax":
+                    if (!TryTake(it, out this.syntax))
+                    {
+                        res = false;
+                    }
+                    break;
                 }
 
                 if (!res)
@@ -236,6 +244,7 @@ Options:
     -o --objdump <arch>    Enable Objdump comparison
                            Uses the opcodes-* library that contains <arch> in the library name
                            The default (generic) architecture will be used
+    -s --syntax <name>     Use the named syntax when generating disassembly text.
     -c <count>             Disassemble <count> instructions, then stop.
 ");
         }
