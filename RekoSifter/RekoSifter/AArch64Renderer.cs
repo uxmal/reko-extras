@@ -1,4 +1,5 @@
 using Reko.Arch.Arm.AArch64;
+using Reko.Core;
 using Reko.Core.Machine;
 using System.Text;
 
@@ -25,8 +26,8 @@ namespace RekoSifter
                 sep = ", ";
                 switch (op)
                 {
-                case RegisterOperand reg:
-                    sb.Append(reg.Register.Name);
+                case RegisterStorage reg:
+                    sb.Append(reg.Name);
                     break;
                 case ImmediateOperand imm:
                     sb.AppendFormat("0x{0:x}", imm.Value.ToUInt64());

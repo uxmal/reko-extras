@@ -32,8 +32,8 @@ namespace RekoSifter
             // and so on, and so on.....
             switch (op)
             {
-                case RegisterOperand rop:
-                    sb.Append(RegName(rop.Register));
+                case RegisterStorage reg:
+                    sb.Append(RegName(reg));
                     break;
                 case M68kImmediateOperand imm:
                     sb.AppendFormat("#{0}", imm.Constant);

@@ -1,4 +1,4 @@
-﻿using Reko.Arch.X86;
+using Reko.Arch.X86;
 using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Machine;
@@ -28,8 +28,8 @@ namespace RekoSifter
                 sep = ",";
                 switch (op)
                 {
-                    case RegisterOperand rop:
-                        sb.Append(rop);
+                    case RegisterStorage rop:
+                        sb.Append(rop.Name);
                         break;
                     case ImmediateOperand imm:
                         RenderObjdumpConstant(imm.Value, false, sb);

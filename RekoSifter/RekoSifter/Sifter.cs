@@ -7,9 +7,11 @@ using Reko.Core.Machine;
 using Reko.Core.Memory;
 using Reko.Core.Services;
 using Reko.Loading;
+using Reko.Services;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -78,23 +80,22 @@ namespace RekoSifter
         private IDecompilerService CreateDecompiler(ServiceContainer sc)
         {
             var dcSvc = new DecompilerService();
-            dcSvc.Decompiler = new Reko.Decompiler(new Loader(sc), sc)
+            var project = new Project
             {
-                Project = new Project
-                {
-                    Programs =
+                Programs =
                     {
                         new Reko.Core.Program
                         {
                             DisassemblyDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
                         }
                     }
-                }
             };
+
+            dcSvc.Decompiler = new Reko.Decompiler(project, sc);
             return dcSvc;
         }
 
-        bool TryTake(IEnumerator<string> it, out string? arg)
+        bool TryTake(IEnumerator<string> it, [MaybeNullWhen(false)] out string arg)
         {
             if (!it.MoveNext())
             {

@@ -1,4 +1,4 @@
-﻿using Reko.Arch.Mips;
+using Reko.Arch.Mips;
 using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Machine;
@@ -27,8 +27,8 @@ namespace RekoSifter
                 sep = ",";
                 switch (op)
                 {
-                    case RegisterOperand reg:
-                        RenderRegister(reg.Register, rawRegisterNames, sb);
+                    case RegisterStorage reg:
+                        RenderRegister(reg, rawRegisterNames, sb);
                         break;
                     case ImmediateOperand imm:
                         RenderImmediate(imm.Value, sb);

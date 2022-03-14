@@ -37,7 +37,15 @@ namespace chunks
             if (IsMuted) 
                 return;
             lock (lockObject)
-            svc.ReportMissingDecoder(testPrefix, addrStart, rdr, message, hexize);
+                svc.ReportMissingDecoder(testPrefix, addrStart, rdr, message, hexize);
+        }
+
+        public void ReportMissingDecoder(string testPrefix, Address addrStart, string message, string opcodeAsText)
+        {
+            if (IsMuted)
+                return;
+            lock (lockObject)
+                svc.ReportMissingDecoder(testPrefix, addrStart, message, opcodeAsText);
         }
 
         public void ReportMissingRewriter(string testPrefix, MachineInstruction instr, string mnemonic, EndianImageReader rdr, string message, Func<byte[], string>? hexize = null)
@@ -45,7 +53,15 @@ namespace chunks
             if (IsMuted)
                 return;
             lock (lockObject)
-            svc.ReportMissingRewriter(testPrefix, instr, mnemonic, rdr, message, hexize);
+                svc.ReportMissingRewriter(testPrefix, instr, mnemonic, rdr, message, hexize);
+        }
+
+        public void ReportMissingRewriter(string testPrefix, MachineInstruction instr, string mnemonic, EndianImageReader rdr, string message, string opcodeAsText)
+        {
+            if (IsMuted)
+                return;
+            lock (lockObject)
+                svc.ReportMissingRewriter(testPrefix, instr, mnemonic, rdr, message, opcodeAsText);
         }
 
         public void ReportProcedure(string fileName, string testCaption, Procedure proc)

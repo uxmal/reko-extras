@@ -2,6 +2,7 @@
 using Reko.Core.Configuration;
 using Reko.Core.Memory;
 using Reko.Core.Services;
+using Reko.Services;
 using System;
 using System.ComponentModel.Design;
 using System.IO;

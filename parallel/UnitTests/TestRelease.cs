@@ -27,14 +27,14 @@ namespace ParallelScan.UnitTests
             sc.AddService<IConfigurationService>(cfgSvc);
             var listener = new NullDecompilerEventListener();
             sc.AddService<DecompilerEventListener>(listener);
-            var dechost = new Reko.DecompiledFileService(fsSvc, listener);
+            var dechost = new Reko.DecompiledFileService(sc, fsSvc, listener);
             sc.AddService<IDecompiledFileService>(dechost);
             var tlSvc = new TypeLibraryLoaderServiceImpl(sc);
             sc.AddService<ITypeLibraryLoaderService>(tlSvc);
             var loader = new Reko.Loading.Loader(sc);
-            var reko = new Reko.Decompiler(loader, sc);
-            reko.Load(@"D:\dev\uxmal\reko\users\smx-zoo\RELEASE_MIPS\RELEASE");
-            var program = reko.Project.Programs[0];
+            var program = (Program) loader.Load(ImageLocation.FromUri(@"D:\dev\uxmal\reko\users\smx-zoo\RELEASE_MIPS\RELEASE"));
+            var project = Project.FromSingleProgram(program);
+            var reko = new Reko.Decompiler(project, sc);
             TryFindSegment(program, ".text", out var seg);
             var scanner = new Scanner(seg.MemoryArea);
             var result = await scanner.ScanAsync(program.EntryPoints.Values);

@@ -1,4 +1,5 @@
 using Reko.Arch.Rl78;
+using Reko.Core;
 using Reko.Core.Machine;
 using System;
 using System.Collections.Generic;
@@ -13,16 +14,6 @@ namespace RekoSifter
         public override string RenderAsObjdump(MachineInstruction i)
         {
             var instr = (Rl78Instruction) i;
-            try
-            {
-                if (instr.Mnemonic == Mnemonic.mov &&
-                    instr.Operands.Length == 2 &&
-                    instr.Operands[1].ToString().Contains("B6"))
-                {
-                    instr.ToString();
-                }
-            } 
-            catch { }
             var sb = new StringBuilder();
             sb.Append(instr.MnemonicAsString);
             var sep = "\t";
@@ -32,8 +23,8 @@ namespace RekoSifter
                 sep = ", ";
                 switch (op)
                 {
-                case RegisterOperand reg:
-                    sb.Append(reg.Register.Name);
+                case RegisterStorage reg:
+                    sb.Append(reg.Name);
                     break;
                 case ImmediateOperand imm:
                     sb.AppendFormat("0x{0:x}", imm.Value.ToUInt32());
