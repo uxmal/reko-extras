@@ -64,7 +64,7 @@ namespace chunks
                 mutable.IsMuted = false;
             }
             testSvc?.ReportMissingDecoder(
-                workUnit.Architecture.Name!,
+                workUnit.Architecture.Name!.Replace("-", "_"),
                 workUnit.MemoryArea.BaseAddress + i,
                 CreateReader(i + 16),
                 ex.Message + "\r\n/*" + ex.StackTrace + "*/ //");

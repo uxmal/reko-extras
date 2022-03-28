@@ -21,7 +21,7 @@ namespace chunks
         {
             var cfg = MakeServices();
             var includedArchs = new Regex("arc", RegexOptions.IgnoreCase);
-            var exceptedArchs = new Regex("x86.*16|65816|8670|PIC|YMP|C166|Etrax|exago|IA64|Vax", RegexOptions.IgnoreCase);
+            var exceptedArchs = new Regex("x86.*16|65816|8670|PIC|YMP|C166|Etrax|exago|IA64|pdp10|Vax", RegexOptions.IgnoreCase);
             //foreach (var archDef in cfg.GetArchitectures().Where(a => includedArchs.IsMatch(a.Name!)))
             foreach (var archDef in cfg.GetArchitectures().Where(a => !exceptedArchs.IsMatch(a.Name!)))
             {
