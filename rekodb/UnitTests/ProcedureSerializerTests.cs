@@ -24,8 +24,8 @@ namespace Reko.Database.UnitTests
             var sb = new StringBuilder();
             var sw = new StringWriter(sb);
             var json = new JsonWriter(sw);
-            var procser = new ProcedureSerializer(json);
-            procser.Serialize(m.Procedure);
+            var procser = new ProcedureSerializer(m.Procedure, json);
+            procser.Serialize();
             sExpected = sExpected.Replace(" ", "")
                 .Replace("\r", "")
                 .Replace("\n", "")
@@ -55,8 +55,9 @@ namespace Reko.Database.UnitTests
      'succ':['l1']},
     {'id':'l1',
      'stm':[
-       {'a':'r2','s':{'c':'i32','v':'42<i32>'}},
-       {'r':null}],
+       ['a','r2',{'c':'i32','v':'42<i32>'}],
+       ['r']
+     ],
      'succ':['ProcedureBuilder_exit']},
     {'id':'ProcedureBuilder_exit',
      'stm':[],'succ':[]
@@ -70,6 +71,48 @@ namespace Reko.Database.UnitTests
                 var r2 = new Identifier("r2", PrimitiveType.Int32, new RegisterStorage("r2", 2, 0, PrimitiveType.Word32));
 
                 m.Assign(r2, m.Int32(42));
+                m.Return();
+            });
+        }
+
+        [Test]
+        public void ProcSer_Assign_Twice()
+        {
+            var sExpected =
+            #region Expected
+                @"
+{
+    'addr':'00123400',
+    'ids':[
+        {'id':'r2','dt':'i32','st':{'reg':'r2','off':0,'sz':32}],
+    'blocks':[
+        { 
+            'id':'ProcedureBuilder_entry',
+            'stm':[],
+            'succ':['l1']
+        },
+        {
+            'id':'l1',
+            'stm':[
+                ['a','r2',['+','r2',{ 'c':'i32','v':'42<i32>'},'w32']],
+                ['r']
+            ],
+            'succ':['ProcedureBuilder_exit']},
+        { 
+            'id':'ProcedureBuilder_exit',
+            'stm':[],
+            'succ':[]
+        }
+    ]
+}
+";
+                           #endregion
+
+                    RunTest(sExpected, m =>
+            {
+                var r2 = new Identifier("r2", PrimitiveType.Int32, new RegisterStorage("r2", 2, 0, PrimitiveType.Word32));
+
+                m.Assign(r2, m.IAdd(r2, m.Int32(42)));
                 m.Return();
             });
         }

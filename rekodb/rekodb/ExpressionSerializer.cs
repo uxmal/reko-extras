@@ -1,5 +1,6 @@
 ﻿using Reko.Core;
 using Reko.Core.Expressions;
+using Reko.Core.Operators;
 using Reko.Core.Serialization.Json;
 using System;
 using System.Collections.Generic;
@@ -20,6 +21,11 @@ namespace Reko.Database
             this.json = json;
         }
 
+        public void Serialize(Expression e)
+        {
+            e.Accept(this);
+        }
+
         public void VisitAddress(Address addr)
         {
             throw new NotImplementedException();
@@ -27,7 +33,11 @@ namespace Reko.Database
 
         public void VisitApplication(Application appl)
         {
-            throw new NotImplementedException();
+            json.BeginList();
+            json.WriteListItem("a");
+            json.WriteListItem(() => appl.Procedure.Accept(this));
+            json.WriteListItem(() => json.WriteList(appl.Arguments, this.Serialize));
+            json.EndList();
         }
 
         public void VisitArrayAccess(ArrayAccess acc)
@@ -37,7 +47,28 @@ namespace Reko.Database
 
         public void VisitBinaryExpression(BinaryExpression binExp)
         {
-            throw new NotImplementedException();
+            var op = binExp.Operator switch
+            {
+                IAddOperator _ => "+",
+                AndOperator _ => "&",
+                ISubOperator _ => "-",
+                OrOperator _ => "|",
+                XorOperator _ => "|",
+                EqOperator _ => "==",
+                NeOperator _ => "!=",
+                ShlOperator _ => "<<",
+                ShrOperator _ => ">>u",
+                UMulOperator _ => "*u",
+                UDivOperator _ => "!=",
+                IModOperator => "%",
+                _ => throw new NotImplementedException($"{binExp.Operator.ToString()}: Unhandled binary operator.")
+            };
+            json.BeginList();
+            json.WriteListItem(op);
+            json.WriteListItem(() => binExp.Left.Accept(this));
+            json.WriteListItem(() => binExp.Right.Accept(this));
+            json.WriteListItem(() => tyrefSer.Serialize(binExp.DataType));
+            json.EndList();
         }
 
         public void VisitCast(Cast cast)
@@ -52,7 +83,10 @@ namespace Reko.Database
 
         public void VisitConditionOf(ConditionOf cof)
         {
-            throw new NotImplementedException();
+            json.BeginList();
+            json.WriteListItem("cof");
+            json.WriteListItem(() => cof.Expression.Accept(this));
+            json.EndList();
         }
 
         public void VisitConstant(Constant c)
@@ -65,7 +99,12 @@ namespace Reko.Database
 
         public void VisitConversion(Conversion conversion)
         {
-            throw new NotImplementedException();
+            json.BeginList();
+            json.WriteListItem("cv");
+            json.WriteListItem(() => conversion.Expression.Accept(this));
+            json.WriteListItem(() => tyrefSer.Serialize(conversion.SourceDataType));
+            json.WriteListItem(() => tyrefSer.Serialize(conversion.DataType));
+            json.EndList();
         }
 
         public void VisitDereference(Dereference deref)
@@ -80,7 +119,7 @@ namespace Reko.Database
 
         public void VisitIdentifier(Identifier id)
         {
-            throw new NotImplementedException();
+            json.Write(id.Name);
         }
 
         public void VisitMemberPointerSelector(MemberPointerSelector mps)
@@ -95,7 +134,13 @@ namespace Reko.Database
 
         public void VisitMkSequence(MkSequence seq)
         {
-            throw new NotImplementedException();
+            json.BeginList();
+            json.WriteListItem("q");
+            foreach (var e in seq.Expressions)
+            {
+                json.WriteListItem(() => e.Accept(this));
+            }
+            json.EndList();
         }
 
         public void VisitOutArgument(OutArgument outArgument)
@@ -115,7 +160,26 @@ namespace Reko.Database
 
         public void VisitProcedureConstant(ProcedureConstant pc)
         {
-            throw new NotImplementedException();
+            switch (pc.Procedure)
+            {
+            case Procedure p:
+                json.Write(p.Name);
+                break;
+            case ExternalProcedure e:
+                json.BeginList();
+                json.WriteListItem("ex");
+                json.WriteListItem(e.Name);
+                json.EndList();
+                break;
+            case IntrinsicProcedure i:
+                json.BeginList();
+                json.WriteListItem("i");
+                json.WriteListItem(i.Name);
+                json.EndList();
+                break;
+            default:
+                throw new NotImplementedException();
+            }
         }
 
         public void VisitScopeResolution(ScopeResolution scopeResolution)
@@ -125,7 +189,12 @@ namespace Reko.Database
 
         public void VisitSegmentedAccess(SegmentedAccess access)
         {
-            throw new NotImplementedException();
+            json.BeginList();
+            json.WriteListItem("s");
+            json.WriteListItem(() => access.BasePointer.Accept(this));
+            json.WriteListItem(() => access.EffectiveAddress.Accept(this));
+            json.WriteListItem(() => tyrefSer.Serialize(access.DataType));
+            json.EndList();
         }
 
         public void VisitSlice(Slice slice)
@@ -135,12 +204,26 @@ namespace Reko.Database
 
         public void VisitTestCondition(TestCondition tc)
         {
-            throw new NotImplementedException();
+            json.BeginList();
+            json.WriteListItem("test");
+            json.WriteListItem(tc.ConditionCode.ToString());
+            json.WriteListItem(() => tc.Expression.Accept(this));
+            json.EndList();
         }
 
         public void VisitUnaryExpression(UnaryExpression unary)
         {
-            throw new NotImplementedException();
+            var op = unary.Operator switch
+            {
+                ComplementOperator _ => "~",
+                NegateOperator _ => "-",
+                _ => throw new NotImplementedException($"{unary}: unimplemented")
+            };
+            json.BeginList();
+            json.WriteListItem("u");
+            json.WriteListItem(op);
+            json.WriteListItem(() => unary.Expression.Accept(this));
+            json.EndList();
         }
     }
 }

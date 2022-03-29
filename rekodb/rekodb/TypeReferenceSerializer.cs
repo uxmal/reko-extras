@@ -76,6 +76,10 @@ namespace Reko.Database
                     Domain.Real => 'r',
                     Domain.SignedInt => 'i',
                     Domain.UnsignedInt => 'u',
+                    Domain.Offset => 'o',
+                    Domain.Selector => 's',
+                    Domain.Pointer => 'p',
+                    Domain.SegPointer => 'P',
                     _ => throw new NotImplementedException()
                 };
             }
@@ -114,7 +118,9 @@ namespace Reko.Database
 
         public void VisitUnknownType(UnknownType ut)
         {
-            throw new NotImplementedException();
+            json.BeginObject();
+            json.WriteKeyValue("unk", ut.BitSize);
+            json.EndObject();
         }
 
         public void VisitVoidType(VoidType voidType)
