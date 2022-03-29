@@ -28,7 +28,7 @@ using System;
 using System.Linq;
 using System.ComponentModel.Design;
 
-namespace Reko.Database.UnitTests
+namespace Reko.Database.UnitTests.Mocks
 {
     /// <summary>
     /// Supports the building of a procedure without having to go through assembler.

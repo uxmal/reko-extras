@@ -30,7 +30,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 
-namespace Reko.Database.UnitTests
+namespace Reko.Database.UnitTests.Mocks
 {
 	/// <summary>
 	/// Supports building a intermediate code program directly without having

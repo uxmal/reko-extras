@@ -16,4 +16,12 @@
     <PackageReference Include="Reko.Decompiler.Runtime" Version="0.11.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Mocks\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\rekodb\rekodb.csproj" />
+  </ItemGroup>
+
 </Project>
