@@ -7,6 +7,7 @@ using Reko.Core.Services;
 using Reko.Database;
 using Reko.Loading;
 using System.ComponentModel.Design;
+using System.Diagnostics;
 
 public class Driver
 {
@@ -18,10 +19,15 @@ public class Driver
 
     private static void SaveProgramToDatabase(Program program)
     {
-        using var file = File.CreateText(Path.ChangeExtension(program.Location.GetFilename(), ".rekodb"));
+        var path = Path.ChangeExtension(program.Location.GetFilename(), ".rekodb");
+        using var file = File.CreateText(path);
         var json = new JsonWriter(file);
         var programSer = new ProgramSerializer(json);
+        var stopw = new Stopwatch();
+        stopw.Start();
         programSer.Serialize(program);
+        stopw.Start();
+        Console.WriteLine("Serialized to {0} in {1} msec", path, stopw.ElapsedMilliseconds);
     }
 
     static Program LoadProgram(string filename)
@@ -37,10 +43,23 @@ public class Driver
         sc.AddService<ITypeLibraryLoaderService>(new TypeLibraryLoaderServiceImpl(sc));
         sc.AddService<IDecompiledFileService>(new DecompiledFileService(sc, fsSvc, listener));
         var ldr = new Loader(sc);
-        var image = (Program) ldr.Load(ImageLocation.FromUri(filename));
-        var project = Project.FromSingleProgram(image);
+        Project project;
+        switch (ldr.Load(ImageLocation.FromUri(filename)))
+        {
+        case Program image:
+            project = Project.FromSingleProgram(image);
+            break;
+        case Project proj:
+            project = proj;
+            break;
+        default: throw new NotSupportedException();
+        }
         var dec = new Reko.Decompiler(project, sc);
+        var stopw = new Stopwatch();
+        stopw.Start();
         dec.ScanPrograms();
-        return image;
+        stopw.Stop();
+        Console.WriteLine("Scanned {0} in {1} msec", filename, stopw.ElapsedMilliseconds);
+        return project.Programs[0];
     }
 }

@@ -95,6 +95,12 @@ namespace Reko.Database
                     ret.Expression.Accept(expSer);
                 json.EndList();
                 break;
+            case SideEffect side:
+                json.BeginList();
+                json.WriteListItem("se");
+                side.Expression.Accept(expSer);
+                json.EndList();
+                break;
             case SwitchInstruction sw:
                 json.BeginList();
                 json.WriteListItem("sw");

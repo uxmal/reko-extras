@@ -28,7 +28,10 @@ namespace Reko.Database
 
         public void VisitAddress(Address addr)
         {
-            throw new NotImplementedException();
+            json.BeginList();
+            json.WriteListItem("@");
+            json.WriteListItem(addr.ToString());
+            json.EndList();
         }
 
         public void VisitApplication(Application appl)
@@ -55,13 +58,35 @@ namespace Reko.Database
                 OrOperator _ => "|",
                 XorOperator _ => "|",
                 EqOperator _ => "==",
+                LeOperator _ => "<=",
+                LtOperator _ => "<",
+                GeOperator _ => ">=",
+                GtOperator _ => ">",
+                UleOperator _ => "<=u",
+                UltOperator _ => "<u",
+                UgeOperator _ => ">=u",
+                UgtOperator _ => ">u",
                 NeOperator _ => "!=",
                 ShlOperator _ => "<<",
+                SarOperator _ => ">>",
                 ShrOperator _ => ">>u",
+                SMulOperator _ => "*s",
+                SDivOperator _ => "/s",
                 UMulOperator _ => "*u",
-                UDivOperator _ => "!=",
+                UDivOperator _ => "/u",
+                IMulOperator _ => "*",
                 IModOperator => "%",
-                _ => throw new NotImplementedException($"{binExp.Operator.ToString()}: Unhandled binary operator.")
+                FAddOperator => "+f",
+                FSubOperator => "-f",
+                FMulOperator => "*f",
+                FDivOperator => "/f",
+                ReqOperator => "==f",
+                RneOperator => "!=f",
+                RgeOperator => ">=f",
+                RgtOperator => ">f",
+                RleOperator => "<=f",
+                RltOperator => "<f",
+                _ => throw new NotImplementedException($"{binExp.Operator} ({binExp.Operator.GetType().Name}): Unhandled binary operator.")
             };
             json.BeginList();
             json.WriteListItem(op);
@@ -129,7 +154,11 @@ namespace Reko.Database
 
         public void VisitMemoryAccess(MemoryAccess access)
         {
-            throw new NotImplementedException();
+            json.BeginList();
+            json.WriteListItem("s");
+            json.WriteListItem(() => access.EffectiveAddress.Accept(this));
+            json.WriteListItem(() => tyrefSer.Serialize(access.DataType));
+            json.EndList();
         }
 
         public void VisitMkSequence(MkSequence seq)
@@ -199,7 +228,12 @@ namespace Reko.Database
 
         public void VisitSlice(Slice slice)
         {
-            throw new NotImplementedException();
+            json.BeginList();
+            json.WriteListItem("l");
+            json.WriteListItem(() => slice.Expression.Accept(this));
+            json.WriteListItem(() => tyrefSer.Serialize(slice.DataType));
+            json.WriteListItem(slice.Offset);
+            json.EndList();
         }
 
         public void VisitTestCondition(TestCondition tc)
@@ -217,6 +251,7 @@ namespace Reko.Database
             {
                 ComplementOperator _ => "~",
                 NegateOperator _ => "-",
+                NotOperator _ => "-",
                 _ => throw new NotImplementedException($"{unary}: unimplemented")
             };
             json.BeginList();
