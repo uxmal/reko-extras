@@ -47,7 +47,7 @@ namespace Reko.Database.UnitTests
 {
   'addr':'00123400',
   'ids':[
-    {'id':'r2','dt':'i32','st':{'reg':'r2','off':0,'sz':32}
+    {'id':'r2','dt':'i32','st':['reg'{'n':'r2','off':0,'sz':32]
   ],
   'blocks':[
     {'id':'ProcedureBuilder_entry',
@@ -84,7 +84,7 @@ namespace Reko.Database.UnitTests
 {
     'addr':'00123400',
     'ids':[
-        {'id':'r2','dt':'i32','st':{'reg':'r2','off':0,'sz':32}],
+        {'id':'r2','dt':'i32','st':['reg'{'n':'r2','off':0,'sz':32]],
     'blocks':[
         { 
             'id':'ProcedureBuilder_entry',

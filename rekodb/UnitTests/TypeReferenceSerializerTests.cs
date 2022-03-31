@@ -33,7 +33,7 @@ namespace Reko.Database.UnitTests
         public void TyRefSer_Ptr()
         {
             var dt = new Pointer(PrimitiveType.UInt16, 32);
-            RunTest("{'p32':'u16'}", dt);
+            RunTest("['p',32,'u16']", dt);
         }
     }
 }

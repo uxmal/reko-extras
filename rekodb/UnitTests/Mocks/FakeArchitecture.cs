@@ -240,7 +240,7 @@ namespace Reko.Database.UnitTests.Mocks
 
         public bool TryParseAddress(string? txtAddr, out Address addr)
         {
-            throw new NotImplementedException();
+            return Address.TryParse32(txtAddr, out addr);
         }
 
         public bool TryRead(MemoryArea mem, Address addr, PrimitiveType dt, out Constant value)

@@ -157,23 +157,39 @@ namespace Reko.Database
 
         private void SerializeStorage(Storage stg)
         {
-            json.BeginObject();
+            json.BeginList();
             switch (stg)
             {
             case RegisterStorage reg:
-                json.WriteKeyValue("reg", reg.Name);
-                json.WriteKeyValue("off", reg.BitAddress);
-                json.WriteKeyValue("sz", reg.BitSize);
+                json.Write("reg");
+                json.WriteListItem(() =>
+                {
+                    json.BeginObject();
+                    json.WriteKeyValue("n", reg.Name);
+                    json.WriteKeyValue("off", reg.BitAddress);
+                    json.WriteKeyValue("sz", reg.BitSize);
+                });
                 break;
             case FlagGroupStorage grf:
-                json.WriteKeyValue("grf", grf.Name);
-                json.WriteKeyValue("off", grf.FlagGroupBits);
-                json.WriteKeyValue("freg", grf.FlagRegister.Name);
+                json.Write("grf");
+                json.WriteListItem(() =>
+                {
+                    json.BeginObject();
+                    json.WriteKeyValue("off", grf.FlagGroupBits);
+                    json.WriteKeyValue("freg", grf.FlagRegister.Name);
+                    json.EndObject();
+                });
                 break;
             case SequenceStorage seq:
-                json.WriteKeyValue("seq", seq.Name);
-                json.WriteKeyValue("sz", seq.BitSize);
-                json.WriteKeyValue("el", () => json.WriteList(seq.Elements, SerializeStorage));
+                json.WriteListItem("seq");
+                json.WriteListItem(() =>
+                {
+                    json.BeginObject();
+                    json.WriteListItem(seq.Name);
+                    json.WriteKeyValue("sz", seq.BitSize);
+                    json.WriteKeyValue("el", () => json.WriteList(seq.Elements, SerializeStorage));
+                    json.EndObject();
+                });
                 break;
             case TemporaryStorage tmp:
                 if (tmp == proc.Frame.FramePointer.Storage)
@@ -191,7 +207,7 @@ namespace Reko.Database
                 break;
             default: throw new NotImplementedException(stg.GetType().Name);
             }
-            json.EndObject();
+            json.EndList();
         }
 
         private class IdCollector : InstructionVisitorBase

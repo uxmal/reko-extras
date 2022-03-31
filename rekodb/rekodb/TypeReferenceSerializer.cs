@@ -55,9 +55,11 @@ namespace Reko.Database
 
         public void VisitPointer(Pointer ptr)
         {
-            json.BeginObject();
-            json.WriteKeyValue($"p{ptr.BitSize}", () => ptr.Pointee.Accept(this));
-            json.EndObject();
+            json.BeginList();
+            json.WriteListItem("p");
+            json.WriteListItem(ptr.BitSize);
+            json.WriteListItem(() => ptr.Pointee.Accept(this));
+            json.EndList();
         }
 
         public void VisitPrimitive(PrimitiveType pt)
