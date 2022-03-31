@@ -111,10 +111,10 @@ namespace ParallelScan
         {
             while (TryDequeueWorkitem(out var item))
             {
-                Verbose("  Processing block {0}", item.BlockStart);
                 // Ensure that only this thread is processing the block at item.BlockStart.
                 if (!scanner.TryRegisterBlockStart(item.BlockStart, addrProc))
                     continue;
+                Verbose("  Processing block {0}", item.BlockStart);
                 var lastInstr = ParseLinear(item);
                 if (lastInstr is null)
                 {
@@ -405,7 +405,7 @@ namespace ParallelScan
                     return null;
                 }
                 item.Instructions.Add(instr);
-                if ((InstrClass) instr.InstructionClass != InstrClass.Linear)
+                if (instr.InstructionClass != InstrClass.Linear)
                 {
                     Verbose("  stopping ParseLinear at {0} {1}", instr.Address, instr.ToString());
                     return instr;
@@ -446,10 +446,12 @@ namespace ParallelScan
         /// <param name="addrFallthrough"></param>
         public void Wake(Address addrCall, Address addrFallthrough)
         {
+            // Create the edge from the call to the instruction following 
+            // the call.
             var fallthruEdge = new CfgEdge(EdgeType.FallThrough, arch, addrCall, addrFallthrough);
             scanner.RegisterEdge(fallthruEdge);
             var item = MakeWorkItem(this.arch, addrFallthrough);
-            Verbose("Wake: Try to wake up {0} at {0}", this.addrProc, addrFallthrough);
+            Verbose("Wake: Try to wake up {0} at {1}", this.addrProc, addrFallthrough);
             for (;;)
             {
                 var oldState = Interlocked.CompareExchange(ref state, StateQueueBusy, StateSuspended);

@@ -185,7 +185,7 @@ namespace ParallelScan
                 var (i, j) = FindCommonInstructions(Bi.Instructions, Bj.Instructions);
                 if (i != 0 && j != 0)
                 {
-                    // The shared instructions do not consume the whole of a block:
+                    // The shared instructions S do not consume the whole of a block:
                     //  xi              y
                     //  +-+--+--+-+-----+
                     //      +--+--+-----+
