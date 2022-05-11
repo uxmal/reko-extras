@@ -8,9 +8,14 @@ function path_combine(string ...$parts){
 
 class Gas {
 	private string $binPath;
+	private string $arguments = '';
 	
 	public function __construct(string $binPath){
 		$this->binPath = $binPath;
+	}
+
+	public function setArguments(string $args){
+		$this->arguments = $args;
 	}
 
 	public function assembleString(string $str){
@@ -22,7 +27,12 @@ class Gas {
 		$descs = array(
 			0 => ['pipe', 'r']
 		);
-		$hProc = proc_open($this->binPath, $descs, $pipes, $pwd);
+
+		$cmdline = $this->binPath;
+		if(!empty($this->arguments)){
+			$cmdline .= " {$this->arguments}";
+		}
+		$hProc = proc_open($cmdline, $descs, $pipes, $pwd);
 
 		fwrite($pipes[0], $str . "\n");
 		fclose($pipes[0]);
@@ -99,7 +109,7 @@ class Reko {
 	}
 }
 
-class ExpectedResult {
+class RulesFile {
 	private $fh;
 
 	public function __construct(string $filePath){
@@ -114,24 +124,23 @@ class ExpectedResult {
 			fclose($this->fh);
 		}
 	}
-
-	public function entries(){
-		$inside = false;
+	
+	public function rules(){
 		while(!feof($this->fh)){
 			$line = rtrim(fgets($this->fh));
 			if($line === false) continue;
-			$length = strlen($line);
-			if($length < 1) continue;
-			if($line[0] === '#') continue;
+			if(strlen($line) < 2) continue;
+			if($line[0] !== '#') continue;
 			
-			if(!$inside){
-				if(preg_match("/<.*>:/", $line)){
-					$inside = true;
-					continue;
-				}
-			} else {
-				yield $line;
-			}
+			$line = substr($line, 1);
+			$p = explode(':', $line, 2);
+			if(count($p) < 2) continue;
+
+			list($k, $v) = $p;
+			$k = trim($k);
+			$v = trim($v);
+
+			yield $k => $v;
 		}
 	}
 }
@@ -141,20 +150,24 @@ $reko = new Reko(path_combine(__DIR__, 'RekoSifter', 'bin', 'x64', 'Debug', 'net
 
 $testsDir = $argv[1];
 
-$tests = glob(path_combine($testsDir, '*.s'));
-foreach($tests as $t){
-	$info = pathinfo($t);
-	/*$d = path_combine($info['dirname'], $info['filename'] . ".d");
-	if(!file_exists($d)){
-		fwrite(STDERR, "No test found at '{$d}', skip\n");
-		continue;
-	}
+$tests = glob(path_combine($testsDir, '*.d'));
+foreach($tests as $d){
+	$info = pathinfo($d);
 	
-	var_dump($d);
-	$truth = new ExpectedResult($d);
-	$it = $truth->entries();*/
+	$rules = new RulesFile($d);
+	$rules = iterator_to_array($rules->rules());
 
-	$objPath = $gas->assembleFile($t);
+	$source = path_combine($info['dirname'], $info['filename'] . ".s");
+	if(isset($rules['source'])){
+		$source = path_combine($info['dirname'], $rules['source']);
+	}
+	if(isset($rules['as'])){
+		$gas->setArguments($rules['as']);
+	} else {
+		$gas->setArguments('');
+	}
+
+	$objPath = $gas->assembleFile($source);
 	if(!file_exists($objPath)){
 		fwrite(STDERR, "gas failed, skip\n");
 		continue;
