@@ -3,6 +3,7 @@ using Reko.Core;
 using Reko.Core.Lib;
 using Reko.Core.Rtl;
 using Reko.ScannerV2;
+using Reko.Scanning;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

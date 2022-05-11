@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
@@ -24,9 +24,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Gas.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="LLVMSharp" Version="10.0.0-beta" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.2" />
-    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.11.0" />
+    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.11.2" />
   </ItemGroup>
 
   <ItemGroup>

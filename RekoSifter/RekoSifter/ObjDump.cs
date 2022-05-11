@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -45,6 +45,8 @@ namespace RekoSifter
         private readonly DisassembleInfo dasmInfo;
         private readonly DisassemblerFtype dasm;
         private BfdEndian endianness;
+
+        private ulong programCounter = 0;
 
         private void PrintAvailableArchitectures() {
             foreach(var pair in libToArches) {
@@ -174,22 +176,24 @@ namespace RekoSifter
         {
             buf.Clear();
 
-            ulong pc = 0;
             byte[]? ibytes = null;
+            ulong offset = 0;
 
             using (DisposableGCHandle hBytes = DisposableGCHandle.Pin(bytes))
             {
                 dasmInfo.Buffer = (byte *)hBytes.AddrOfPinnedObject();
                 dasmInfo.BufferLength = (ulong)bytes.Length;
+                dasmInfo.BufferVma = programCounter;
 
-                while (pc < (ulong)bytes.Length)
+                while (offset < (ulong)bytes.Length)
                 {
-                    int insn_size = dasm(pc, dasmInfo.__Instance);
+                    int insn_size = dasm(programCounter, dasmInfo.__Instance);
 
                     ibytes = new byte[insn_size];
-                    Array.Copy(bytes, (long)pc, ibytes, 0, insn_size);
+                    Array.Copy(bytes, (long)offset, ibytes, 0, insn_size);
 
-                    pc += (ulong)insn_size;
+                    programCounter += (ulong)insn_size;
+                    offset += (ulong) insn_size;
                     break; //only first instruction
                 }
             }
@@ -241,6 +245,17 @@ namespace RekoSifter
                 this.endianness = BfdEndian.BFD_ENDIAN_LITTLE;
             else
                 this.endianness = BfdEndian.BFD_ENDIAN_UNKNOWN;
+        }
+
+        public bool SetProgramCounter(ulong address)
+        {
+            this.programCounter = address;
+            return true;
+        }
+
+        public ulong GetProgramCounter()
+        {
+            return this.programCounter;
         }
     }
 }

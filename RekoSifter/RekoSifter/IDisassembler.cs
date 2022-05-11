@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -15,5 +15,7 @@ namespace RekoSifter
 		void SetEndianness(char c);
 
 		bool IsInvalidInstruction(string sInstr);
+        bool SetProgramCounter(ulong address);
+        ulong GetProgramCounter();
 	}
 }

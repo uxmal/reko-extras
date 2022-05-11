@@ -24,6 +24,8 @@ namespace RekoSifter
 	{
 		private LLVMDisasmContextRef hDasm;
 
+        private ulong programCounter = 0;
+
 		public LLVMDasm(string triple) {
 			hDasm = Initialize(triple);
 		}
@@ -75,7 +77,7 @@ namespace RekoSifter
 					hDasm.Handle.ToPointer(),
 					(byte*)hBytes.AddrOfPinnedObject(),
 					(ulong)instr.Length,
-					0,
+					this.programCounter,
 					(sbyte*)hBuf.AddrOfPinnedObject(),
 					new UIntPtr((uint)buf.Length)
 				).ToUInt32();
@@ -85,6 +87,7 @@ namespace RekoSifter
 
 			byte[] ibytes = new byte[instrSize];
 			Array.Copy(instr, 0, ibytes, 0, instrSize);
+            programCounter += instrSize;
 
 			disassembled = (disassembled ?? "").TrimStart(new[] { ' ', '\t' });
 			return (disassembled, ibytes);
@@ -99,5 +102,16 @@ namespace RekoSifter
         {
 			Console.Error.WriteLine("Endianness control for LLVM is not supported yet.");
         }
-	}
+
+        public bool SetProgramCounter(ulong address)
+        {
+            this.programCounter = address;
+            return true;
+        }
+
+        public ulong GetProgramCounter()
+        {
+            return this.programCounter;
+        }
+    }
 }
