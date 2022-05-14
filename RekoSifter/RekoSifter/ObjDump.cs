@@ -104,7 +104,14 @@ namespace RekoSifter
         }
 
         private void SetResolver() {
-            NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), ImportResolver);
+            try
+            {
+                NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), ImportResolver);
+            }
+            catch (InvalidOperationException)
+            {
+                // resolver already set
+            }
         }
 
         public unsafe ObjDump(string arch) {
