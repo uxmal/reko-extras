@@ -73,6 +73,10 @@ namespace RekoSifter
                     offset = c.ToInt64();
                 }
             }
+            else if (c.DataType.BitSize == 64)
+            {
+                offset = c.ToInt64();
+            }
             else
             {
                 offset = (long)c.ToUInt32();
@@ -83,6 +87,7 @@ namespace RekoSifter
                 1 => "0x{0:x}",
                 2 => "0x{0:x}",
                 4 => "0x{0:x}",
+                8 => "0x{0:x}",
                 _ => "@@@[{0:x}:w{1}]",
             };
             sb.AppendFormat(fmt, offset, c.DataType.BitSize);
