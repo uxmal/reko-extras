@@ -33,11 +33,10 @@ namespace RekoSifter
         private readonly RekoConfigurationService cfgSvc;
         private readonly ITestGenerationService testGen;
         private readonly IFileSystemService fsSvc;
-        private Progress? progress;
+        private IProgress progress;
         private int maxInstrLength;
         private int? seed;
         private long? count;
-        private bool useRandomBytes;
         private Action<byte[], MachineInstruction?> processInstr; // What to do with each disassembled instruction
         private IDisassembler? otherDasm;
         private char endianness;
@@ -53,12 +52,43 @@ namespace RekoSifter
         private readonly ServiceContainer sc;
 
         private TextWriter? outputStream = Console.Out;
-        private TextWriter? errorStream = Console.Error;
+        private TextWriter? errorStream = Console.Error; 
+        
+        public Sifter(string[] args)
+        {
+            sc = new ServiceContainer();
+            testGen = new TestGenerationService(sc)
+            {
+                OutputDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+            };
+            fsSvc = new FileSystemServiceImpl();
+            this.cfgSvc = RekoConfigurationService.Load(sc, "reko/reko.config");
+            sc.AddService<ITestGenerationService>(testGen);
+            sc.AddService<IFileSystemService>(fsSvc);
+            sc.AddService<IConfigurationService>(cfgSvc);
+            sc.AddService<IPluginLoaderService>(new PluginLoaderService());
+
+            this.processInstr = new Action<byte[], MachineInstruction?>(ProcessInstruction);
+            this.progress = new Progress();
+
+            IProcessorArchitecture? arch;
+            (arch, this.instrRenderer) = ProcessArgs(args);
+            if (arch is null)
+            {
+                throw new ApplicationException("Unable to load Reko architecture.");
+            }
+            this.arch = arch;
+            this.baseAddress = Address.Create(arch.PointerType, 0x00000000);    //$TODO allow customization?
+            this.rdr = default!;
+        }
+
+
 
         public void SetOutputStream(TextWriter? os)
         {
             outputStream = os;
         }
+
         public void SetErrorStream(TextWriter? os)
         {
             errorStream = os;
@@ -68,6 +98,7 @@ namespace RekoSifter
         {
             outputStream?.WriteLine(line);
         }
+        
         public void ErrorLine(string line)
         {
             errorStream?.WriteLine(line);
@@ -97,33 +128,6 @@ namespace RekoSifter
             }
         }
 
-        public Sifter(string[] args)
-        {
-            sc = new ServiceContainer();
-            testGen = new TestGenerationService(sc)
-            {
-                OutputDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-            };
-            fsSvc = new FileSystemServiceImpl();
-            this.cfgSvc = RekoConfigurationService.Load(sc, "reko/reko.config");
-            sc.AddService<ITestGenerationService>(testGen);
-            sc.AddService<IFileSystemService>(fsSvc);
-            sc.AddService<IConfigurationService>(cfgSvc);
-            sc.AddService<IPluginLoaderService>(new PluginLoaderService());
-
-            this.processInstr = new Action<byte[], MachineInstruction?>(ProcessInstruction);
-            this.progress = new Progress();
-
-            IProcessorArchitecture? arch;
-            (arch, this.instrRenderer) = ProcessArgs(args);
-            if (arch is null)
-            {
-                throw new ApplicationException("Unable to load Reko architecture.");
-            }
-            this.arch = arch;
-            this.baseAddress = Address.Create(arch.PointerType, 0x00000000);    //$TODO allow customization?
-            this.rdr = default!;
-        }
 
         private void InitializeRekoDisassembler()
         {
@@ -178,85 +182,86 @@ namespace RekoSifter
 
                 switch (arg)
                 {
-                    case "--elf":
-                        res = TryTake(it, out var filePath);
-                        mainProcessing = () => DasmElfObject(File.ReadAllBytes(filePath));
-                        break;
+                case "--elf":
+                    res = TryTake(it, out var filePath);
+                    mainProcessing = () => DasmElfObject(File.ReadAllBytes(filePath));
+                    break;
                 case "--no-progress":
-                    progress = null;
+                    progress = new NullProgress();
                     break;
                 case "--server":
-                    progress = null; // don't report progress
+                    progress = new NullProgress(); // don't report progress
                     var srv = new NetworkServer();
                     mainProcessing = () => srv.StartMainLoop();
                     break;
                 case "-a":
-                    case "--arch":
-                        res = TryTake(it, out archName);
-                        break;
-                    case "--maxlen":
-                        res = TryTake(it, out string? maxLengthStr) && int.TryParse(maxLengthStr, out maxLength);
-                        break;
-                    case "-i":
-                    case "--input":
-                        res = TryTake(it, out inputFilePath) && File.Exists(inputFilePath);
-                        mainProcessing = () => ProcessFile();
-                        break;
-                    case "-r":
-                    case "--random":
-                        this.useRandomBytes = true;
-                        int seedValue;
-                        if (TryTake(it, out string? seedString))
+                case "--arch":
+                    res = TryTake(it, out archName);
+                    break;
+                case "--maxlen":
+                    res = TryTake(it, out string? maxLengthStr) && int.TryParse(maxLengthStr, out maxLength);
+                    break;
+                case "-i":
+                case "--input":
+                    res = TryTake(it, out inputFilePath) && File.Exists(inputFilePath);
+                    mainProcessing = () => ProcessFile();
+                    break;
+                case "-r":
+                case "--random":
+                    int seedValue;
+                    if (TryTake(it, out string? seedString))
+                    {
+                        if (int.TryParse(seedString, out seedValue))
                         {
-                            if (int.TryParse(seedString, out seedValue))
-                            {
-                                this.seed = seedValue;
-                            }
-                            else
-                            {
-                                ErrorLine($"Invalid seed value '{seedString}'");
-                            }
-                        }
-                        break;
-                    case "-l":
-                    case "--llvm":
-                        res = TryTake(it, out string? llvmArch);
-                        if (res)
-                        {
-                            processInstr = this.CompareWithLlvm;
-                        }
-                        mkOtherDasm = () => new LLVMDasm(llvmArch!);
-                        break;
-                    case "-o":
-                    case "--objdump":
-                        res = TryTake(it, out objdumpTarget);
-                        if (res) {
-                            var parts = objdumpTarget!.Split(',', 2);
-                            string arch = parts[0];
-                            
-                            // $TODO: machine parameter
-                            // string mach = parts[1];
-                            // $TODO: convert machine to uint (BfdMachine)
-
-                            mkOtherDasm = () => new ObjDump(arch);
-                            processInstr = this.CompareWithObjdump;
-                        }
-                        break;
-                    case "-c":
-                    case "--count":
-                        if (TryTake(it, out var sCount) && long.TryParse(sCount, out var count))
-                        {
-                            this.count = count;
+                            this.seed = seedValue;
+                            mainProcessing = DisassembleRandomBytes;
                         }
                         else
                         {
-                            res = false;
+                            ErrorLine($"Invalid seed value '{seedString}'");
                         }
-                        break; 
-                    case "-h":
-                    case "--help":
+                    }
+                    break;
+                case "-l":
+                case "--llvm":
+                    res = TryTake(it, out string? llvmArch);
+                    if (res)
+                    {
+                        processInstr = this.CompareWithLlvm;
+                    }
+                    mkOtherDasm = () => new LLVMDasm(llvmArch!);
+                    break;
+                case "-o":
+                case "--objdump":
+                    res = TryTake(it, out objdumpTarget);
+                    if (res)
+                    {
+                        var parts = objdumpTarget!.Split(',', 2);
+                        string arch = parts[0];
+
+                        // $TODO: machine parameter
+                        // string mach = parts[1];
+                        // $TODO: convert machine to uint (BfdMachine)
+
+                        mkOtherDasm = () => new ObjDump(arch);
+                        processInstr = this.CompareWithObjdump;
+                    }
+                    break;
+                case "-c":
+                case "--count":
+                    if (TryTake(it, out var sCount) && long.TryParse(sCount, out var count))
+                    {
+                        this.count = count;
+                    }
+                    else
+                    {
                         res = false;
-                        break;
+                    }
+                    break;
+                case "-h":
+                case "--help":
+                    res = false;
+                    break;
                 case "-e":
                 case "--endianness":
                     if (TryTake(it, out var sEndianness) && (sEndianness![0] == 'b' || sEndianness[0] == 'l'))
@@ -270,10 +275,19 @@ namespace RekoSifter
                     break;
                 case "-s":
                 case "--syntax":
-                    if (!TryTake(it, out this.syntax))
+                    if (!TryTake(it, out var s))
                     {
                         res = false;
                     }
+                    this.syntax = s;
+                    break;
+                case "-b":
+                case "--bytes":
+                    if (!TryTake(it, out string? hexbytes))
+                    {
+                        res = false;
+                    }
+                    mainProcessing = () => DisassembleHexBytes(hexbytes);
                     break;
                 }
 
@@ -307,8 +321,9 @@ Options:
     -e --endianness <b|l>  Specify either big- or little-endianness.
     -r --random [seed|-]   Generate random byte sequences (using
                             optional seed.
+    -b <hexbytes>          Disassemble the following hex encoded bytes
     -l --llvm <llvmarch>   Enable llvm comparison and use arch <llvmarch>.
-    --elf <path>           Disassemble ELF file and compare
+    --elf <inputfile>      Disassemble ELF file and compare
     -o --objdump <arch>    Enable Objdump comparison
                            Uses the opcodes-* library that contains <arch> in the library name
                            The default (generic) architecture will be used
@@ -326,15 +341,6 @@ Options:
 
             otherDasm?.SetEndianness(this.endianness);
 
-            if (useRandomBytes)
-            {
-                var rng = seed.HasValue
-                    ? new Random(seed.Value)
-                    : new Random();
-                Sift_Random(rng);
-            }
-            else
-            {
                 if (arch.InstructionBitSize == 8)
                     Sift_8Bit();
                 else if (arch.InstructionBitSize == 32)
@@ -343,9 +349,45 @@ Options:
                     Sift_16Bit();
                 else
                     throw new NotImplementedException();
-            }
 
             if(otherDasm is IDisposable disposable) {
+                disposable.Dispose();
+            }
+        }
+
+        private void DisassembleRandomBytes()
+        {
+            this.mem = new ByteMemoryArea(baseAddress, new byte[100]);
+            InitializeRekoDisassembler();
+
+            otherDasm?.SetEndianness(this.endianness);
+
+            var rng = seed.HasValue
+                ? new Random(seed.Value)
+                : new Random();
+            Sift_Random(rng);
+            if (otherDasm is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+
+        private void DisassembleHexBytes(string hexBytes)
+        {
+            var bytes = BytePattern.FromHexBytes(hexBytes);
+            var buf = new Memory<byte>(bytes);
+            this.mem = new ByteMemoryArea(baseAddress, bytes);
+            InitializeRekoDisassembler();
+
+            otherDasm?.SetEndianness(this.endianness);
+            foreach (var instr in dasm)
+            {
+                byte[] instrBytes = buf.Slice((int) instr.Address.ToLinear(), instr.Length).ToArray();
+                processInstr(instrBytes, instr);
+            }
+
+            if (otherDasm is IDisposable disposable)
+            {
                 disposable.Dispose();
             }
         }
@@ -430,6 +472,16 @@ Options:
             0xAD,       // lods
             0xAE,       // scasb
             0xAF,       // scas
+
+            0xB8,       // movabs
+            0xB9,       // movabs
+            0xBA,       // movabs
+            0xBB,       // movabs
+            0xBC,       // movabs
+            0xBD,       // movabs
+            0xBE,       // movabs
+            0xBF,       // movabs
+
             0xCC,       // int3
             0xD7,       // xlat
         };
@@ -575,7 +627,8 @@ Options:
 
             buf.CopyTo(mem.Bytes);
 
-            foreach (var instr in dasm) {
+            foreach (var instr in dasm)
+            {
                 byte[] instrBytes = buf.Slice((int)instr.Address.ToLinear(), instr.Length).ToArray();
                 processInstr(instrBytes, instr);
             }

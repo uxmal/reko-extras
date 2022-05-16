@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace RekoSifter
 {
-    public class Progress
+    public class Progress : IProgress
     {
         private int pos;
 
