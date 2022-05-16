@@ -51,8 +51,8 @@ namespace Reko.UnitTests.Decompiler.Scanning
         private void AssertConflicts(string sExp, HashSet<(Address, Address)> conflicts)
         {
             var sActual = conflicts
-                .OrderBy(c => c.Item1.ToLinear())
-                .ThenBy(c => c.Item2.ToLinear())
+                .OrderBy(c => c.Item1.Address.ToLinear())
+                .ThenBy(c => c.Item2.Address.ToLinear())
                 .Aggregate(
                     new StringBuilder(),
                     (s, c) => s.AppendFormat("({0}-{1})", c.Item1.ToString(), c.Item2.ToString()).AppendLine())

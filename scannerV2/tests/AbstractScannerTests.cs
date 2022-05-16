@@ -151,7 +151,7 @@ namespace Reko.ScannerV2.UnitTests
             {
                 return cfg.Predecessors.TryGetValue(node.Address, out var edges)
                     ? edges
-                        .Select(e => cfg.Blocks[e.From])
+                        .Select(e => cfg.Blocks[e])
                         .ToArray()
                     : Array.Empty<RtlBlock>();
             }
@@ -165,7 +165,7 @@ namespace Reko.ScannerV2.UnitTests
             {
                 return cfg.Successors.TryGetValue(node.Address, out var edges)
                     ? edges
-                        .Select(e => Get(e))
+                        .Select(s => cfg.Blocks[s])
                         .ToArray()
                     : Array.Empty<RtlBlock>();
             }
