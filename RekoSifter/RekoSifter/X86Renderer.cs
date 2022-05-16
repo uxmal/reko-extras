@@ -126,6 +126,18 @@ namespace RekoSifter
                     RenderObjdumpConstant(mem.Offset, true, sb);
                 }
             }
+            else if (mem.Index is not null && mem.Index != RegisterStorage.None)
+            {
+                sb.Append(mem.Index.Name);
+                if (mem.Scale >= 1)
+                {
+                    sb.AppendFormat("*{0}", mem.Scale);
+                }
+                if (mem.Offset != null && mem.Offset.IsValid)
+                {
+                    RenderObjdumpConstant(mem.Offset, true, sb);
+                }
+            }
             else
             {
                 sb.Append(mem.Offset);
