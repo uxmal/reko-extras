@@ -6,6 +6,7 @@ using Reko.Core.Lib;
 using Reko.Core.Machine;
 using Reko.Core.Memory;
 using Reko.Core.Services;
+using Reko.ImageLoaders.Elf;
 using Reko.Loading;
 using Reko.Services;
 using System;
@@ -16,10 +17,11 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 
 namespace RekoSifter
 {
-    public class Sifter
+        public class Sifter
     {
         private const string DefaultArchName = "x86-protected-32";
         private const int DefaultMaxInstrLength = 15;
@@ -31,7 +33,7 @@ namespace RekoSifter
         private readonly RekoConfigurationService cfgSvc;
         private readonly ITestGenerationService testGen;
         private readonly IFileSystemService fsSvc;
-        private readonly Progress progress;
+        private Progress? progress;
         private int maxInstrLength;
         private int? seed;
         private long? count;
@@ -40,15 +42,64 @@ namespace RekoSifter
         private IDisassembler? otherDasm;
         private char endianness;
         private string syntax;
+        
         private string? inputFilePath = null;
+        private string? objdumpTarget = null;
 
         private readonly Address baseAddress;
 
         private Action mainProcessing;
 
+        private readonly ServiceContainer sc;
+
+        private TextWriter? outputStream = Console.Out;
+        private TextWriter? errorStream = Console.Error;
+
+        public void SetOutputStream(TextWriter? os)
+        {
+            outputStream = os;
+        }
+        public void SetErrorStream(TextWriter? os)
+        {
+            errorStream = os;
+        }
+
+        public void OutputLine(string line)
+        {
+            outputStream?.WriteLine(line);
+        }
+        public void ErrorLine(string line)
+        {
+            errorStream?.WriteLine(line);
+        }
+
+        public void RenameTestFiles(string filename)
+        {
+            var ownDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            var snapshot = Path.Combine(ownDir, "snapshot");
+            Directory.CreateDirectory(snapshot);
+
+            foreach(var f in Directory.EnumerateFiles(ownDir, "*.tests"))
+            {
+                var prefix = Path.Combine(snapshot,
+                    filename + "_" + Path.GetFileNameWithoutExtension(f));
+                
+                for(int i=0; ; i++)
+                {
+                    var candidate = $"{prefix}_{i}.tests";
+                    Console.WriteLine(candidate);
+                    if (!File.Exists(candidate))
+                    {
+                        File.Move(f, candidate);
+                        break;
+                    }
+                }
+            }
+        }
+
         public Sifter(string[] args)
         {
-            var sc = new ServiceContainer();
+            sc = new ServiceContainer();
             testGen = new TestGenerationService(sc)
             {
                 OutputDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
@@ -58,7 +109,11 @@ namespace RekoSifter
             sc.AddService<ITestGenerationService>(testGen);
             sc.AddService<IFileSystemService>(fsSvc);
             sc.AddService<IConfigurationService>(cfgSvc);
+            sc.AddService<IPluginLoaderService>(new PluginLoaderService());
+
             this.processInstr = new Action<byte[], MachineInstruction?>(ProcessInstruction);
+            this.progress = new Progress();
+
             IProcessorArchitecture? arch;
             (arch, this.instrRenderer) = ProcessArgs(args);
             if (arch is null)
@@ -67,7 +122,6 @@ namespace RekoSifter
             }
             this.arch = arch;
             this.baseAddress = Address.Create(arch.PointerType, 0x00000000);    //$TODO allow customization?
-            this.progress = new Progress();
             this.rdr = default!;
         }
 
@@ -124,7 +178,19 @@ namespace RekoSifter
 
                 switch (arg)
                 {
-                    case "-a":
+                    case "--elf":
+                        res = TryTake(it, out var filePath);
+                        mainProcessing = () => DasmElfObject(File.ReadAllBytes(filePath));
+                        break;
+                case "--no-progress":
+                    progress = null;
+                    break;
+                case "--server":
+                    progress = null; // don't report progress
+                    var srv = new NetworkServer();
+                    mainProcessing = () => srv.StartMainLoop();
+                    break;
+                case "-a":
                     case "--arch":
                         res = TryTake(it, out archName);
                         break;
@@ -148,7 +214,7 @@ namespace RekoSifter
                             }
                             else
                             {
-                                Console.Error.WriteLine("Invalid seed value '{0}'.", seedString);
+                                ErrorLine($"Invalid seed value '{seedString}'");
                             }
                         }
                         break;
@@ -163,7 +229,7 @@ namespace RekoSifter
                         break;
                     case "-o":
                     case "--objdump":
-                        res = TryTake(it, out string? objdumpTarget);
+                        res = TryTake(it, out objdumpTarget);
                         if (res) {
                             var parts = objdumpTarget!.Split(',', 2);
                             string arch = parts[0];
@@ -242,6 +308,7 @@ Options:
     -r --random [seed|-]   Generate random byte sequences (using
                             optional seed.
     -l --llvm <llvmarch>   Enable llvm comparison and use arch <llvmarch>.
+    --elf <path>           Disassemble ELF file and compare
     -o --objdump <arch>    Enable Objdump comparison
                            Uses the opcodes-* library that contains <arch> in the library name
                            The default (generic) architecture will be used
@@ -285,7 +352,7 @@ Options:
 
         public void ProcessInstruction(byte[] bytes, MachineInstruction? instr)
         {
-            Console.WriteLine(RenderLine(instr));
+            OutputLine(RenderLine(instr));
         }
 
         public void CompareWithLlvm(byte[] bytes, MachineInstruction? instr)
@@ -302,11 +369,33 @@ Options:
                 reko = "(null)";
                 instrLength = 0;
             }
+            otherDasm!.SetProgramCounter(instr.Address.ToLinear());
             (string llvmOut, byte[]? llvmBytes) = otherDasm!.Disassemble(bytes);
 
-            Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}")));
-            Console.WriteLine("L:{0,-40} {1}", llvmOut, string.Join(" ", llvmBytes!.Select(b => $"{b:X2}")));
-            Console.WriteLine();
+            var obj_reko = new
+            {
+                Id = 'R',
+                Text = reko,
+                Hex = string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}")),
+                Address = instr.Address.ToLinear()
+            };
+            var obj_other = new
+            {
+                Id = 'L',
+                Text = llvmOut.Trim(),
+                Hex = string.Join(" ", llvmBytes.Take(instrLength).Select(b => $"{b:X2}")),
+                Address = otherDasm.GetProgramCounter() - (ulong)instrLength
+            };
+
+#if false
+            OutputLine(JsonSerializer.Serialize(obj_reko));
+            OutputLine(JsonSerializer.Serialize(obj_other));
+#else
+
+            OutputLine(string.Format("R:{0,-40} :{1}", reko, string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}"))));
+            OutputLine(string.Format("L:{0,-40} :{1}", llvmOut, string.Join(" ", llvmBytes!.Select(b => $"{b:X2}"))));
+            OutputLine("");
+#endif
         }
 
         // These are X86 opcodes that objdump renders in a dramatically different
@@ -359,12 +448,33 @@ Options:
                 reko = "(null)";
                 instrLength = 0;
             }
+            otherDasm!.SetProgramCounter(instr.Address.ToLinear());
             (string odOut, byte[]? odBytes) = otherDasm!.Disassemble(bytes);
             var rekoIsBad = reko.Contains("illegal") || reko.Contains("invalid");
             var objdIsBad = otherDasm.IsInvalidInstruction(odOut);
+
+            var obj_reko = new
+            {
+                Id = 'R',
+                Text = reko,
+                Hex = string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}")),
+                Address = instr.Address.ToLinear()
+            };
+            var obj_other = new
+            {
+                Id = 'O',
+                Text = odOut.Trim(),
+                Hex = string.Join(" ", odBytes.Take(instrLength).Select(b => $"{b:X2}")),
+                Address = otherDasm.GetProgramCounter() - (ulong)instrLength
+            };
+#if false
+            OutputLine(JsonSerializer.Serialize(obj_reko));
+            OutputLine(JsonSerializer.Serialize(obj_other));
+#endif
+
             if (rekoIsBad ^ objdIsBad)
             {
-                progress.Reset();
+                progress?.Reset();
                 if (!objdIsBad)
                 {
                     EmitUnitTest(bytes, odOut);
@@ -377,19 +487,20 @@ Options:
                     //$BUG: arch-dependent
                     if (objDumpSkips.Contains(bytes[0]))
                     {
-                        progress.Advance();
+                        progress?.Advance();
                     }
                     else
                     {
-                        progress.Reset();
-                        Console.WriteLine("R:{0,-40} {1}", reko, string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}")));
-                        Console.WriteLine("O:{0,-40} {1}", odOut, string.Join(" ", odBytes!.Select(b => $"{b:X2}")));
-                        Console.WriteLine();
+                        progress?.Reset();
+
+                        OutputLine(string.Format("R:{0,-40} :{1}", reko, string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}"))));
+                        OutputLine(string.Format("O:{0,-40} :{1}", odOut, string.Join(" ", odBytes!.Select(b => $"{b:X2}"))));
+                        OutputLine("");
                     }
                 }
                 else
                 {
-                    progress.Advance();
+                    progress?.Advance();
                 }
             }
         }
@@ -400,6 +511,58 @@ Options:
             {
                 var testPrefix = arch.Name.Replace('-', '_') + "Dis";
                 testGen.ReportMissingDecoder(testPrefix, mem.BaseAddress, arch.CreateImageReader(mem, 0), "");
+            }
+        }
+
+#if false
+        private void SaveIt(byte[] data)
+        {
+            var prefix = @"C:/temp/obj_";
+
+            for(int i=0; ; i++)
+            {
+                var path = prefix + i + ".o";
+                if (!File.Exists(path))
+                {
+                    File.WriteAllBytes(path, data);
+                    break;
+                }
+            }
+        }
+#endif
+
+        public void DasmElfObject(byte[] objectData)
+        {
+#if false
+            SaveIt(objectData);
+#endif
+
+            var loadAddr = Address.Ptr32(0);
+
+            var ldr = new ElfImageLoader(sc, null!, objectData);
+            var image = ldr.LoadProgram(loadAddr);
+            var codeSeg = image.SegmentMap
+                .Segments.Where(x => x.Value.IsExecutable)
+                .First().Value;
+
+            var rdr = codeSeg.CreateImageReader(arch);
+            
+            var data = rdr.ReadBytes(codeSeg.ContentSize);
+            this.mem = new ByteMemoryArea(loadAddr, data);
+            // $BUG
+            //var newRdr = new LeImageReader(mem, 0);
+            var newRdr = new LeImageReader(mem, loadAddr);
+            this.dasm = arch.CreateDisassembler(newRdr);
+
+            var offset = 0;
+            foreach (var instr in dasm)
+            {
+                var pos = rdr.Offset;
+                rdr.Offset = offset;
+                byte[] instrBytes = rdr.ReadBytes(instr.Length);
+                rdr.Offset = pos;
+                offset += instr.Length;
+                processInstr(instrBytes, instr);
             }
         }
 

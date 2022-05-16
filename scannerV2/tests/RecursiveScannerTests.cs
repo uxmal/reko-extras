@@ -2,8 +2,10 @@
 using NUnit.Framework;
 using Reko.Core;
 using Reko.Core.Expressions;
+using Reko.Core.Graphs;
 using Reko.Core.Lib;
 using Reko.Core.Services;
+using Reko.Scanning;
 using System;
 using System.IO;
 using System.Linq;

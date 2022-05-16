@@ -1,0 +1,290 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Copyright(C) 2022 Stefano Moioli <smxdev4@gmail.com>
+ */
+
+function path_combine(string ...$parts){
+	return implode(DIRECTORY_SEPARATOR, $parts);
+}
+function bin_name(string $argv0){
+	$last = strrpos($argv0, DIRECTORY_SEPARATOR);
+	if($last === false) return $argv0;
+	return substr($argv0, $last + 1);
+}
+
+function which(string $what){
+	$path = getenv('PATH');
+	$nextPath = substr($path, strpos($path, ':') + 1);
+	return rtrim(
+		shell_exec("PATH={$nextPath} which {$what}")
+	);
+}
+
+function path_without_me(){
+	$path = getenv('PATH');
+	$parts = explode(':', $path);
+	$parts = array_filter($parts, function($itm){
+		// true to keep
+		return $itm !== __DIR__;
+	});
+	return implode(':', $parts);
+}
+
+function delegate(
+	string $prog,
+	array $argv,
+	array $extra_env = array(),
+	bool $strip_self = true,
+	bool $via_fork = false
+){
+	$env = getenv(local_only: true);
+	if($strip_self){
+		$env['PATH'] = path_without_me();
+	} else if(!str_contains($env['PATH'], __DIR__)){
+		$env['PATH'] = __DIR__ . ":{$env['PATH']}";
+	}
+	$env = [...$env, ...$extra_env];
+
+	$bin = which($prog);
+
+	if($via_fork){
+		switch(($pid = pcntl_fork())){
+			case -1: throw new Exception(); break;
+			case 0:
+				pcntl_exec($bin, $argv, $env);		
+				break;
+			default:
+				pcntl_waitpid($pid, $status);
+				return pcntl_wexitstatus($status);
+		}
+	} else {
+		pcntl_exec($bin, $argv, $env);
+	}
+}
+
+function reopen_stdout(){
+	$tty = getenv('TTY');
+	if($tty === false) return;
+
+	$ffi = FFI::cdef('
+	typedef void FILE;
+	extern FILE *stdout;
+	extern FILE *stderr;
+	FILE *freopen (const char *filename, const char *mode, FILE *stream );
+	');
+
+	$ffi->freopen($tty, 'w', $ffi->stdout);
+	$ffi->freopen($tty, 'w', $ffi->stderr);
+}
+
+function shell_unpack(array $argv){
+	$real_sh = function(array $argv){
+		return delegate('sh', $argv);
+	};
+	
+	$nargs = count($argv);
+	if($nargs < 2) {
+		return $real_sh($argv);
+	}
+	if($argv[0] !== '-c') {
+		return $real_sh($argv);
+	}
+	
+	$cmd = escapeshellarg(path_combine(__DIR__, 'sh_wrap'));
+	$cmd.= " {$argv[1]}";
+	$argv[1] = $cmd;
+	return $real_sh($argv);
+}
+
+function reko_cmdline(string $target){
+	$default = ['--no-progress'];
+	if(preg_match("/x86_64.*/", $target)){
+		return [...$default, '-a', 'x86-protected-64', '-o', 'i386:x86-64:intel'];
+	}
+	return null;
+}
+
+function reko_connect(string $reko_addr){
+	list($host, $port) = explode(':', $reko_addr, 2);
+	$port = intval($port);
+
+	$sock = fsockopen($host, $port);
+	while(!is_resource($sock)){
+		// host may be full or down
+		sleep(1);
+		$sock = fsockopen($host, $port);
+	}
+
+	return $sock;
+}
+
+function reko_session(string $reko_addr, bool $is_starting){
+	$pkt = ($is_starting) ? "\x04" : "\x05";
+	$sock = reko_connect($reko_addr);
+	fwrite($sock, $pkt);
+	fclose($sock);
+}
+
+function reko_send(string $reko_addr, string $target, string $sourcePath, string $objPath){
+	//reopen_stdout();
+
+	$encodeString = function(string $str){
+		$buf = pack('N', strlen($str));
+		$buf.= $str;
+		return $buf;
+	};
+
+	$cmdline = reko_cmdline($target);
+	if($cmdline === null) return false;
+
+	$buf = "\x01"; // create sifter
+	$buf.= pack('N', count($cmdline));
+	foreach($cmdline as $arg){
+		$buf.= $encodeString($arg);
+	}
+	$buf.= "\x02"; // feed sifter
+	$buf.= pack('N', filesize($objPath));
+
+	$buf.= $encodeString($sourcePath);
+	$buf.= file_get_contents($objPath);
+
+	file_put_contents("/tmp/debug.txt", "{$objPath}:" . filesize($objPath) . "\n", FILE_APPEND);
+	
+	$buf.= "\x03"; // end sifter
+	$buf.= pack('N', 0);
+
+	$fh = fopen("/tmp/reko.lock", "w");
+	flock($fh, LOCK_EX);
+
+	$sock = reko_connect($reko_addr);
+	fwrite($sock, $buf);
+	fflush($sock);
+	fclose($sock);
+
+	flock($fh, LOCK_UN);
+	fclose($fh);
+}
+
+function parse_configure_options(array $items){
+	$r = [];
+	foreach($items as $itm){
+		if(str_starts_with($itm, '--')){
+			$itm = substr($itm, 2);
+		}
+		$equal = strpos($itm, '=');
+		if($equal !== FALSE){
+			list($k, $v) = explode('=', $itm, 2);
+			$r[$k] = $v;
+		} else {
+			$r[$itm] = null;
+		}
+	}
+	return $r;
+}
+
+function shell_intercept(array $argv){
+	//reopen_stdout();
+
+	if(count($argv) < 1){
+		exit(1);
+	}
+
+	$cmd = $argv[0];
+	if($cmd === 'json_argv'){
+		print(json_encode(
+			array_slice($argv, 1)
+		) . PHP_EOL);
+		exit(0);
+	}
+
+	if(!str_contains($cmd, 'as-new')){
+		return pcntl_exec($cmd, array_slice($argv, 1));
+	}
+
+	$hProc = proc_open($argv, [], $pipes);
+	$exitStatus = proc_close($hProc);
+
+	if($exitStatus !== 0){
+		exit($exitStatus);
+	}
+
+	$outArg = array_search('-o', $argv);
+	if($outArg === false){
+		$outPath = path_combine(getcwd(), 'a.out');
+	} else {
+		$outPath = path_combine(getcwd(), $argv[$outArg + 1]);
+	}
+
+	$source = array_filter($argv, function($itm){
+		return preg_match("/.*\.s/i", $itm);
+	});
+
+	$source = reset($source);
+	if($source === false){
+		exit($exitStatus);
+	}
+
+	$rootme = getenv('rootme');
+	if($rootme === false){
+		exit($exitStatus);
+	}
+
+	$config_status = path_combine($rootme, '..', 'config.status');
+	$config_items = rtrim(shell_exec(
+		escapeshellarg($config_status) . ' --config'
+	));
+
+	$hProc = proc_open([
+		path_combine(__DIR__, 'sh'),
+		'-c',
+		'json_argv ' . $config_items
+	], [
+		1 => ['pipe', 'w']
+	], $pipes);
+	$json = stream_get_contents($pipes[1]);
+	proc_close($hProc);
+
+	$obj = json_decode($json);
+	if($obj === null) $obj = [];
+	$items = parse_configure_options($obj);
+
+	$target = $items['target'] ?? null;
+	if($target === null){
+		$target = rtrim(shell_exec("cc -dumpmachine"));
+	}
+
+	$rekoAddr = getenv('REKO_SERVER');
+	if($rekoAddr !== false){
+		reko_send($rekoAddr, $target, $source, $outPath);
+	}
+
+	exit($exitStatus);	
+}
+
+$bin = bin_name($argv[0]);
+$prog_argv = array_slice($argv, 1);
+switch($bin){
+	case 'runtest':
+		$my_tty = rtrim(shell_exec('tty'));
+		putenv("TTY={$my_tty}");
+
+		//$prog_argv = ['-v', '-v', '-v', ...$prog_argv];
+		$exitStatus = delegate('runtest', $prog_argv, array(
+			'EXPECT' => path_combine(__DIR__, 'expect'),
+			'TTY' => $my_tty
+		), via_fork: true);
+		exit($exitStatus);
+	case 'sh':
+		shell_unpack($prog_argv);
+		break;
+	case 'sh_wrap':
+		shell_intercept($prog_argv);
+		break;
+	case 'expect':
+		delegate('expect', $prog_argv, strip_self: false);
+		break;
+	default:
+		file_put_contents("/tmp/debug.txt", print_r($argv, true));
+		exit(1);
+}

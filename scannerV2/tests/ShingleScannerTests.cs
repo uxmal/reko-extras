@@ -4,6 +4,7 @@ using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Rtl;
 using Reko.Core.Services;
+using Reko.Scanning;
 using System;
 using System.Collections.Generic;
 using System.IO;

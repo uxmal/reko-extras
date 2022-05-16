@@ -32,6 +32,8 @@ using System.Linq;
 using System.Text;
 using RtlBlock = Reko.Scanning.RtlBlock;
 using HeuristicProcedure = Reko.Scanning.HeuristicProcedure;
+using Reko.Core.Graphs;
+using Reko.Scanning;
 
 namespace Reko.UnitTests.Decompiler.Scanning
 {
@@ -46,7 +48,7 @@ namespace Reko.UnitTests.Decompiler.Scanning
             base.Setup();
         }
 
-        private void AssertConflicts(string sExp, IEnumerable<(Address, Address)> conflicts)
+        private void AssertConflicts(string sExp, HashSet<(Address, Address)> conflicts)
         {
             var sActual = conflicts
                 .OrderBy(c => c.Item1.ToLinear())
@@ -118,6 +120,7 @@ namespace Reko.UnitTests.Decompiler.Scanning
             hps.ResolveBlockConflicts(new Address[0]);
         }
 
+#if false
         [Test]
         public void HPSC_Conflicts_1()
         {
@@ -159,6 +162,7 @@ namespace Reko.UnitTests.Decompiler.Scanning
 ";
             AssertConflicts(sExp, conflicts);
         }
+#endif
 
         [Test]
         public void HPSC_DiscardNodes()
@@ -176,7 +180,7 @@ namespace Reko.UnitTests.Decompiler.Scanning
             hps.ResolveBlockConflicts(new[] { proc.BeginAddress });
 
             var sExp =
-            #region Expected
+#region Expected
 @"l00010000:  // pred:
     push ebp
 l00010001:  // pred: l00010000
@@ -188,7 +192,7 @@ l00010008:  // pred: l00010003
 l00010009:  // pred: l00010008
     ret
 ";
-            #endregion
+#endregion
 
             AssertBlocks(sExp, sr);
         }
@@ -246,7 +250,7 @@ l00010009:  // pred: l00010008
             hps.ResolveBlockConflicts(new[] { proc.BeginAddress });
 
             var sExp =
-            #region Expected
+#region Expected
  @"l00010000:  // pred:
     push ebp
 l00010001:  // pred: l00010000
@@ -270,7 +274,7 @@ l0001001B:  // pred: l00010019
 l0001001C:  // pred: l0001001B
     ret 
 ";
-            #endregion
+#endregion
             AssertBlocks(sExp, sr);
         }
     }
