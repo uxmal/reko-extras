@@ -10,6 +10,21 @@ namespace RekoSifter
 {
     public class X86Renderer : InstrRenderer
     {
+        private void RenderMnemonic(Mnemonic m, StringBuilder sb)
+        {
+            var mnemStr = m switch
+            {
+                Mnemonic.jz => "je",
+                Mnemonic.jc => "jb",
+                Mnemonic.jnc => "jae",
+                Mnemonic.jnz => "jne",
+                Mnemonic.jpe => "jp",
+                Mnemonic.jpo => "jnp",
+                _ => m.ToString()
+            };
+            sb.AppendFormat("{0,-6}", mnemStr);
+        }
+
         /// <summary>
         /// Render a Reko <see cref="MachineInstruction"/> so that it looks like 
         /// the output of objdump.
@@ -20,7 +35,7 @@ namespace RekoSifter
         {
             var sb = new StringBuilder();
             var instr = (X86Instruction)i;
-            sb.AppendFormat("{0,-6}", instr.Mnemonic.ToString());
+            RenderMnemonic(instr.Mnemonic, sb);
             var sep = " ";
             foreach (var op in instr.Operands)
             {
