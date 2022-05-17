@@ -35,5 +35,17 @@ namespace RekoSifter.UnitTests
         {
             AssertObjdump64("add    BYTE PTR [rax*1+0x5080000],al", "00 04 05 00 00 08 05");
         }
+
+        [Test(Description = "LEA doesn't need a WORD PTR prefix")]
+        public void X86R_O_Lea()
+        {
+            AssertObjdump64("lea    esi,[rsi+riz*1+0x0]", "8D B4 26 00 00 00 00");
+        }
+
+        [Test]
+        public void X86R_o_jmp_48_ptr()
+        {
+            AssertObjdump64("jmp    FWORD PTR [rdi*4+0x0]", "FF 2C BD 00 00 00 00");
+        }
     }
 }

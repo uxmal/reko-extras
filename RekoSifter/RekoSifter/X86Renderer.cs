@@ -35,7 +35,7 @@ namespace RekoSifter
                         RenderObjdumpConstant(imm.Value, false, sb);
                         break;
                     case MemoryOperand mem:
-                        RenderObjdumpMemoryOperand(mem, sb);
+                        RenderObjdumpMemoryOperand(instr.Mnemonic, mem, sb);
                         break;
                     case AddressOperand addr:
                         sb.AppendFormat("0x{0}", addr.Address.ToString().ToLower());
@@ -93,33 +93,41 @@ namespace RekoSifter
             sb.AppendFormat(fmt, offset, c.DataType.BitSize);
         }
 
-        private void RenderObjdumpMemoryOperand(MemoryOperand mem, StringBuilder sb)
+        private void RenderObjdumpMemoryOperand(Mnemonic mnemonic, MemoryOperand mem, StringBuilder sb)
         {
-            switch (mem.Width.Size)
+            if (NeedsMemorySizePrefix(mnemonic))
             {
-                case 1: sb.Append("BYTE PTR"); break;
-                case 2: sb.Append("WORD PTR"); break;
-                case 4: sb.Append("DWORD PTR"); break;
-                case 8: sb.Append("QWORD PTR"); break;
-                case 10: sb.Append("TBYTE PTR"); break;
-                case 16: sb.Append("XMMWORD PTR"); break;
-                case 32: sb.Append("YMMWORD PTR"); break;
-                default: sb.AppendFormat("[SIZE {0} PTR]", mem.Width.Size); break;
+                switch (mem.Width.Size)
+                {
+                case 1: sb.Append("BYTE PTR "); break;
+                case 2: sb.Append("WORD PTR "); break;
+                case 4: sb.Append("DWORD PTR "); break;
+                case 6: sb.Append("FWORD PTR "); break;
+                case 8: sb.Append("QWORD PTR "); break;
+                case 10: sb.Append("TBYTE PTR "); break;
+                case 16: sb.Append("XMMWORD PTR "); break;
+                case 32: sb.Append("YMMWORD PTR "); break;
+                case 64: sb.Append("ZMMWORD PTR "); break;
+                default: sb.AppendFormat("[SIZE {0} PTR] ", mem.Width.Size); break;
+                }
             }
-            sb.AppendFormat(" {0}[", mem.SegOverride != null && mem.SegOverride != RegisterStorage.None
+            sb.AppendFormat("{0}[", mem.SegOverride != null && mem.SegOverride != RegisterStorage.None
                 ? $"{mem.SegOverride}:"
                 : "");
             if (mem.Base != null && mem.Base != RegisterStorage.None)
             {
                 sb.Append(mem.Base.Name);
-                if (mem.Index != null && mem.Index != RegisterStorage.None)
+                if ((mem.Index != null && mem.Index != RegisterStorage.None))
                 {
-                    sb.Append("+");
-                    sb.Append(mem.Index.Name);
-                    if (mem.Scale >= 1)
-                    {
-                        sb.AppendFormat("*{0}", mem.Scale);
-                    }
+                    RenderIndexRegister(mem.Index, mem.Scale, sb);
+                } 
+                else if (mem.Scale != 0)
+                {
+                    //$BUG: 32-bit?
+                    RenderIndexRegister(
+                        mem.Base.Width.BitSize == 64 ? Registers.riz : Registers.eiz,
+                        mem.Scale, 
+                        sb);
                 }
                 if (mem.Offset != null && mem.Offset.IsValid)
                 {
@@ -145,5 +153,19 @@ namespace RekoSifter
             sb.Append("]");
         }
 
+        private static void RenderIndexRegister(RegisterStorage indexReg, int scale, StringBuilder sb)
+        {
+            sb.Append("+");
+            sb.Append(indexReg.Name);
+            if (scale >= 1)
+            {
+                sb.AppendFormat("*{0}", scale);
+            }
+        }
+
+        private bool NeedsMemorySizePrefix(Mnemonic mnemonic)
+        {
+            return mnemonic != Mnemonic.lea;
+        }
     }
 }
