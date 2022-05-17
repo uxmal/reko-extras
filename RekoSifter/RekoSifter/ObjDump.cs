@@ -183,8 +183,9 @@ namespace RekoSifter
         {
             buf.Clear();
 
-            byte[]? ibytes = null;
             ulong offset = 0;
+
+            var ibytes = new MemoryStream(bytes.Length);
 
             using (DisposableGCHandle hBytes = DisposableGCHandle.Pin(bytes))
             {
@@ -196,17 +197,18 @@ namespace RekoSifter
                 {
                     int insn_size = dasm(programCounter, dasmInfo.__Instance);
 
-                    ibytes = new byte[insn_size];
-                    Array.Copy(bytes, (long)offset, ibytes, 0, insn_size);
+                    var islice = bytes.AsMemory()
+                        .Span
+                        .Slice((int) offset, insn_size);
+                    ibytes.Write(islice);
 
                     programCounter += (ulong)insn_size;
                     offset += (ulong) insn_size;
-                    break; //only first instruction
                 }
             }
 
             string sInstr = SanitizeObjdumpOutput();
-            return (sInstr, ibytes);
+            return (sInstr, ibytes.ToArray());
         }
 
         private string SanitizeObjdumpOutput()
@@ -222,7 +224,7 @@ namespace RekoSifter
                     return sInstr.Remove(iHash);
                 }
             }
-            return sInstr;
+            return sInstr.Trim();
         }
 
         public bool IsInvalidInstruction(string sInstr)
