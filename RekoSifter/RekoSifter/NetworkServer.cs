@@ -115,10 +115,9 @@ namespace RekoSifter
                         sifter.ErrorLine("FATAL: " + ex.ToString());
                     }
 
-                    var search = "/gas/testsuite";
                     var abstractName = name
-                        .Substring(name.IndexOf(search) + search.Length)
-                        .Replace('/', '_');
+                        .Replace('/', '_')
+                        .Replace('.', '_');
                     sifter.RenameTestFiles(abstractName);
                     break;
                 case PacketType.StopSifter:

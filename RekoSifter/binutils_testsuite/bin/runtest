@@ -1,8 +1,10 @@
 #!/usr/bin/env php
 <?php
 /**
- * Copyright(C) 2022 Stefano Moioli <smxdev4@gmail.com>
+ * @author Stefano Moioli <smxdev4@gmai.com>
  */
+
+use FFI\CData;
 
 function path_combine(string ...$parts){
 	return implode(DIRECTORY_SEPARATOR, $parts);
@@ -63,19 +65,70 @@ function delegate(
 	}
 }
 
+/**
+ * @method int close(int $fd)
+ * @method int dup(int $oldfd)
+ * @method int dup2(int $oldfd, int $newfd)
+ * @method int fileno(CData $stream)
+ * @method CData freopen(string $filename, string $mode, CData $stream)
+ */
+abstract class MyFFI {}
+
+/**
+ * @return MyFFI
+ */
+function get_ffi(){
+	static $ffi;
+	if($ffi === null){
+		$ffi = FFI::cdef('
+		typedef void FILE;
+		extern FILE *stdout;
+		extern FILE *stderr;
+		int close(int fd);
+		int dup(int oldfd);
+		int dup2(int oldfd, int newfd);
+		int fileno(FILE *stream);
+		FILE *freopen (const char *filename, const char *mode, FILE *stream );
+		');
+	}
+	return $ffi;
+}
+
+function stdout_freopen($stdout, $stderr){
+	$ffi = get_ffi();
+	$ffi->freopen($stdout, 'w', $ffi->stdout);
+	$ffi->freopen($stderr, 'w', $ffi->stderr);
+}
+
+function stdout_dup2($stdout_fd, $stderr_fd){
+	$ffi = get_ffi();
+	$ffi->dup2($stdout_fd, 1);
+	$ffi->dup2($stderr_fd, 2);
+	$ffi->close($stdout_fd);
+	$ffi->close($stderr_fd);
+}
+
+function restore_stdout($ctx){
+	list($stdout_fd, $stderr_fd) = $ctx;
+	stdout_dup2($stdout_fd, $stderr_fd);
+}
+
 function reopen_stdout(){
 	$tty = getenv('TTY');
 	if($tty === false) return;
 
-	$ffi = FFI::cdef('
-	typedef void FILE;
-	extern FILE *stdout;
-	extern FILE *stderr;
-	FILE *freopen (const char *filename, const char *mode, FILE *stream );
-	');
+	$ffi = get_ffi();
+	$stdout_fd = $ffi->dup($ffi->fileno($ffi->stdout));
+	$stderr_fd = $ffi->dup($ffi->fileno($ffi->stderr));
 
-	$ffi->freopen($tty, 'w', $ffi->stdout);
-	$ffi->freopen($tty, 'w', $ffi->stderr);
+	stdout_freopen($tty, $tty);
+	return [$stdout_fd, $stderr_fd];
+}
+
+function with_stdout(callable $cb){
+	$ctx = reopen_stdout();
+	$cb();
+	restore_stdout($ctx);
 }
 
 function shell_unpack(array $argv){
@@ -97,10 +150,23 @@ function shell_unpack(array $argv){
 	return $real_sh($argv);
 }
 
-function reko_cmdline(string $target){
+function reko_cmdline(string $target, array $opts){
 	$default = ['--no-progress'];
-	if(preg_match("/x86_64.*/", $target)){
-		return [...$default, '-a', 'x86-protected-64', '-o', 'i386:x86-64:intel'];
+	if(str_starts_with($target, 'x86_64-')){
+		$reko_arch = 'x86-protected-64';
+		$objdump_arch = 'i386:x86-64:intel';
+
+		if(isset($opts['i386'])){
+			$reko_arch = 'x86-protected-32';
+			$objdump_arch = 'i386:intel';
+		} else if(isset($opts['i8086'])){
+			$reko_arch = 'x86-protected-16';
+			$objdump_arch = 'i8086';
+		}
+
+		return [...$default, '-a', $reko_arch, '-o', $objdump_arch];
+	} else if(str_starts_with($target, 'arm-')){
+		return [...$default, '-a', 'arm', '-o', 'arm'];
 	}
 	return null;
 }
@@ -126,16 +192,14 @@ function reko_session(string $reko_addr, bool $is_starting){
 	fclose($sock);
 }
 
-function reko_send(string $reko_addr, string $target, string $sourcePath, string $objPath){
-	//reopen_stdout();
-
+function reko_send(string $reko_addr, string $target, string $objPath, array $opts){
 	$encodeString = function(string $str){
 		$buf = pack('N', strlen($str));
 		$buf.= $str;
 		return $buf;
 	};
 
-	$cmdline = reko_cmdline($target);
+	$cmdline = reko_cmdline($target, $opts);
 	if($cmdline === null) return false;
 
 	$buf = "\x01"; // create sifter
@@ -146,7 +210,7 @@ function reko_send(string $reko_addr, string $target, string $sourcePath, string
 	$buf.= "\x02"; // feed sifter
 	$buf.= pack('N', filesize($objPath));
 
-	$buf.= $encodeString($sourcePath);
+	$buf.= $encodeString($objPath);
 	$buf.= file_get_contents($objPath);
 
 	file_put_contents("/tmp/debug.txt", "{$objPath}:" . filesize($objPath) . "\n", FILE_APPEND);
@@ -184,7 +248,10 @@ function parse_configure_options(array $items){
 }
 
 function shell_intercept(array $argv){
-	//reopen_stdout();
+	with_stdout(function() use($argv){
+		print("== shell intercept ==\n");
+		var_dump($argv);
+	});
 
 	if(count($argv) < 1){
 		exit(1);
@@ -198,68 +265,75 @@ function shell_intercept(array $argv){
 		exit(0);
 	}
 
-	if(!str_contains($cmd, 'as-new')){
+	$delegate = function(string $cmd, array $argv){
 		return pcntl_exec($cmd, array_slice($argv, 1));
+	};
+
+	if(!str_ends_with($cmd, 'objdump')){
+		return $delegate($cmd, $argv);
 	}
 
-	$hProc = proc_open($argv, [], $pipes);
-	$exitStatus = proc_close($hProc);
-
-	if($exitStatus !== 0){
-		exit($exitStatus);
-	}
-
-	$outArg = array_search('-o', $argv);
-	if($outArg === false){
-		$outPath = path_combine(getcwd(), 'a.out');
-	} else {
-		$outPath = path_combine(getcwd(), $argv[$outArg + 1]);
-	}
-
-	$source = array_filter($argv, function($itm){
-		return preg_match("/.*\.s/i", $itm);
-	});
-
-	$source = reset($source);
-	if($source === false){
-		exit($exitStatus);
+	$objPath = end($argv);
+	if($objPath === false){
+		return $delegate($cmd, $argv);
 	}
 
 	$rootme = getenv('rootme');
 	if($rootme === false){
-		exit($exitStatus);
+		return $delegate($cmd, $argv);
 	}
 
 	$config_status = path_combine($rootme, '..', 'config.status');
 	$config_items = rtrim(shell_exec(
 		escapeshellarg($config_status) . ' --config'
 	));
+	if(empty($config_items)){
+		$obj = [];
+	} else {
+		$hProc = proc_open([
+			path_combine(__DIR__, 'sh'),
+			'-c',
+			'json_argv ' . $config_items
+		], [
+			1 => ['pipe', 'w']
+		], $pipes);
+		$json = stream_get_contents($pipes[1]);
+		proc_close($hProc);
 
-	$hProc = proc_open([
-		path_combine(__DIR__, 'sh'),
-		'-c',
-		'json_argv ' . $config_items
-	], [
-		1 => ['pipe', 'w']
-	], $pipes);
-	$json = stream_get_contents($pipes[1]);
-	proc_close($hProc);
+		$obj = json_decode($json);
+		if($obj === null) $obj = [];
+	}
 
-	$obj = json_decode($json);
-	if($obj === null) $obj = [];
-	$items = parse_configure_options($obj);
+	static $configure_items;
+	if($configure_items === null){
+		$configure_items = parse_configure_options($obj);
+	}
+	$items = $configure_items;
 
 	$target = $items['target'] ?? null;
+
+	static $host_machine;
 	if($target === null){
-		$target = rtrim(shell_exec("cc -dumpmachine"));
+		if($host_machine === null){
+			$host_machine = rtrim(shell_exec("cc -dumpmachine"));
+		}
+		$target = $host_machine;
+	}
+
+	$machine_opts = [];
+	foreach($argv as $arg){
+		if(str_starts_with($arg, '-M')){
+			$arg = trim(substr($arg, 2));
+			$opts = explode(',', $arg);
+			$machine_opts = array_flip($opts);
+		}
 	}
 
 	$rekoAddr = getenv('REKO_SERVER');
 	if($rekoAddr !== false){
-		reko_send($rekoAddr, $target, $source, $outPath);
+		reko_send($rekoAddr, $target, $objPath, $machine_opts);
 	}
-
-	exit($exitStatus);	
+	return $delegate($cmd, $argv);
 }
 
 $bin = bin_name($argv[0]);

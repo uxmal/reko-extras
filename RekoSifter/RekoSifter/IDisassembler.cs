@@ -17,5 +17,8 @@ namespace RekoSifter
 		bool IsInvalidInstruction(string sInstr);
         bool SetProgramCounter(ulong address);
         ulong GetProgramCounter();
+
+        // we use the BFD enum as it has them all
+        libopcodes.BfdArchitecture GetArchitecture();
 	}
 }

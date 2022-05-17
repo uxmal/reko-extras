@@ -442,9 +442,10 @@ Options:
 
         // These are X86 opcodes that objdump renders in a dramatically different
         // way than Reko, and we're 100% sure Reko is doing it right.
-        private static readonly HashSet<byte> objDumpSkips = new HashSet<byte>()
+        private static readonly Dictionary<libopcodes.BfdArchitecture, HashSet<byte>> objDumpSkips = new Dictionary<libopcodes.BfdArchitecture, HashSet<byte>>()
         {
-            0x6C,       // insb
+            { libopcodes.BfdArchitecture.BfdArchI386, new HashSet<byte>() {
+                0x6C,       // insb
             0x6D,       // ins
             0x6E,       // outsb
             0x6F,       // outs
@@ -484,6 +485,7 @@ Options:
 
             0xCC,       // int3
             0xD7,       // xlat
+            } }
         };
 
         private void CompareWithObjdump(byte[] bytes, MachineInstruction? instr)
@@ -535,8 +537,9 @@ Options:
             {
                 if (odOut.Trim() != reko.Trim())
                 {
-                    //$BUG: arch-dependent
-                    if (objDumpSkips.Contains(bytes[0]))
+                    var otherArch = otherDasm.GetArchitecture();
+                    if(objDumpSkips.TryGetValue(otherArch, out var skips)
+                        && skips.Contains(bytes[0]))
                     {
                         progress?.Advance();
                     }

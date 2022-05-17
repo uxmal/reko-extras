@@ -15,7 +15,6 @@ using Constant = Reko.Core.Expressions.Constant;
 
 namespace RekoSifter
 {
-
     /// <summary>
     /// This class uses the runtime library used by objdump to disassemble instructions.
     /// </summary>
@@ -166,6 +165,12 @@ namespace RekoSifter
             info.Buffer = null;
             info.BufferVma = 0;
             info.BufferLength = 0;
+
+            // force intel syntax for machines like 'i8086'
+            if(arch.Arch == BfdArchitecture.BfdArchI386)
+            {
+                info.Mach |= (uint)BfdMachine.i386_intel_syntax;
+            }
             
             dis_asm.DisassembleInitForTarget(info);
 
@@ -204,6 +209,13 @@ namespace RekoSifter
 
                     programCounter += (ulong)insn_size;
                     offset += (ulong) insn_size;
+
+                    switch(buf[buf.Length - 1])
+                    {
+                    case '\t': break;
+                    case ' ': break;
+                    default: buf.Append(' '); break;
+                    }
                 }
             }
 
@@ -267,6 +279,11 @@ namespace RekoSifter
         public ulong GetProgramCounter()
         {
             return this.programCounter;
+        }
+
+        public BfdArchitecture GetArchitecture()
+        {
+            return this.arch.Arch;
         }
     }
 }
