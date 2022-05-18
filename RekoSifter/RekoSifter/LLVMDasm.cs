@@ -1,3 +1,4 @@
+using libopcodes;
 using LLVMSharp.Interop;
 using System;
 using System.Collections.Generic;
@@ -26,8 +27,26 @@ namespace RekoSifter
 
         private ulong programCounter = 0;
 
+        private readonly BfdArchitecture bfdArchitecture;
+
+        private static BfdArchitecture GetBfdArchitecture(string triple)
+        {
+            if (triple.StartsWith("x86_64"))
+            {
+                return BfdArchitecture.BfdArchI386;
+            }
+            if (triple.StartsWith("arm"))
+            {
+                return BfdArchitecture.BfdArchArm;
+            }
+
+            return BfdArchitecture.BfdArchUnknown;
+        }
+
 		public LLVMDasm(string triple) {
 			hDasm = Initialize(triple);
+
+   
 		}
 
 		private static unsafe LLVMDisasmContextRef Initialize(string triple) {
@@ -112,6 +131,11 @@ namespace RekoSifter
         public ulong GetProgramCounter()
         {
             return this.programCounter;
+        }
+
+        public BfdArchitecture GetArchitecture()
+        {
+            return this.bfdArchitecture;
         }
     }
 }

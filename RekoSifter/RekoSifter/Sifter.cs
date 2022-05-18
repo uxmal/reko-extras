@@ -442,9 +442,10 @@ Options:
 
         // These are X86 opcodes that objdump renders in a dramatically different
         // way than Reko, and we're 100% sure Reko is doing it right.
-        private static readonly HashSet<byte> objDumpSkips = new HashSet<byte>()
+        private static readonly Dictionary<libopcodes.BfdArchitecture, HashSet<byte>> objDumpSkips = new Dictionary<libopcodes.BfdArchitecture, HashSet<byte>>()
         {
-            0x6C,       // insb
+            { libopcodes.BfdArchitecture.BfdArchI386, new HashSet<byte>() {
+                0x6C,       // insb
             0x6D,       // ins
             0x6E,       // outsb
             0x6F,       // outs
@@ -484,6 +485,7 @@ Options:
 
             0xCC,       // int3
             0xD7,       // xlat
+            } }
         };
 
         private void CompareWithObjdump(byte[] bytes, MachineInstruction? instr)
@@ -527,17 +529,18 @@ Options:
             if (rekoIsBad ^ objdIsBad)
             {
                 progress?.Reset();
-                if (!objdIsBad)
-                {
+                if (!objdIsBad && bytes.Length > 0){
                     EmitUnitTest(bytes, odOut);
                 }
             }
             else if (!rekoIsBad)
             {
-                if (odOut.Trim() != reko.Trim())
+                odOut = instrRenderer.AdjustObjdump(odOut.Trim());
+                if (odOut != reko.Trim())
                 {
-                    //$BUG: arch-dependent
-                    if (objDumpSkips.Contains(bytes[0]))
+                    var otherArch = otherDasm.GetArchitecture();
+                    if(objDumpSkips.TryGetValue(otherArch, out var skips)
+                        && skips.Contains(bytes[0]))
                     {
                         progress?.Advance();
                     }
@@ -562,7 +565,9 @@ Options:
             if (this.dasm is DisassemblerBase dasm)
             {
                 var testPrefix = arch.Name.Replace('-', '_') + "Dis";
-                testGen.ReportMissingDecoder(testPrefix, mem.BaseAddress, arch.CreateImageReader(mem, 0), "");
+                testGen.ReportMissingDecoder(testPrefix,
+                        rdr.Address - bytes.Length,
+                        this.rdr, "");
             }
         }
 
@@ -597,22 +602,30 @@ Options:
                 .Segments.Where(x => x.Value.IsExecutable)
                 .First().Value;
 
-            var rdr = codeSeg.CreateImageReader(arch);
-            
-            var data = rdr.ReadBytes(codeSeg.ContentSize);
+
+            var temp = codeSeg.CreateImageReader(arch);
+            var data = temp.ReadBytes(codeSeg.ContentSize);
             this.mem = new ByteMemoryArea(loadAddr, data);
             // $BUG
             //var newRdr = new LeImageReader(mem, 0);
             var newRdr = new LeImageReader(mem, loadAddr);
+
+            this.rdr = newRdr;
             this.dasm = arch.CreateDisassembler(newRdr);
 
             var offset = 0;
             foreach (var instr in dasm)
             {
+                // save the current position (after the insn)
                 var pos = rdr.Offset;
+
+                // backtrack to the instr start, and read it
                 rdr.Offset = offset;
                 byte[] instrBytes = rdr.ReadBytes(instr.Length);
+
+                // restore the position
                 rdr.Offset = pos;
+
                 offset += instr.Length;
                 processInstr(instrBytes, instr);
             }

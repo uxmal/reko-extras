@@ -15,7 +15,6 @@ using Constant = Reko.Core.Expressions.Constant;
 
 namespace RekoSifter
 {
-
     /// <summary>
     /// This class uses the runtime library used by objdump to disassemble instructions.
     /// </summary>
@@ -166,6 +165,12 @@ namespace RekoSifter
             info.Buffer = null;
             info.BufferVma = 0;
             info.BufferLength = 0;
+
+            // force intel syntax for machines like 'i8086'
+            if(arch.Arch == BfdArchitecture.BfdArchI386)
+            {
+                info.Mach |= (uint)BfdMachine.i386_intel_syntax;
+            }
             
             dis_asm.DisassembleInitForTarget(info);
 
@@ -183,8 +188,9 @@ namespace RekoSifter
         {
             buf.Clear();
 
-            byte[]? ibytes = null;
             ulong offset = 0;
+
+            var ibytes = new MemoryStream(bytes.Length);
 
             using (DisposableGCHandle hBytes = DisposableGCHandle.Pin(bytes))
             {
@@ -196,17 +202,25 @@ namespace RekoSifter
                 {
                     int insn_size = dasm(programCounter, dasmInfo.__Instance);
 
-                    ibytes = new byte[insn_size];
-                    Array.Copy(bytes, (long)offset, ibytes, 0, insn_size);
+                    var islice = bytes.AsMemory()
+                        .Span
+                        .Slice((int) offset, insn_size);
+                    ibytes.Write(islice);
 
                     programCounter += (ulong)insn_size;
                     offset += (ulong) insn_size;
-                    break; //only first instruction
+
+                    switch(buf[buf.Length - 1])
+                    {
+                    case '\t': break;
+                    case ' ': break;
+                    default: buf.Append(' '); break;
+                    }
                 }
             }
 
             string sInstr = SanitizeObjdumpOutput();
-            return (sInstr, ibytes);
+            return (sInstr, ibytes.ToArray());
         }
 
         private string SanitizeObjdumpOutput()
@@ -222,7 +236,7 @@ namespace RekoSifter
                     return sInstr.Remove(iHash);
                 }
             }
-            return sInstr;
+            return sInstr.Trim();
         }
 
         public bool IsInvalidInstruction(string sInstr)
@@ -232,6 +246,8 @@ namespace RekoSifter
             if (sInstr.Contains("(bad)"))
                 return true;
             if (sInstr.StartsWith("0x"))
+                return true;
+            if (sInstr.StartsWith(".byte"))
                 return true;
             if (sInstr.StartsWith(".short"))
                 return true;
@@ -263,6 +279,11 @@ namespace RekoSifter
         public ulong GetProgramCounter()
         {
             return this.programCounter;
+        }
+
+        public BfdArchitecture GetArchitecture()
+        {
+            return this.arch.Arch;
         }
     }
 }

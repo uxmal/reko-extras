@@ -8,6 +8,16 @@ namespace RekoSifter
     public class InstrRenderer
     {
         /// <summary>
+        /// Adjust the objdump output for comparison
+        /// </summary>
+        /// <param name="objdump"></param>
+        /// <returns></returns>
+        public virtual string AdjustObjdump(string objdump)
+        {
+            return objdump;
+        }
+
+        /// <summary>
         /// Render the Reko machine instruction <paramref name="i"/> the
         /// way objdump does.
         /// </summary>
