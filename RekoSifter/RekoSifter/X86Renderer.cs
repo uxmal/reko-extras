@@ -34,20 +34,38 @@ namespace RekoSifter
             "rex.W ",
             "rex.R ",
             "rex.X ",
-            "rex "
+            "rex ",
+            "rep ",
+            "repz ",
+            "repnz "
         };
 
         public override string AdjustObjdump(string objdump)
         {
             var s = objdump;
-            foreach(var p in prefixes)
+            s = Regex.Replace(s, "\\s+", " ");
+
+            var had_prefix = true;
+            while (had_prefix)
             {
-                if (s.StartsWith(p))
+                had_prefix = false;
+                foreach (var p in prefixes)
                 {
-                    s = s.Substring(p.Length);
+                    if (s.StartsWith(p))
+                    {
+                        s = s.Substring(p.Length);
+                        had_prefix = true;
+                    }
                 }
             }
-            s = Regex.Replace(s, "\\s+", " ");
+            var m = Regex.Matches(s, ",([0-9]+)");
+            if(m.Count > 0)
+            {
+                var cap = m[0].Groups[1].Captures[0];
+                var offs = cap.Index;
+                var ival = int.Parse(cap.Value);
+                s = s.Substring(0, offs) + "0x" + Convert.ToString(ival, 16);
+            }
             return s;
         }
 
