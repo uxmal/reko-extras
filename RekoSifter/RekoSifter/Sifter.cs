@@ -535,7 +535,8 @@ Options:
             }
             else if (!rekoIsBad)
             {
-                if (odOut.Trim() != reko.Trim())
+                odOut = instrRenderer.AdjustObjdump(odOut.Trim());
+                if (odOut != reko.Trim())
                 {
                     var otherArch = otherDasm.GetArchitecture();
                     if(objDumpSkips.TryGetValue(otherArch, out var skips)

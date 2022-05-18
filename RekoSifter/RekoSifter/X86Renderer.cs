@@ -5,11 +5,42 @@ using Reko.Core.Machine;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace RekoSifter
 {
     public class X86Renderer : InstrRenderer
     {
+        private readonly string[] prefixes = new string[]
+        {
+            "bnd ",
+            "ds ",
+            "es ",
+            "notrack ",
+            "data16 ",
+            "rex.WRXB ",
+            "rex.WXB ",
+            "rex.WX ",
+            "rex.W ",
+            "rex.R ",
+            "rex.X ",
+            "rex "
+        };
+
+        public override string AdjustObjdump(string objdump)
+        {
+            var s = objdump;
+            foreach(var p in prefixes)
+            {
+                if (s.StartsWith(p))
+                {
+                    s = s.Substring(p.Length);
+                }
+            }
+            s = Regex.Replace(s, "\\s+", " ");
+            return s;
+        }
+
         private void RenderMnemonic(Mnemonic m, StringBuilder sb)
         {
             var mnemStr = m switch
@@ -22,7 +53,7 @@ namespace RekoSifter
                 Mnemonic.jpo => "jnp",
                 _ => m.ToString()
             };
-            sb.AppendFormat("{0,-6}", mnemStr);
+            sb.Append(mnemStr);
         }
 
         /// <summary>
