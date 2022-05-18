@@ -2,6 +2,7 @@ using Reko.Arch.X86;
 using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Machine;
+using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -96,17 +97,22 @@ namespace RekoSifter
             var instr = (X86Instruction)i;
             RenderMnemonic(instr.Mnemonic, sb);
             var sep = " ";
-            foreach (var op in instr.Operands)
+            for (int iop = 0; iop < instr.Operands.Length; ++iop)
             {
+                var op = instr.Operands[iop];
                 sb.Append(sep);
                 sep = ",";
                 switch (op)
                 {
                     case RegisterStorage rop:
                         sb.Append(rop.Name);
+                    if (iop == 0 && instr.OpMask != 0)
+                    {
+                        RenderOpmask(instr.OpMask, sb);
+                    }
                         break;
                     case ImmediateOperand imm:
-                        RenderObjdumpConstant(imm.Value, false, sb);
+                    RenderObjdumpConstant(imm.Value, instr.dataWidth, false, sb);
                         break;
                     case MemoryOperand mem:
                         RenderObjdumpMemoryOperand(instr.Mnemonic, mem, sb);
@@ -125,12 +131,19 @@ namespace RekoSifter
             return sb.ToString();
         }
 
+        private void RenderOpmask(int opMask, StringBuilder sb)
+        {
+                sb.Append("{k");
+                sb.Append(opMask);
+                sb.Append('}');
+        }
+
         public override string RenderAsLlvm(MachineInstruction i)
         {
             return i.ToString();
         }
 
-        private void RenderObjdumpConstant(Constant c, bool renderPlusSign, StringBuilder sb)
+        private void RenderObjdumpConstant(Constant c, DataType dt, bool renderPlusSign, StringBuilder sb)
         {
             long offset;
             if (renderPlusSign)
@@ -156,7 +169,7 @@ namespace RekoSifter
                 offset = (long)c.ToUInt32();
             }
 
-            string fmt = c.DataType.Size switch
+            string fmt = dt.Size switch
             {
                 1 => "0x{0:x}",
                 2 => "0x{0:x}",
@@ -205,7 +218,7 @@ namespace RekoSifter
                 }
                 if (mem.Offset != null && mem.Offset.IsValid)
                 {
-                    RenderObjdumpConstant(mem.Offset, true, sb);
+                    RenderObjdumpConstant(mem.Offset, mem.Base.DataType, true, sb);
                 }
             }
             else if (mem.Index is not null && mem.Index != RegisterStorage.None)
@@ -217,7 +230,7 @@ namespace RekoSifter
                 }
                 if (mem.Offset != null && mem.Offset.IsValid)
                 {
-                    RenderObjdumpConstant(mem.Offset, true, sb);
+                    RenderObjdumpConstant(mem.Offset, mem.Index.DataType, true, sb);
                 }
             }
             else

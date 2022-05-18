@@ -14,7 +14,7 @@ namespace RekoSifter.UnitTests
     public class X86RendererTests
     {
         private readonly X86ArchitectureFlat64 arch;
-        
+
         public X86RendererTests()
         {
             this.arch = new X86ArchitectureFlat64(null!, "x86-protected-64", new());
@@ -46,6 +46,30 @@ namespace RekoSifter.UnitTests
         public void X86R_o_jmp_48_ptr()
         {
             AssertObjdump64("jmp FWORD PTR [rdi*4+0x0]", "FF 2C BD 00 00 00 00");
+        }
+
+        [Test]
+        public void X86R_o_push_imm()
+        {
+            AssertObjdump64("push 0xffffffffffffff90", "6A 90");
+        }
+
+        [Test]
+        public void X86R_o_jc()
+        {
+            AssertObjdump64("jb 0xffffffffffffff82", "72 80");
+        }
+
+        [Test]
+        public void X86R_o_vsqrtpd()
+        {
+            AssertObjdump64("vsqrtpd ymm6{k7},YMMWORD PTR [rcx]", "62 F1 FD 2F 51 31");
+        }
+
+        [Test]
+        public void X86R_O_short_immdiate()
+        {
+            AssertObjdump64("in al,0xcd", "E4 CD");
         }
     }
 }
