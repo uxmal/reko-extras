@@ -74,12 +74,25 @@ namespace RekoSifter
         {
             var mnemStr = m switch
             {
-                Mnemonic.jz => "je",
+                Mnemonic.cmovc => "cmovb",
+                Mnemonic.cmovnc => "cmovae",
+                Mnemonic.cmovnz => "cmovne",
+                Mnemonic.cmovpe => "cmovn",
+                Mnemonic.cmovpo => "cmovnp",
+                Mnemonic.cmovz => "cmove",
                 Mnemonic.jc => "jb",
                 Mnemonic.jnc => "jae",
                 Mnemonic.jnz => "jne",
                 Mnemonic.jpe => "jp",
                 Mnemonic.jpo => "jnp",
+                Mnemonic.jz => "je",
+                Mnemonic.setc => "setb",
+                Mnemonic.setnc => "setae",
+                Mnemonic.setnz => "setne",
+                Mnemonic.setpe => "setn",
+                Mnemonic.setpo => "setnp",
+                Mnemonic.setz => "sete",
+
                 _ => m.ToString()
             };
             sb.Append(mnemStr);
@@ -104,28 +117,38 @@ namespace RekoSifter
                 sep = ",";
                 switch (op)
                 {
-                    case RegisterStorage rop:
-                        sb.Append(rop.Name);
-                    if (iop == 0 && instr.OpMask != 0)
+                case RegisterStorage rop:
+                    sb.Append(rop.Name);
+                    if (iop == 0)
                     {
-                        RenderOpmask(instr.OpMask, sb);
+                        if (instr.OpMask != 0)
+                        {
+                            RenderOpmask(instr.OpMask, sb);
+                        }
+                        if (instr.MergingMode != 0)
+                        {
+                            sb.Append("{z}");
+                        }
                     }
-                        break;
-                    case ImmediateOperand imm:
+                    break;
+                case ImmediateOperand imm:
                     RenderObjdumpConstant(imm.Value, instr.dataWidth, false, sb);
-                        break;
-                    case MemoryOperand mem:
-                        RenderObjdumpMemoryOperand(instr.Mnemonic, mem, sb);
-                        break;
-                    case AddressOperand addr:
-                        sb.AppendFormat("0x{0}", addr.Address.ToString().ToLower());
-                        break;
-                    case FpuOperand fpu:
+                    break;
+                case MemoryOperand mem:
+                    RenderObjdumpMemoryOperand(instr, mem, sb);
+                    break;
+                case AddressOperand addr:
+                    sb.AppendFormat("0x{0}", addr.Address.ToString().ToLower());
+                    break;
+                case FpuOperand fpu:
+                    if (fpu.StNumber == 0)
+                        sb.Append("st");
+                    else 
                         sb.AppendFormat("st({0})", fpu.StNumber);
-                        break;
-                    default:
-                        sb.AppendFormat("[{0}]", op.GetType().Name);
-                        break;
+                    break;
+                default:
+                    sb.AppendFormat("[{0}]", op.GetType().Name);
+                    break;
                 }
             }
             return sb.ToString();
@@ -133,9 +156,9 @@ namespace RekoSifter
 
         private void RenderOpmask(int opMask, StringBuilder sb)
         {
-                sb.Append("{k");
-                sb.Append(opMask);
-                sb.Append('}');
+            sb.Append("{k");
+            sb.Append(opMask);
+            sb.Append('}');
         }
 
         public override string RenderAsLlvm(MachineInstruction i)
@@ -180,9 +203,9 @@ namespace RekoSifter
             sb.AppendFormat(fmt, offset, c.DataType.BitSize);
         }
 
-        private void RenderObjdumpMemoryOperand(Mnemonic mnemonic, MemoryOperand mem, StringBuilder sb)
+        private void RenderObjdumpMemoryOperand(X86Instruction instr, MemoryOperand mem, StringBuilder sb)
         {
-            if (NeedsMemorySizePrefix(mnemonic))
+            if (NeedsMemorySizePrefix(instr.Mnemonic))
             {
                 switch (mem.Width.Size)
                 {
@@ -218,7 +241,15 @@ namespace RekoSifter
                 }
                 if (mem.Offset != null && mem.Offset.IsValid)
                 {
-                    RenderObjdumpConstant(mem.Offset, mem.Base.DataType, true, sb);
+                    var offset = mem.Offset;
+                    if (mem.Base == Registers.rip)
+                    {
+                        sb.AppendFormat("+0x{0:x}", (ulong) offset.ToInt64());
+                    }
+                    else
+                    {
+                        RenderObjdumpConstant(offset, mem.Base.DataType, true, sb);
+                    }
                 }
             }
             else if (mem.Index is not null && mem.Index != RegisterStorage.None)
@@ -238,6 +269,12 @@ namespace RekoSifter
                 sb.Append(mem.Offset);
             }
             sb.Append("]");
+            if (instr.Broadcast)
+            {
+                sb.Append("{1to");
+                sb.Append((uint) (instr.Operands[0].Width.BitSize / mem.Width.BitSize));
+                sb.Append('}');
+            }
         }
 
         private static void RenderIndexRegister(RegisterStorage indexReg, int scale, StringBuilder sb)
@@ -252,7 +289,15 @@ namespace RekoSifter
 
         private bool NeedsMemorySizePrefix(Mnemonic mnemonic)
         {
-            return mnemonic != Mnemonic.lea;
+            return !instrs_NoSizePrefix.Contains(mnemonic);
         }
+
+        private static HashSet<Mnemonic> instrs_NoSizePrefix = new HashSet<Mnemonic>
+        {
+            Mnemonic.lea,
+            Mnemonic.xrstor,
+            Mnemonic.xsave64,
+            Mnemonic.xsaveopt,
+        };
     }
 }

@@ -71,5 +71,17 @@ namespace RekoSifter.UnitTests
         {
             AssertObjdump64("in al,0xcd", "E4 CD");
         }
+
+        [Test]
+        public void X86R_O_EVEX_mergingmode_z()
+        {
+            AssertObjdump64("vmovaps ymm6{k7}{z},ymm5", "62 F1 7C AF 28 F5");
+        }
+
+        [Test]
+        public void X86R_O_long_rip_displacement()
+        {
+            AssertObjdump64("and dl,BYTE PTR [rip+0xfffffffff0b4cf00]", "22 15 00 CF B4 F0");
+        }
     }
 }
