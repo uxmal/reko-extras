@@ -14,6 +14,7 @@ namespace RekoSifter
     {
         private readonly string[] prefixes = new string[]
         {
+            "addr32 ",
             "bnd ",
             "ds ",
             "es ",
@@ -70,9 +71,17 @@ namespace RekoSifter
             return s;
         }
 
-        private void RenderMnemonic(Mnemonic m, StringBuilder sb)
+        private void RenderMnemonic(X86Instruction instr, StringBuilder sb)
         {
-            var mnemStr = m switch
+            bool IsMovabs(X86Instruction instr)
+            {
+                if (instr.Operands[1] is not MemoryOperand mem)
+                    return false;
+                return ((mem.Base is null || mem.Base == RegisterStorage.None) &&
+                        (mem.Index is null || mem.Index == RegisterStorage.None));
+            }
+
+            var mnemStr = instr.Mnemonic switch
             {
                 Mnemonic.cmovc => "cmovb",
                 Mnemonic.cmovnc => "cmovae",
@@ -86,6 +95,7 @@ namespace RekoSifter
                 Mnemonic.jpe => "jp",
                 Mnemonic.jpo => "jnp",
                 Mnemonic.jz => "je",
+                Mnemonic.mov => IsMovabs(instr) ? "movabs" : "mov",
                 Mnemonic.setc => "setb",
                 Mnemonic.setnc => "setae",
                 Mnemonic.setnz => "setne",
@@ -93,7 +103,7 @@ namespace RekoSifter
                 Mnemonic.setpo => "setnp",
                 Mnemonic.setz => "sete",
 
-                _ => m.ToString()
+                _ => instr.Mnemonic.ToString()
             };
             sb.Append(mnemStr);
         }
@@ -108,7 +118,7 @@ namespace RekoSifter
         {
             var sb = new StringBuilder();
             var instr = (X86Instruction)i;
-            RenderMnemonic(instr.Mnemonic, sb);
+            RenderMnemonic(instr, sb);
             var sep = " ";
             for (int iop = 0; iop < instr.Operands.Length; ++iop)
             {
@@ -132,7 +142,7 @@ namespace RekoSifter
                     }
                     break;
                 case ImmediateOperand imm:
-                    RenderObjdumpConstant(imm.Value, instr.dataWidth, false, sb);
+                    RenderObjdumpConstant(instr, imm.Value, instr.dataWidth, false, sb);
                     break;
                 case MemoryOperand mem:
                     RenderObjdumpMemoryOperand(instr, mem, sb);
@@ -166,7 +176,7 @@ namespace RekoSifter
             return i.ToString();
         }
 
-        private void RenderObjdumpConstant(Constant c, DataType dt, bool renderPlusSign, StringBuilder sb)
+        private void RenderObjdumpConstant(X86Instruction instr, Constant c, DataType dt, bool renderPlusSign, StringBuilder sb)
         {
             long offset;
             if (renderPlusSign)
@@ -183,7 +193,7 @@ namespace RekoSifter
                     offset = c.ToInt64();
                 }
             }
-            else if (c.DataType.BitSize == 64)
+            else if (c.DataType.BitSize == 64 || instr.Mnemonic == Mnemonic.push)
             {
                 offset = c.ToInt64();
             }
@@ -205,75 +215,83 @@ namespace RekoSifter
 
         private void RenderObjdumpMemoryOperand(X86Instruction instr, MemoryOperand mem, StringBuilder sb)
         {
-            if (NeedsMemorySizePrefix(instr.Mnemonic))
+            bool hasBase = mem.Base != null && mem.Base != RegisterStorage.None;
+            bool hasIndex = mem.Index is not null && mem.Index != RegisterStorage.None;
+            if (hasBase || hasIndex)
             {
-                switch (mem.Width.Size)
+                if (NeedsMemorySizePrefix(instr.Mnemonic))
                 {
-                case 1: sb.Append("BYTE PTR "); break;
-                case 2: sb.Append("WORD PTR "); break;
-                case 4: sb.Append("DWORD PTR "); break;
-                case 6: sb.Append("FWORD PTR "); break;
-                case 8: sb.Append("QWORD PTR "); break;
-                case 10: sb.Append("TBYTE PTR "); break;
-                case 16: sb.Append("XMMWORD PTR "); break;
-                case 32: sb.Append("YMMWORD PTR "); break;
-                case 64: sb.Append("ZMMWORD PTR "); break;
-                default: sb.AppendFormat("[SIZE {0} PTR] ", mem.Width.Size); break;
-                }
-            }
-            sb.AppendFormat("{0}[", mem.SegOverride != null && mem.SegOverride != RegisterStorage.None
-                ? $"{mem.SegOverride}:"
-                : "");
-            if (mem.Base != null && mem.Base != RegisterStorage.None)
-            {
-                sb.Append(mem.Base.Name);
-                if ((mem.Index != null && mem.Index != RegisterStorage.None))
-                {
-                    RenderIndexRegister(mem.Index, mem.Scale, sb);
-                } 
-                else if (mem.Scale != 0)
-                {
-                    //$BUG: 32-bit?
-                    RenderIndexRegister(
-                        mem.Base.Width.BitSize == 64 ? Registers.riz : Registers.eiz,
-                        mem.Scale, 
-                        sb);
-                }
-                if (mem.Offset != null && mem.Offset.IsValid)
-                {
-                    var offset = mem.Offset;
-                    if (mem.Base == Registers.rip)
+                    switch (mem.Width.Size)
                     {
-                        sb.AppendFormat("+0x{0:x}", (ulong) offset.ToInt64());
-                    }
-                    else
-                    {
-                        RenderObjdumpConstant(offset, mem.Base.DataType, true, sb);
+                    case 1: sb.Append("BYTE PTR "); break;
+                    case 2: sb.Append("WORD PTR "); break;
+                    case 4: sb.Append("DWORD PTR "); break;
+                    case 6: sb.Append("FWORD PTR "); break;
+                    case 8: sb.Append("QWORD PTR "); break;
+                    case 10: sb.Append("TBYTE PTR "); break;
+                    case 16: sb.Append("XMMWORD PTR "); break;
+                    case 32: sb.Append("YMMWORD PTR "); break;
+                    case 64: sb.Append("ZMMWORD PTR "); break;
+                    default: sb.AppendFormat("[SIZE {0} PTR] ", mem.Width.Size); break;
                     }
                 }
-            }
-            else if (mem.Index is not null && mem.Index != RegisterStorage.None)
-            {
-                sb.Append(mem.Index.Name);
-                if (mem.Scale >= 1)
+                sb.AppendFormat("{0}[", mem.SegOverride != null && mem.SegOverride != RegisterStorage.None
+                    ? $"{mem.SegOverride}:"
+                    : "");
+                if (hasBase)
                 {
-                    sb.AppendFormat("*{0}", mem.Scale);
+                    sb.Append(mem.Base!.Name);
+                    if (hasIndex)
+                    {
+                        RenderIndexRegister(mem.Index!, mem.Scale, sb);
+                    }
+                    else if (mem.Scale != 0)
+                    {
+                        //$BUG: 32-bit?
+                        RenderIndexRegister(
+                            mem.Base.Width.BitSize == 64 ? Registers.riz : Registers.eiz,
+                            mem.Scale,
+                            sb);
+                    }
+                    if (mem.Offset != null && mem.Offset.IsValid)
+                    {
+                        var offset = mem.Offset;
+                        if (mem.Base == Registers.rip)
+                        {
+                            sb.AppendFormat("+0x{0:x}", (ulong) offset.ToInt64());
+                        }
+                        else
+                        {
+                            RenderObjdumpConstant(instr, offset, mem.Base.DataType, true, sb);
+                        }
+                    }
                 }
-                if (mem.Offset != null && mem.Offset.IsValid)
+                else if (hasIndex)
                 {
-                    RenderObjdumpConstant(mem.Offset, mem.Index.DataType, true, sb);
+                    sb.Append(mem.Index!.Name);
+                    if (mem.Scale >= 1)
+                    {
+                        sb.AppendFormat("*{0}", mem.Scale);
+                    }
+                    if (mem.Offset != null && mem.Offset.IsValid)
+                    {
+                        RenderObjdumpConstant(instr, mem.Offset, mem.Index.DataType, true, sb);
+                    }
+                }
+                sb.Append("]");
+                if (instr.Broadcast)
+                {
+                    sb.Append("{1to");
+                    sb.Append((uint) (instr.Operands[0].Width.BitSize / mem.Width.BitSize));
+                    sb.Append('}');
                 }
             }
             else
             {
-                sb.Append(mem.Offset);
-            }
-            sb.Append("]");
-            if (instr.Broadcast)
-            {
-                sb.Append("{1to");
-                sb.Append((uint) (instr.Operands[0].Width.BitSize / mem.Width.BitSize));
-                sb.Append('}');
+                sb.Append(mem.SegOverride is not null &&  mem.SegOverride != RegisterStorage.None 
+                    ? mem.SegOverride
+                    : mem.DefaultSegment);
+                sb.AppendFormat(":0x{0:x}", mem.Offset!.ToUInt64());
             }
         }
 
@@ -294,10 +312,15 @@ namespace RekoSifter
 
         private static HashSet<Mnemonic> instrs_NoSizePrefix = new HashSet<Mnemonic>
         {
+            Mnemonic.fldenv,
             Mnemonic.lea,
+            Mnemonic.vlddqu,
             Mnemonic.xrstor,
+            Mnemonic.xrstor64,
+            Mnemonic.xsave,
             Mnemonic.xsave64,
             Mnemonic.xsaveopt,
+            Mnemonic.xsaveopt64,
         };
     }
 }

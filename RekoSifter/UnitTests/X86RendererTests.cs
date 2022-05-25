@@ -83,5 +83,11 @@ namespace RekoSifter.UnitTests
         {
             AssertObjdump64("and dl,BYTE PTR [rip+0xfffffffff0b4cf00]", "22 15 00 CF B4 F0");
         }
+
+        [Test]
+        public void X86R_O_movabs()
+        {
+            AssertObjdump64("movabs ds:0x2001a378c88f00c7,eax", "40 A3 C7 00 8F C8 78 A3 01 20");
+        }
     }
 }
