@@ -156,6 +156,17 @@ namespace RekoSifter
                     else 
                         sb.AppendFormat("st({0})", fpu.StNumber);
                     break;
+                case SaeOperand sae:
+                    sb.Append(sae.RoundMode switch
+                    {
+                        EvexRoundMode.Sae => "{sae}",
+                        EvexRoundMode.RnSae => "{rn-sae}",
+                        EvexRoundMode.RdSae => "{rd-sae}",
+                        EvexRoundMode.RuSae => "{ru-sae}",
+                        EvexRoundMode.RzSae => "{rz-sae}",
+                        _ => $"@@@<{sae.RoundMode}>"
+                    });
+                    break;
                 default:
                     sb.AppendFormat("[{0}]", op.GetType().Name);
                     break;
@@ -314,6 +325,8 @@ namespace RekoSifter
         {
             Mnemonic.fldenv,
             Mnemonic.lea,
+            Mnemonic.lgdt,
+            Mnemonic.lidt,
             Mnemonic.vlddqu,
             Mnemonic.xrstor,
             Mnemonic.xrstor64,
