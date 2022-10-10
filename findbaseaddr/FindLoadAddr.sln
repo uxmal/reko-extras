@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32811.315
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FindLoadAddr", "find_load_addr\FindLoadAddr.csproj", "{4B89C093-F7C0-4757-AA4A-E3B02F1B59FB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "UnitTests\UnitTests.csproj", "{626F2C2A-E371-491F-BB74-B16179BDE0A7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4B89C093-F7C0-4757-AA4A-E3B02F1B59FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4B89C093-F7C0-4757-AA4A-E3B02F1B59FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4B89C093-F7C0-4757-AA4A-E3B02F1B59FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4B89C093-F7C0-4757-AA4A-E3B02F1B59FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{626F2C2A-E371-491F-BB74-B16179BDE0A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{626F2C2A-E371-491F-BB74-B16179BDE0A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{626F2C2A-E371-491F-BB74-B16179BDE0A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{626F2C2A-E371-491F-BB74-B16179BDE0A7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1354A155-656E-4113-B47D-FF81BEC76346}
+	EndGlobalSection
+EndGlobal
