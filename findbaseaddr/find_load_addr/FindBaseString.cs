@@ -167,13 +167,14 @@ namespace FindLoadAddr
             var uBaseAddr = interval.start_addr;
             var heap = new List<(int, ulong)>();
             pb.Total = ((interval.end_addr - interval.start_addr) / offset);
+            var news = new HashSet<ulong>(strings.Count);
             while (uBaseAddr <= interval.end_addr)
             {
                 //if ((uBaseAddr & 0x7FF_FFF0) == 0)
                 //{
                 //    Console.WriteLine($"{threadIndex,3} 0x{uBaseAddr:X8}");
                 //}
-                var news = new HashSet<ulong>(strings.Count);
+                news.Clear();
                 foreach (var s in strings)
                 {
                     if (!AddOverflow(s, uBaseAddr, out var addrRebased))
