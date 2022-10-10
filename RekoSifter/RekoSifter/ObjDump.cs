@@ -201,6 +201,8 @@ namespace RekoSifter
                 while (offset < (ulong)bytes.Length)
                 {
                     int insn_size = dasm(programCounter, dasmInfo.__Instance);
+                    if (insn_size < 0)
+                        break;
 
                     var islice = bytes.AsMemory()
                         .Span

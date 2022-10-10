@@ -23,7 +23,7 @@ namespace ParallelScan.UnitTests
             sc.AddService<IPluginLoaderService>(plSvc);
             var fsSvc = new FileSystemServiceImpl();
             sc.AddService<IFileSystemService>(fsSvc);
-            var cfgSvc = RekoConfigurationService.Load(sc, @"D:\dev\uxmal\reko\extras\parallel\UnitTests\bin\Debug\net5.0\reko\reko.config");
+            var cfgSvc = RekoConfigurationService.Load(sc, @"D:\dev\uxmal\reko\extras\parallel\UnitTests\bin\Debug\net6.0\reko\reko.config");
             sc.AddService<IConfigurationService>(cfgSvc);
             var listener = new NullDecompilerEventListener();
             sc.AddService<DecompilerEventListener>(listener);
