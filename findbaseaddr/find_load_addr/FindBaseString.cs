@@ -1,58 +1,142 @@
-﻿using Microsoft.VisualBasic;
-using Reko.Core;
-using Reko.Core.Lib;
+﻿using Reko.Core;
 using Reko.Core.Memory;
-using Reko.ImageLoaders.LLVM;
 using System;
-using System.Buffers.Text;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.Intrinsics.Arm;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace FindLoadAddr
 {
-    internal class FindBaseString
+    internal class FindBaseString : IBaseAddressFinder
     {
-        private uint offset;
-
-        public EndianServices Endianness { get; set; } =   // Interpret as big-endian (default is little)' 
-            EndianServices.Little;
-        public nint min_str_len = 10;           // Minimum string search length (default is 10)'
-        public int max_matches = 10;           // Maximum matches to display (default is 10)'
         private readonly ByteMemoryArea mem;
+        private uint _stride;
 
-        // Scan every N (power of 2) addresses. (default is 0x1000)'
-        public uint Offset
+        public FindBaseString(ByteMemoryArea mem)
         {
-            get => offset;
+            this.mem = mem;
+            this.Endianness = EndianServices.Little;
+            Stride = 0x1000;
+            Threads = Environment.ProcessorCount;
+        }
+
+        public EndianServices Endianness { get; set; }   // Interpret as big-endian (default is little)' 
+        public int min_str_len = 10;           // Minimum string search length (default is 10)'
+        public int max_matches = 10;           // Maximum matches to display (default is 10)'
+
+        /// <summary>
+        /// Scan every N (power of 2) addresses. (default is 0x1000)'
+        /// </summary>
+        public uint Stride
+        {
+            get => _stride;
             set
             {
                 if (BitOperations.PopCount(value) != 1)
                     throw new ArgumentException("Value must be a power of 2.");
-                offset = value;
+                _stride = value;
             }
         }
 
         public bool ShowProgress { get; set; }              // Show progress
 
-        // # of threads to spawn. (default is # of cpu cores)'",
+        /// <summary>
+        /// Number of threads to spawn. (default is # of cpu cores)'",
+        /// </summary>
         public int Threads { get; set; }
 
-        public FindBaseString(ByteMemoryArea mem)
+
+        public void Run()
         {
-            this.mem = mem;
-            Offset = 0x1000;
-            if (Threads == 0)
-                Threads = Environment.ProcessorCount;
+            // Find indices of strings.
+            var strings = PatternFinder.FindAsciiStrings(mem, min_str_len)
+                .Select(s => s.uAddress)
+                .ToHashSet();
+            //DumpStrings(strings);
+
+            if (strings.Count == 0)
+            {
+                throw new Exception("No strings found in target binary.");
+            }
+            Console.WriteLine("Located {0} strings", strings.Count);
+
+            var pointers = ReadPointers(mem, 4);
+            Console.WriteLine("Located {0} pointers", pointers.Count);
+
+            var children = new List<Task<List<(int, ulong)>>>();
+            var shared_strings = strings;
+            var shared_pointers = pointers;
+
+            var mb = new MultiBar(ShowProgress
+                        ? new Progress<int>(Console.Error)
+                        : new NullProgress<int>());
+
+            Debug.WriteLine("Scanning with {0} Threads...", Threads);
+            for (int i = 0; i < this.Threads; ++i)
+            {
+                var pb = mb.create_bar(100);
+                pb.ShowMessage = true;
+                pb.MaxRefreshRate = 100;
+            }
+            var semaphore = new CountdownEvent(Threads);
+            ConcurrentQueue<List<(int, ulong)>> queue = new();
+#if RAW_THREADS
+            var threads = new List<Thread>();
+            for (int i = 0; i < this.Threads; ++i)
+            {
+                int n = i;
+                var t = new Thread(() =>
+                {
+                    var result = FindMatches(strings, pointers, n, new NullProgress<int>());
+                    //       Console.WriteLine("{0,3} Thread completed, {1} matches", n, result.Count);
+                    queue.Enqueue(result);
+                    semaphore.Signal();
+                });
+                threads.Add(t);
+            }
+            var sw = new Stopwatch();
+            sw.Start();
+            foreach (var t in threads)
+            {
+                t.Start();
+            }
+#else
+            var sw = new Stopwatch();
+            sw.Start();
+            Parallel.For(0, this.Threads, (n) =>
+            {
+                var result = FindMatches(strings, pointers, n, new NullProgress<int>());
+                //Console.WriteLine("{0,3} Thread completed, {1} matches", n, result.Count);
+                queue.Enqueue(result);
+                semaphore.Signal();
+            });
+#endif
+            semaphore.Wait();
+
+            mb.listen();
+
+            // Merge all of the heaps.
+            var result = queue
+                .SelectMany(c => c)
+                .OrderByDescending(c => c.Item1)
+                .ThenBy(c => c.Item2)
+                .Take(max_matches);
+
+            sw.Stop();
+
+            // Print (up to) top N results.
+            foreach (var child in result)
+            {
+                Console.WriteLine("0x{0:X8}: {1}", child.Item2, child.Item1);
+            }
+            Console.WriteLine("Elapsed time: {0}ms", (int)sw.Elapsed.TotalMilliseconds);
         }
+
 
         public struct Interval
         {
@@ -76,7 +160,7 @@ namespace FindLoadAddr
                 }
 
                 if (BitOperations.PopCount(offset) != 1)
-                    throw new ArgumentException("Invalid additive offset.");
+                    throw new ArgumentException("Invalid additive _stride.");
 
                 var start_addr = (ulong)index
                     * ((ulong)(uint.MaxValue) + (ulong)max_threads - 1) / (ulong)max_threads;
@@ -95,47 +179,8 @@ namespace FindLoadAddr
                 }
 
                 var interval = new Interval((uint)start_addr, (uint)end_addr);
-
                 return interval;
             }
-        }
-
-
-        public HashSet<ulong> FindStrings(ByteMemoryArea buffer)
-        {
-            var strings = new HashSet<ulong>();
-
-            var bytes = buffer.Bytes;
-            bool insideString = false;
-            uint iStart = 0;
-            for (uint i = 0; i < bytes.Length; ++i)
-            {
-                var b = bytes[i];
-                if (' ' <= b && b <= '~' || b == '\t' || b == '\r' || b == '\n')
-                {
-                    if (!insideString)
-                    {
-                        insideString = true;
-                        iStart = i;
-                    }
-                }
-                else
-                {
-                    if (insideString && i - iStart >= min_str_len)
-                    {
-                        strings.Add(iStart);
-                    }
-                    insideString = false;
-                }
-            }
-            if (insideString)
-            {
-                if (bytes.Length - iStart >= min_str_len)
-                {
-                    strings.Add(iStart);
-                }
-            }
-            return strings;
         }
 
 
@@ -159,14 +204,14 @@ namespace FindLoadAddr
             int threadIndex,
             ProgressBar pb)
         {
-            var interval = Interval.GetRange(threadIndex, Threads, offset);
+            var interval = Interval.GetRange(threadIndex, Threads, _stride);
             //Console.WriteLine("Thread {0} in range: {1:X8}-{2:X8}",
             //    threadIndex,
             //    interval.start_addr,
             //    interval.end_addr);
             var uBaseAddr = interval.start_addr;
             var heap = new List<(int, ulong)>();
-            pb.Total = ((interval.end_addr - interval.start_addr) / offset);
+            pb.Total = ((interval.end_addr - interval.start_addr) / _stride);
             var news = new HashSet<ulong>(strings.Count);
             while (uBaseAddr <= interval.end_addr)
             {
@@ -189,9 +234,9 @@ namespace FindLoadAddr
                 {
                     heap.Add((intersection.Count, uBaseAddr));
                 }
-                if (AddOverflow(uBaseAddr, Offset, out var new_addr))
+                if (AddOverflow(uBaseAddr, Stride, out var new_addr))
                 {
-                    Console.WriteLine($"{threadIndex,3} Ending at {uBaseAddr:X8}, offset = 0x{Offset}");
+                    Console.WriteLine($"{threadIndex,3} Ending at {uBaseAddr:X8}, _stride = 0x{Stride}");
                     break;
                 }
                 uBaseAddr = new_addr;
@@ -217,88 +262,6 @@ namespace FindLoadAddr
         }
 
 
-        public void run()
-        {
-            // Read in the input file. We jam it all into memory for now.
-            var buffer = mem;
-            // Find indices of strings.
-            var strings = FindStrings(buffer);
-            //DumpStrings(strings);
-
-            if (strings.Count == 0)
-            {
-                throw new Exception("No strings found in target binary.");
-            }
-            Console.WriteLine("Located {0} strings", strings.Count);
-
-            var pointers = ReadPointers(buffer, 4);
-            Console.WriteLine("Located {0} pointers", pointers.Count);
-
-            var children = new List<Task<List<(int, ulong)>>>();
-            var shared_strings = strings;
-            var shared_pointers = pointers;
-
-            var mb = new MultiBar(ShowProgress
-                        ? new Progress<int>(Console.Error)
-                        : new NullProgress<int>());
-
-            Debug.WriteLine("Scanning with {0} Threads...", Threads);
-            for (int i = 0; i < this.Threads; ++i)
-            {
-                var pb = mb.create_bar(100);
-                pb.ShowMessage = true;
-                pb.MaxRefreshRate = 100;
-            }
-            var semaphore = new CountdownEvent(Threads);
-            ConcurrentQueue<List<(int, ulong)>> queue = new();
-            var threads = new List<Thread>();
-            for (int i = 0; i < this.Threads; ++i)
-            {
-                int n = i;
-                var t = new Thread(() =>
-                {
-                    var result = FindMatches(strings, pointers, n, new NullProgress<int>());
-             //       Console.WriteLine("{0,3} Thread completed, {1} matches", n, result.Count);
-                    queue.Enqueue(result);
-                    semaphore.Signal();
-                });
-                threads.Add(t);
-            }
-            var sw = new Stopwatch();
-            sw.Start();
-            foreach (var t in threads)
-            {
-                t.Start();
-            }
-
-            //Parallel.For(0, this.Threads, (n) =>
-            //{
-            //    var result = FindMatches(strings, pointers, n, new NullProgress<int>());
-            //    Console.Write("{0,3} Thread completed, {1} matches", result.Count);
-            //    queue.Enqueue(result);
-            //    semaphore.Signal();
-            //});
-
-            semaphore.Wait();
-            
-            mb.listen();
-
-            // Merge all of the heaps.
-            var result = queue
-                .SelectMany(c => c)
-                .OrderByDescending(c => c.Item1)
-                .ThenBy(c => c.Item2)
-                .Take(max_matches);
-
-            sw.Stop();
-
-            // Print (up to) top N results.
-            foreach (var child in result)
-            {
-                Console.WriteLine("0x{0:X8}: {1}", child.Item2, child.Item1);
-            }
-            Console.WriteLine("Elapsed time: {0}ms", (int)sw.Elapsed.TotalMilliseconds);
-        }
 
         private void DumpStrings(HashSet<ulong> strings)
         {
@@ -391,53 +354,53 @@ namespace FindLoadAddr
 
 
         /*
-    #[cfg(test)]
+#[cfg(test)]
     mod tests
     {
         use super::*;
 
-    #[test]
-    #[should_panic]
+#[test]
+#[should_panic]
         fn find_matches_invalid_interval() {
             let _ = Interval::get_range(1, 1, 0x1000).unwrap();
         }
 
-    #[test]
+#[test]
         fn find_matches_single_cpu_interval_0() {
             let interval = Interval::get_range(0, 1, 0x1000).unwrap();
             assert_eq!(interval.start_addr, u32::min_value());
             assert_eq!(interval.end_addr, u32::max_value());
         }
 
-    #[test]
+#[test]
         fn find_matches_double_cpu_interval_0() {
             let interval = Interval::get_range(0, 2, 0x1000).unwrap();
             assert_eq!(interval.start_addr, u32::min_value());
             assert_eq!(interval.end_addr, 0x80000000);
         }
 
-    #[test]
+#[test]
         fn find_matches_double_cpu_interval_1() {
             let interval = Interval::get_range(1, 2, 0x1000).unwrap();
             assert_eq!(interval.start_addr, 0x80000000);
             assert_eq!(interval.end_addr, u32::max_value());
         }
 
-    #[test]
+#[test]
         fn find_matches_triple_cpu_interval_0() {
             let interval = Interval::get_range(0, 3, 0x1000).unwrap();
             assert_eq!(interval.start_addr, u32::min_value());
             assert_eq!(interval.end_addr, 0x55555000);
         }
 
-    #[test]
+#[test]
         fn find_matches_triple_cpu_interval_1() {
             let interval = Interval::get_range(1, 3, 0x1000).unwrap();
             assert_eq!(interval.start_addr, 0x55555000);
             assert_eq!(interval.end_addr, 0xAAAAA000);
         }
 
-    #[test]
+#[test]
         fn find_matches_triple_cpu_interval_2() {
             let interval = Interval::get_range(2, 3, 0x1000).unwrap();
             assert_eq!(interval.start_addr, 0xAAAAA000);

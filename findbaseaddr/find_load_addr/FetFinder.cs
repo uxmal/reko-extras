@@ -17,9 +17,11 @@ using System.Xml;
 
 namespace FindLoadAddr
 {
-    internal class FetFinder
+    internal class FetFinder : IBaseAddressFinder
     {
         private const int MaxGap = 3;
+        //$TODO: what about small machines? 0x200?
+        private const uint AddrDistance = 0x1_0000;
 
         private readonly IProcessorArchitecture arch;
         private readonly MemoryArea mem;
@@ -28,6 +30,9 @@ namespace FindLoadAddr
         private readonly BigInteger wordMask;
 
         private uint word_size;
+        private uint uAddrMax;
+        private uint uAddrMin;
+
 
         public FetFinder(
             IProcessorArchitecture arch, 
@@ -40,13 +45,15 @@ namespace FindLoadAddr
             this.alignMask = alignMask;
             this.maskedValue = maskedValue;
             this.wordMask = Bits.Mask(arch.PointerType.BitSize);
+            this.word_size = (uint)(arch.WordWidth.BitSize / arch.MemoryGranularity);
         }
 
-        private uint uAddrMax;
-        private uint uAddrMin;
+        public EndianServices Endianness { get; set; }
 
-        //$TODO: what about small machines? 0x200?
-        private const uint AddrDistance = 0x1_0000;
+        public void Run()
+        {
+            throw new NotImplementedException();
+        }
 
         private static bool IsNearby(Constant wAddrCandidate, Constant wPrev)
         {
@@ -66,7 +73,7 @@ namespace FindLoadAddr
             0xCCCCCCCC_CCCCCCCCul,
         };
 
-        private bool IsFiller(Constant w, Constant? wPrev)
+        private bool IsFiller(Constant w, Constant? _)
         {
             var uw = w.ToUInt64();
             foreach (var filler in fillerWords)
@@ -82,7 +89,7 @@ namespace FindLoadAddr
         }
 
 
-        public List<FET> FindFETs(uint start, uint fileSize, uint wnd)
+        public List<FET> FindFETs(uint start,  uint wnd)
         {
             var result = new List<FET>();
             uint pos = 0;

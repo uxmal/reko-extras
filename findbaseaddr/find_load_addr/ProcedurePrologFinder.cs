@@ -3,19 +3,28 @@ using Reko.Core.Lib;
 using Reko.Core.Memory;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace FindLoadAddr
 {
-    internal class ProcedurePrologFinder
+    public class ProcedurePrologFinder : IBaseAddressFinder
     {
+        private readonly ByteMemoryArea mem;
         private readonly ByteTrie<object> trie;
 
-        public ProcedurePrologFinder(MaskedPattern [] patterns, IProcessorArchitecture arch)
+        public ProcedurePrologFinder(ByteMemoryArea mem)
         {
-            this.trie = BuildTrie(patterns, arch);
+            this.mem = mem;
+            this.trie = new ByteTrie<object>();
+            trie.Add(new byte[] { 0x55, 0x89, 0xE5, 0x83 }, 4);
+            trie.Add(new byte[] { 0x55, 0x89, 0xE5 }, 3);
+            //this.trie = BuildTrie(patterns, arch);
+        }
+
+        public EndianServices Endianness { get; set; }
+
+        public void Run()
+        {
+            var prologs = PatternFinder.FindProcedurePrologs(mem, trie);
         }
 
         private static ByteTrie<object> BuildTrie(IEnumerable<MaskedPattern> patterns, IProcessorArchitecture arch)

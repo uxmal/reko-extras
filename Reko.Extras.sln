@@ -49,6 +49,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "findbaseaddr", "findbaseadd
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FindLoadAddr", "findbaseaddr\find_load_addr\FindLoadAddr.csproj", "{0163C26B-D562-4D8C-8B87-C2AB94966D7C}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTests", "findbaseaddr\UnitTests\UnitTests.csproj", "{E2DDF260-A20C-470F-91CD-D78E265921C4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -249,6 +251,18 @@ Global
 		{0163C26B-D562-4D8C-8B87-C2AB94966D7C}.Release|x64.Build.0 = Release|Any CPU
 		{0163C26B-D562-4D8C-8B87-C2AB94966D7C}.Release|x86.ActiveCfg = Release|Any CPU
 		{0163C26B-D562-4D8C-8B87-C2AB94966D7C}.Release|x86.Build.0 = Release|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Debug|x64.Build.0 = Debug|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Debug|x86.Build.0 = Debug|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Release|x64.ActiveCfg = Release|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Release|x64.Build.0 = Release|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Release|x86.ActiveCfg = Release|Any CPU
+		{E2DDF260-A20C-470F-91CD-D78E265921C4}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -264,6 +278,7 @@ Global
 		{07C82F18-1196-463E-A7EE-E07046C79D32} = {371BE445-E62A-40AC-AF6A-CD16779EFD41}
 		{FEF54A0A-F9E2-4658-8326-680271D1D116} = {67FF218E-44C4-4046-B328-8647B0A3E902}
 		{0163C26B-D562-4D8C-8B87-C2AB94966D7C} = {62ADB597-0161-42C5-AE72-BCCFAFFD0537}
+		{E2DDF260-A20C-470F-91CD-D78E265921C4} = {62ADB597-0161-42C5-AE72-BCCFAFFD0537}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E1233A5B-6F9A-4478-AE65-1BA1EFCC8477}

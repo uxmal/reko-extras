@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-	<OutputType>Exe</OutputType>
-    </PropertyGroup>
-    <ItemGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+	<ItemGroup>
         <PackageReference Include="Reko.Decompiler.Runtime" Version="0.11.1" />
     </ItemGroup>
 </Project>
