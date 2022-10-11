@@ -160,7 +160,7 @@ namespace FindLoadAddr
                 }
 
                 if (BitOperations.PopCount(offset) != 1)
-                    throw new ArgumentException("Invalid additive _stride.");
+                    throw new ArgumentException("Invalid additive offset.");
 
                 var start_addr = (ulong)index
                     * ((ulong)(uint.MaxValue) + (ulong)max_threads - 1) / (ulong)max_threads;

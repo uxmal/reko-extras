@@ -21,6 +21,10 @@ namespace FindLoadAddr
             {
                 switch (args[0])
                 {
+                case "-h":
+                case "--help":
+                    Usage();
+                    return;
                 case "-b":
                     ++i;
                     endianness = EndianServices.Big;
@@ -47,6 +51,21 @@ namespace FindLoadAddr
             s.Run();
         }
 
+        private static void Usage()
+        {
+            Console.WriteLine("Usage: FindLoadAddr [options] <filename>");
+            Console.WriteLine();
+            Console.WriteLine("Guesses the best candidates for a blob of executable code");
+            Console.WriteLine("whose base address is unknown.");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  -b         Force big endian interpretation (default is little endian)");
+            Console.WriteLine("  -s         Match strings and pointers pointing to them (default heuristic)");
+            Console.WriteLine("  -p         Match procedure prologs and pointers pointing to them");
+            Console.WriteLine("  -f         Match function table entries and code (WIP)");
+            Console.WriteLine("  -h, --help This help message");
+        }
+
         private static IBaseAddressFinder CreateFetFinder(ByteMemoryArea mem)
         {
             throw new NotImplementedException();
@@ -54,7 +73,7 @@ namespace FindLoadAddr
 
         private static IBaseAddressFinder CreatePrologFinder(ByteMemoryArea mem)
         {
-            throw new NotImplementedException();
+            return new ProcedurePrologFinder(mem);
         }
 
         private static IBaseAddressFinder CreateStringFinder(ByteMemoryArea mem) => new FindBaseString(mem);
