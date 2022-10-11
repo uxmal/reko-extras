@@ -75,7 +75,7 @@ namespace RekoSifter
         {
             bool IsMovabs(X86Instruction instr)
             {
-                if (instr.Operands[1] is not MemoryOperand mem)
+                if (instr.Operands[0] is not MemoryOperand mem)
                     return false;
                 return ((mem.Base is null || mem.Base == RegisterStorage.None) &&
                         (mem.Index is null || mem.Index == RegisterStorage.None));
