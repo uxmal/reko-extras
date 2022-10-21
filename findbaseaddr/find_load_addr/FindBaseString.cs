@@ -220,6 +220,7 @@ namespace FindLoadAddr
                 //    Console.WriteLine($"{threadIndex,3} 0x{uBaseAddr:X8}");
                 //}
                 news.Clear();
+#if SLOW_PERFORMANCE
                 foreach (var s in strings)
                 {
                     if (!AddOverflow(s, uBaseAddr, out var addrRebased))
@@ -228,6 +229,17 @@ namespace FindLoadAddr
                     }
                 }
                 news.IntersectWith(pointers);
+#else
+                foreach (var strOffset in strings)
+                {
+                    if (!AddOverflow(strOffset, uBaseAddr, out var addrRebased) &&
+                        pointers.Contains(addrRebased))
+                    {
+                        news.Add(addrRebased);
+                    }
+                }
+#endif
+
                 var intersection = news;
                 //var intersection = news.Intersect(pointers).ToHashSet();
                 if (intersection.Count > 0)
