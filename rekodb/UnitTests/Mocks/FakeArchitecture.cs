@@ -43,7 +43,16 @@ namespace Reko.Database.UnitTests.Mocks
 
         public EndianServices Endianness => throw new NotImplementedException();
 
+        public int CodeMemoryGranularity => throw new NotImplementedException();
+
+        public MaskedPattern[] ProcedurePrologs => throw new NotImplementedException();
+
         public IAssembler CreateAssembler(string? asmDialect)
+        {
+            throw new NotImplementedException();
+        }
+
+        public MemoryArea CreateCodeMemoryArea(Address baseAddress, byte[] bytes)
         {
             throw new NotImplementedException();
         }
@@ -58,6 +67,11 @@ namespace Reko.Database.UnitTests.Mocks
             throw new NotImplementedException();
         }
 
+        public T? CreateExtension<T>() where T : class
+        {
+            throw new NotImplementedException();
+        }
+
         public Expression CreateFpuStackAccess(IStorageBinder binder, int offset, DataType dataType)
         {
             throw new NotImplementedException();
@@ -65,10 +79,15 @@ namespace Reko.Database.UnitTests.Mocks
 
         public Frame CreateFrame()
         {
-            return new Frame(this.FramePointerType);
+            return new Frame(this, this.FramePointerType);
         }
 
         public FrameApplicationBuilder CreateFrameApplicationBuilder(IStorageBinder binder, CallSite site, Expression callee)
+        {
+            throw new NotImplementedException();
+        }
+
+        public FrameApplicationBuilder CreateFrameApplicationBuilder(IStorageBinder binder, CallSite site)
         {
             throw new NotImplementedException();
         }
@@ -189,6 +208,11 @@ namespace Reko.Database.UnitTests.Mocks
         }
 
         public List<RtlInstruction>? InlineCall(Address addrCallee, Address addrContinuation, EndianImageReader rdr, IStorageBinder binder)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool IsStackArgumentOffset(long frameOffset)
         {
             throw new NotImplementedException();
         }

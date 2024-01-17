@@ -66,7 +66,7 @@ namespace RekoSifter
 				hDasm = new LLVMDisasmContextRef(
 					new IntPtr(LLVM.CreateDisasm(
 						(sbyte*)hTriple.AddrOfPinnedObject(),
-						null, 0, IntPtr.Zero, IntPtr.Zero
+						null, 0, null, null
 					))
 				);
 			}
@@ -92,14 +92,14 @@ namespace RekoSifter
 
 			using (DisposableGCHandle hBytes = DisposableGCHandle.Pin(instr))
 			using (DisposableGCHandle hBuf = DisposableGCHandle.Pin(buf)) {
-				instrSize = LLVM.DisasmInstruction(
+				instrSize = (uint) LLVM.DisasmInstruction(
 					hDasm.Handle.ToPointer(),
 					(byte*)hBytes.AddrOfPinnedObject(),
 					(ulong)instr.Length,
 					this.programCounter,
 					(sbyte*)hBuf.AddrOfPinnedObject(),
 					new UIntPtr((uint)buf.Length)
-				).ToUInt32();
+				);
 
 				disassembled = Marshal.PtrToStringAnsi(hBuf.AddrOfPinnedObject());
 			}

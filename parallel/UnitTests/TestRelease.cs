@@ -3,6 +3,7 @@ using Reko;
 using Reko.Core;
 using Reko.Core.Configuration;
 using Reko.Core.Services;
+using Reko.Services;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
@@ -27,7 +28,7 @@ namespace ParallelScan.UnitTests
             sc.AddService<IConfigurationService>(cfgSvc);
             var listener = new NullDecompilerEventListener();
             sc.AddService<DecompilerEventListener>(listener);
-            var dechost = new Reko.DecompiledFileService(sc, fsSvc, listener);
+            var dechost = new Reko.Services.DecompiledFileService(sc, fsSvc, listener);
             sc.AddService<IDecompiledFileService>(dechost);
             var tlSvc = new TypeLibraryLoaderServiceImpl(sc);
             sc.AddService<ITypeLibraryLoaderService>(tlSvc);

@@ -2,7 +2,7 @@
 A tool inspired by sandsifter (https://github.com/xoreaxeaxeax/sandsifter) to test and fuzz Reko disassemblers
 
 ## Setup
-The project runs on .NET Core, but is currently limited to Windows operating systems for native interop reasons.
+The project runs on .NET 6.0, but is currently limited to Windows operating systems for native interop reasons.
 If the need arises, it can be made compatible with Linux too.
 
 ### LLVM

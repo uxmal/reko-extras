@@ -216,13 +216,13 @@ namespace Reko.Database
             throw new NotImplementedException();
         }
 
-        public void VisitSegmentedAccess(SegmentedAccess access)
+
+        public void VisitSegmentedAddress(SegmentedPointer segptr)
         {
             json.BeginList();
             json.WriteListItem("s");
-            json.WriteListItem(() => access.BasePointer.Accept(this));
-            json.WriteListItem(() => access.EffectiveAddress.Accept(this));
-            json.WriteListItem(() => tyrefSer.Serialize(access.DataType));
+            json.WriteListItem((object)(() => segptr.BasePointer.Accept(this)));
+            json.WriteListItem(() => segptr.Offset.Accept(this));
             json.EndList();
         }
 
@@ -234,6 +234,11 @@ namespace Reko.Database
             json.WriteListItem(() => tyrefSer.Serialize(slice.DataType));
             json.WriteListItem(slice.Offset);
             json.EndList();
+        }
+
+        public void VisitStringConstant(StringConstant str)
+        {
+            throw new NotImplementedException();
         }
 
         public void VisitTestCondition(TestCondition tc)

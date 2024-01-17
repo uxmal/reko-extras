@@ -15,7 +15,8 @@ namespace ParallelScan.UnitTests
 {
     public class TestArchitecture : ProcessorArchitecture
     {
-        public TestArchitecture(IServiceProvider services, string archId, Dictionary<string, object> options) : base(services, archId, options)
+        public TestArchitecture(IServiceProvider services, string archId, Dictionary<string, object> options)
+            : base(services, archId, options, null, null)
         {
             Endianness = EndianServices.Little;
             FramePointerType = PrimitiveType.Ptr32;

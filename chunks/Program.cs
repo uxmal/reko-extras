@@ -20,10 +20,10 @@ namespace chunks
         static void Main(string[] args)
         {
             var cfg = MakeServices();
-            var includedArchs = new Regex("arc", RegexOptions.IgnoreCase);
+            var includedArchs = new Regex("m68k", RegexOptions.IgnoreCase);
             var exceptedArchs = new Regex("x86.*16|65816|8670|PIC|YMP|C166|Etrax|exago|IA64|pdp10|Vax", RegexOptions.IgnoreCase);
-            //foreach (var archDef in cfg.GetArchitectures().Where(a => includedArchs.IsMatch(a.Name!)))
-            foreach (var archDef in cfg.GetArchitectures().Where(a => !exceptedArchs.IsMatch(a.Name!)))
+            foreach (var archDef in cfg.GetArchitectures().Where(a => includedArchs.IsMatch(a.Name!)))
+            //foreach (var archDef in cfg.GetArchitectures().Where(a => !exceptedArchs.IsMatch(a.Name!)))
             {
                 TestArchitecture(cfg, archDef);
             }
@@ -101,7 +101,7 @@ namespace chunks
             rnd.NextBytes(bytes);
 
             var addr = Address.Create(arch.PointerType, 0x0010_0000);
-            var mem = arch.CreateMemoryArea(addr, bytes);
+            var mem = arch.CreateCodeMemoryArea(addr, bytes);
             return new WorkUnit(arch, mem, mem.BaseAddress, (int)mem.Length);
         }
     }

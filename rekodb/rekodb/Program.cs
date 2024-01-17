@@ -6,6 +6,7 @@ using Reko.Core.Configuration;
 using Reko.Core.Services;
 using Reko.Database;
 using Reko.Loading;
+using Reko.Services;
 using System.ComponentModel.Design;
 using System.Diagnostics;
 

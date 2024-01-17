@@ -1,13 +1,12 @@
 using System;
 
-namespace RekoSifter
+namespace RekoSifter;
+
+class Program
 {
-    class Program
+    static void Main(string[] args)
     {
-        static void Main(string[] args)
-        {
-            var sifter = new Sifter(args);
-            sifter.Run();
-        }
+        var sifter = new Sifter(args);
+        sifter.Run();
     }
 }

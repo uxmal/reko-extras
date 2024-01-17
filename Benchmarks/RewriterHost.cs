@@ -19,6 +19,8 @@ namespace Reko.Benchmarks
 
         private readonly ConcurrentDictionary<string, ConcurrentDictionary<FunctionType, IntrinsicProcedure>> intrinsics = new();
 
+        public Constant? GlobalRegisterValue => throw new NotImplementedException();
+
         public Expression CallIntrinsic(string name, bool isIdempotent, FunctionType fnType, params Expression[] args)
         {
             throw new System.NotImplementedException();

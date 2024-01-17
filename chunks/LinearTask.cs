@@ -1,4 +1,5 @@
-﻿using Reko.Core.Rtl;
+﻿using Reko.Core;
+using Reko.Core.Rtl;
 using System;
 using System.Collections.Generic;
 using System.Linq;

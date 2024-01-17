@@ -123,7 +123,6 @@ namespace Reko.Database
         private void SerializeCallSite(CallSite callSite)
         {
             json.BeginList();
-            json.WriteListItem(callSite.StackDepthOnEntry);
             json.WriteListItem(callSite.FpuStackDepthBefore);
             json.WriteListItem(callSite.SizeOfReturnAddressOnStack);
             json.EndList();

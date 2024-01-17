@@ -35,8 +35,8 @@ namespace RekoSifter
                 case RegisterStorage reg:
                     sb.Append(RegName(reg));
                     break;
-                case M68kImmediateOperand imm:
-                    sb.AppendFormat("#{0}", imm.Constant);
+                case ImmediateOperand imm:
+                    sb.AppendFormat("#{0}", imm.Value);
                     break;
                 case PostIncrementMemoryOperand post:
                     sb.AppendFormat("{0}@+", RegName(post.Register));

@@ -49,6 +49,13 @@ namespace Reko.Database
             w.Write(']');
         }
 
+        public void WriteList(Action<JsonWriter> writer)
+        {
+            w.Write('[');
+            writer(this);
+            w.Write(']');
+        }
+
         public void WriteListContents<T>(IEnumerable<T> items, Action<T> itemWriter)
         {
             bool sep = false;

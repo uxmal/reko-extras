@@ -84,6 +84,8 @@ namespace chunks
                 this.intrinsics = new Dictionary<string, IntrinsicProcedure>();
             }
 
+            public Constant GlobalRegisterValue => null!;
+
             public Expression CallIntrinsic(string name, bool isIdempotent, FunctionType fnType, params Expression[] args)
             {
                 if (!this.intrinsics.TryGetValue(name, out var intrinsic))

@@ -252,7 +252,9 @@ namespace RekoSifter
             if (sInstr.StartsWith(".byte"))
                 return true;
             if (sInstr.StartsWith(".short"))
-                return true;
+                    return true;
+            if (sInstr.StartsWith(".word"))
+                    return true;
             if (sInstr.StartsWith(".inst"))
                 return true;
             return false;
