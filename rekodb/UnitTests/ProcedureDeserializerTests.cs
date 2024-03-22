@@ -1,11 +1,7 @@
 ﻿using NUnit.Framework;
 using Reko.Database.UnitTests.Mocks;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Reko.Database.UnitTests
 {

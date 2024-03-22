@@ -35,12 +35,12 @@ public class Driver
     {
         var sc = new ServiceContainer();
         sc.AddService<IPluginLoaderService>(new PluginLoaderService());
-        var fsSvc = new FileSystemServiceImpl();
+        var fsSvc = new FileSystemService();
         sc.AddService<IFileSystemService>(fsSvc);
         var cfgSvc = RekoConfigurationService.Load(sc, "reko/reko.config");
         sc.AddService<IConfigurationService>(cfgSvc);
         var listener = new NullDecompilerEventListener();
-        sc.AddService<DecompilerEventListener>(listener);
+        sc.AddService<IEventListener>(listener);
         sc.AddService<ITypeLibraryLoaderService>(new TypeLibraryLoaderServiceImpl(sc));
         sc.AddService<IDecompiledFileService>(new DecompiledFileService(sc, fsSvc, listener));
         var ldr = new Loader(sc);

@@ -6,7 +6,9 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
 using Reko.Core;
+using Reko.Core.Graphs;
 using Reko.Core.Lib;
+using Reko.Core.Loading;
 using Reko.Core.Machine;
 using Reko.Core.Memory;
 using Reko.Core.Rtl;
@@ -40,10 +42,10 @@ namespace Reko.Benchmarks
             this.mem = new ByteMemoryArea(Address.Ptr32(0x10_0000), data);
 
             this.sc = new ServiceContainer();
-            sc.AddService<IFileSystemService>(new FileSystemServiceImpl());
+            sc.AddService<IFileSystemService>(new FileSystemService());
             sc.AddService<ITestGenerationService>(new TestGenerationService(sc));
             this.eventListener = new NullDecompilerEventListener();
-            sc.AddService<DecompilerEventListener>(eventListener);
+            sc.AddService<IEventListener>(eventListener);
 
             var options = new Dictionary<string, object>();
             this.archX86 = new Reko.Arch.X86.X86ArchitectureFlat32(sc, "", options);
@@ -145,7 +147,8 @@ namespace Reko.Benchmarks
         {
             var platform = new DefaultPlatform(this.sc, archX86);
             var segmentMap = new SegmentMap(new ImageSegment("code", mem.BaseAddress, mem, AccessMode.ReadExecute));
-            var program = new Reko.Core.Program(segmentMap, archX86, platform);
+            var memory = new ProgramMemory(segmentMap);
+            var program = new Reko.Core.Program(memory, archX86, platform);
             var scanner = new Reko.Scanning.ScannerInLinq(sc, program, new RewriterHost(program.Architecture), eventListener);
             var sr = new Scanning.ScanResults();
             sr.ICFG = new DiGraph<Reko.Scanning.RtlBlock>();

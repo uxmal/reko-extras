@@ -1,8 +1,10 @@
 ﻿using Reko.Core;
+using Reko.Core.Analysis;
 using Reko.Core.Assemblers;
 using Reko.Core.Code;
 using Reko.Core.Emulation;
 using Reko.Core.Expressions;
+using Reko.Core.Lib;
 using Reko.Core.Machine;
 using Reko.Core.Memory;
 using Reko.Core.Rtl;
@@ -46,6 +48,8 @@ namespace Reko.Database.UnitTests.Mocks
         public int CodeMemoryGranularity => throw new NotImplementedException();
 
         public MaskedPattern[] ProcedurePrologs => throw new NotImplementedException();
+
+        public FlagGroupStorage? CarryFlag => throw new NotImplementedException();
 
         public IAssembler CreateAssembler(string? asmDialect)
         {
@@ -92,17 +96,17 @@ namespace Reko.Database.UnitTests.Mocks
             throw new NotImplementedException();
         }
 
-        public EndianImageReader CreateImageReader(MemoryArea memoryArea, Address addr)
+        public bool TryCreateImageReader(IMemory memory, Address addr, out EndianImageReader rdr)
         {
             throw new NotImplementedException();
         }
 
-        public EndianImageReader CreateImageReader(MemoryArea memoryArea, Address addr, long cbUnits)
+        public bool TryCreateImageReader(IMemory memory, Address addr, long cbUnits, out EndianImageReader rdr)
         {
             throw new NotImplementedException();
         }
 
-        public EndianImageReader CreateImageReader(MemoryArea memoryArea, long offsetBegin, long offsetEnd)
+        public bool TryCreateImageReader(IMemory memory, long offsetBegin, long offsetEnd, out EndianImageReader rdr)
         {
             throw new NotImplementedException();
         }
@@ -273,6 +277,26 @@ namespace Reko.Database.UnitTests.Mocks
         }
 
         public bool TryRead(EndianImageReader rdr, PrimitiveType dt, out Constant value)
+        {
+            throw new NotImplementedException();
+        }
+
+        public EndianImageReader CreateImageReader(MemoryArea memoryArea, Address addr)
+        {
+            throw new NotImplementedException();
+        }
+
+        public EndianImageReader CreateImageReader(MemoryArea memoryArea, Address addr, long cbUnits)
+        {
+            throw new NotImplementedException();
+        }
+
+        public EndianImageReader CreateImageReader(MemoryArea memoryArea, long offsetBegin, long offsetEnd)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool TryRead(IMemory mem, Address addr, PrimitiveType dt, [MaybeNullWhen(false)] out Constant value)
         {
             throw new NotImplementedException();
         }

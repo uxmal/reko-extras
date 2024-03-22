@@ -2,6 +2,7 @@
 using Reko;
 using Reko.Core;
 using Reko.Core.Configuration;
+using Reko.Core.Loading;
 using Reko.Core.Services;
 using Reko.Services;
 using System;
@@ -22,12 +23,12 @@ namespace ParallelScan.UnitTests
             var sc = new ServiceContainer();
             var plSvc = new PluginLoaderService();
             sc.AddService<IPluginLoaderService>(plSvc);
-            var fsSvc = new FileSystemServiceImpl();
+            var fsSvc = new FileSystemService();
             sc.AddService<IFileSystemService>(fsSvc);
             var cfgSvc = RekoConfigurationService.Load(sc, @"D:\dev\uxmal\reko\extras\parallel\UnitTests\bin\Debug\net6.0\reko\reko.config");
             sc.AddService<IConfigurationService>(cfgSvc);
             var listener = new NullDecompilerEventListener();
-            sc.AddService<DecompilerEventListener>(listener);
+            sc.AddService<IEventListener>(listener);
             var dechost = new Reko.Services.DecompiledFileService(sc, fsSvc, listener);
             sc.AddService<IDecompiledFileService>(dechost);
             var tlSvc = new TypeLibraryLoaderServiceImpl(sc);

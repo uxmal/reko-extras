@@ -57,7 +57,7 @@ public class Sifter
         {
             OutputDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
         };
-        fsSvc = new FileSystemServiceImpl();
+        fsSvc = new FileSystemService();
         this.cfgSvc = RekoConfigurationService.Load(sc, "reko/reko.config");
         sc.AddService<ITestGenerationService>(testGen);
         sc.AddService<IFileSystemService>(fsSvc);

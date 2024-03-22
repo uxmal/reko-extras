@@ -1,6 +1,6 @@
 ﻿using NUnit.Framework;
-using NUnit.Framework.Legacy;
 using Reko.Core;
+using Reko.Core.Loading;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
@@ -67,7 +67,7 @@ namespace ParallelScan.UnitTests
             if (sExp != sActual)
             {
                 Console.WriteLine(sActual);
-                ClassicAssert.AreEqual(sExp, sActual);
+                Assert.AreEqual(sExp, sActual);
             }
         }
 
@@ -80,7 +80,7 @@ namespace ParallelScan.UnitTests
             m.Ret();
 
             Cfg cfg = await ScanProgramAsync(addr, m);
-            ClassicAssert.AreEqual(1, cfg.F.Count);
+            Assert.AreEqual(1, cfg.F.Count);
         }
 
         [Test]
@@ -95,8 +95,8 @@ namespace ParallelScan.UnitTests
             m.Ret();
 
             Cfg cfg = await ScanProgramAsync(addr, m);
-            ClassicAssert.AreEqual(1, cfg.F.Count);
-            ClassicAssert.AreEqual(2, cfg.B.Count);
+            Assert.AreEqual(1, cfg.F.Count);
+            Assert.AreEqual(2, cfg.B.Count);
         }
 
         [Test]

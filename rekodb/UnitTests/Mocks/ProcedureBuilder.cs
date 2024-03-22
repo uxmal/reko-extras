@@ -202,22 +202,10 @@ namespace Reko.Database.UnitTests.Mocks
             return Procedure.Frame.CreateTemporary(name, dt);
         }
 
-        public Identifier Declare(DataType dt, string name, Expression expr)
-        {
-            Identifier id = Procedure.Frame.CreateTemporary(name, dt);
-            Emit(new Declaration(id, expr));
-            return id;
-        }
-
-        public Statement Declare(Identifier id, Expression initial)
-        {
-            return Emit(new Declaration(id, initial));
-        }
-
         public override Statement Emit(Instruction instr)
         {
             EnsureBlock(null);
-            var stm = Block!.Statements.Add(LinearAddress , instr);
+            var stm = Block!.Statements.Add(Address.Ptr32(LinearAddress), instr);
             LinearAddress += (uint)InstructionSize;
             return stm;
         }

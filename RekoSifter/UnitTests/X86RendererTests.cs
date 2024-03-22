@@ -1,5 +1,4 @@
 using NUnit.Framework;
-using NUnit.Framework.Legacy;
 using Reko.Arch.X86;
 using Reko.Core;
 using Reko.Core.Memory;
@@ -28,7 +27,7 @@ namespace RekoSifter.UnitTests
             var dasm = arch.CreateDisassemblerImpl(mem.CreateLeReader(0));
             var renderer = new X86Renderer();
             var sObjdump = renderer.RenderAsObjdump(dasm.First());
-            ClassicAssert.AreEqual(sExp, sObjdump);
+            Assert.AreEqual(sExp, sObjdump);
         }
 
         [Test]

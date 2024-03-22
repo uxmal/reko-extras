@@ -26,7 +26,10 @@ namespace Reko.Database.UnitTests
         {
             m = new ExpressionEmitter();
             arch = new FakeArchitecture();
-            proc = Procedure.Create(arch, Address.Ptr32(0x00123400), new Frame(PrimitiveType.Ptr32));
+            proc = Procedure.Create(
+                arch,
+                Address.Ptr32(0x00123400),
+                new Frame(arch, PrimitiveType.Ptr32));
             seg = new Identifier("seg", PrimitiveType.SegmentSelector, new RegisterStorage("seg", 3, 0, PrimitiveType.SegmentSelector));
             r2 = new Identifier("r2", PrimitiveType.Int64, new RegisterStorage("r2", 2, 0, PrimitiveType.Word64));
         }

@@ -33,7 +33,7 @@ namespace chunks
         {
             var services = new ServiceContainer();
             var cfg = RekoConfigurationService.Load(services, "reko/reko.config");
-            services.AddService<IFileSystemService>(new FileSystemServiceImpl());
+            services.AddService<IFileSystemService>(new FileSystemService());
             var testSvc = new TestGenerationService(services)
             {
                 OutputDirectory = Path.GetDirectoryName(typeof(Program).Assembly.Location!)
