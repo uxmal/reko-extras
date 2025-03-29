@@ -4,7 +4,7 @@
     <RootNamespace>Reko.Benchmarks</RootNamespace>
     <AssemblyName>Benchmarks</AssemblyName>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <AllowUnsafeBocks>true</AllowUnsafeBocks>
     <LangVersion>9</LangVersion>
     <ServerGarbageCollection>true</ServerGarbageCollection>
