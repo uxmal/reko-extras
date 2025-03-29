@@ -41,8 +41,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "rekodb", "rekodb\rekodb\rek
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTests", "rekodb\UnitTests\UnitTests.csproj", "{07C82F18-1196-463E-A7EE-E07046C79D32}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scannerV2", "scannerV2", "{8CFEBF26-D597-4C27-B1B8-0039B7CF0BEF}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTests", "RekoSifter\UnitTests\UnitTests.csproj", "{FEF54A0A-F9E2-4658-8326-680271D1D116}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "findbaseaddr", "findbaseaddr", "{62ADB597-0161-42C5-AE72-BCCFAFFD0537}"
@@ -52,6 +50,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTests", "findbaseaddr\UnitTests\UnitTests.csproj", "{E2DDF260-A20C-470F-91CD-D78E265921C4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "typeinference", "typeinference\typeinference.csproj", "{5E1A0C5C-461C-4155-9F6E-85022B1F210C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "blocksoup", "blocksoup\blocksoup.csproj", "{3CE477F1-4E26-4687-8982-05C80DEC5947}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -277,6 +277,18 @@ Global
 		{5E1A0C5C-461C-4155-9F6E-85022B1F210C}.Release|x64.Build.0 = Release|Any CPU
 		{5E1A0C5C-461C-4155-9F6E-85022B1F210C}.Release|x86.ActiveCfg = Release|Any CPU
 		{5E1A0C5C-461C-4155-9F6E-85022B1F210C}.Release|x86.Build.0 = Release|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Debug|x64.Build.0 = Debug|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Debug|x86.Build.0 = Debug|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Release|x64.ActiveCfg = Release|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Release|x64.Build.0 = Release|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Release|x86.ActiveCfg = Release|Any CPU
+		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
