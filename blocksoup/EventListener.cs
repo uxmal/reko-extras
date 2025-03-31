@@ -8,7 +8,11 @@ namespace Reko.Extras.blocksoup;
 
 internal class EventListener : IDecompilerEventListener
 {
-    public IProgressIndicator Progress => throw new NotImplementedException();
+    public EventListener()
+    {
+        Progress = NullProgressIndicator.Instance;
+    }
+    public IProgressIndicator Progress { get; }
 
     public ICodeLocation CreateAddressNavigator(IReadOnlyProgram program, Address address)
     {
@@ -72,7 +76,7 @@ internal class EventListener : IDecompilerEventListener
 
     public void Error(ICodeLocation location, Exception ex, string message, params object[] args)
     {
-        throw new NotImplementedException();
+        WriteMessage("Error", location, $"{string.Format(message, args)} {ex.Message}");
     }
 
     public void Error(ScriptError scriptError)
@@ -102,7 +106,7 @@ internal class EventListener : IDecompilerEventListener
 
     public bool IsCanceled()
     {
-        throw new NotImplementedException();
+        return false;
     }
 
     public void OnProcedureFound(Reko.Core.Program program, Address addrProc)
