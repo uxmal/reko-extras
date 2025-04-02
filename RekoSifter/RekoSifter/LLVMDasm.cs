@@ -84,7 +84,7 @@ namespace RekoSifter
 			return hDasm;
 		}
 
-		public unsafe (string, byte[]) Disassemble(byte[] instr) {		
+		public unsafe (string, byte[]) Disassemble(byte[] instr, bool single) {		
 
 			sbyte[] buf = new sbyte[80];
 			uint instrSize;

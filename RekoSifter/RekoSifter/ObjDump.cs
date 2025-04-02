@@ -184,7 +184,7 @@ namespace RekoSifter
             return (info, disasm);
         }
 
-        public unsafe (string, byte[]?) Disassemble(byte[] bytes)
+        public unsafe (string, byte[]?) Disassemble(byte[] bytes, bool singleInstr)
         {
             buf.Clear();
 
@@ -218,6 +218,8 @@ namespace RekoSifter
                     case ' ': break;
                     default: buf.Append(' '); break;
                     }
+                    if (singleInstr)
+                        break;
                 }
             }
 

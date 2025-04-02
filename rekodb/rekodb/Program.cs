@@ -40,6 +40,7 @@ public class Driver
         var cfgSvc = RekoConfigurationService.Load(sc, "reko/reko.config");
         sc.AddService<IConfigurationService>(cfgSvc);
         var listener = new NullDecompilerEventListener();
+        sc.AddService<IDecompilerEventListener>(listener);
         sc.AddService<IEventListener>(listener);
         sc.AddService<ITypeLibraryLoaderService>(new TypeLibraryLoaderServiceImpl(sc));
         sc.AddService<IDecompiledFileService>(new DecompiledFileService(sc, fsSvc, listener));

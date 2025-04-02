@@ -415,7 +415,7 @@ Options:
             instrLength = 0;
         }
         otherDasm!.SetProgramCounter(instr.Address.ToLinear());
-        (string llvmOut, byte[]? llvmBytes) = otherDasm!.Disassemble(bytes);
+        (string llvmOut, byte[]? llvmBytes) = otherDasm!.Disassemble(bytes, true);
 
         var obj_reko = new
         {
@@ -495,6 +495,8 @@ Options:
     {
         string reko;
         int instrLength;
+        if (instr.MnemonicAsString == "bra")
+            _ = this;//$DEBUG
         if (instr != null)
         {
             reko = instrRenderer.RenderAsObjdump(instr);
@@ -506,7 +508,7 @@ Options:
             instrLength = 0;
         }
         otherDasm!.SetProgramCounter(instr.Address.ToLinear());
-        (string odOut, byte[]? odBytes) = otherDasm!.Disassemble(bytes);
+        (string odOut, byte[]? odBytes) = otherDasm!.Disassemble(bytes, true);
         var rekoIsBad = reko.Contains("illegal") || reko.Contains("invalid");
         var objdIsBad = otherDasm.IsInvalidInstruction(odOut);
 

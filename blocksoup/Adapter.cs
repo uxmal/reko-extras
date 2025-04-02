@@ -43,11 +43,10 @@ public class InstrAdapter : Adapter<MachineInstructionEx>
             !instr.InstructionClass.HasFlag(InstrClass.Transfer))
             yield break;
 
-        if (instr.Operands[^1] is not AddressOperand addrOpTo)
+        if (instr.Operands[^1] is not Address addrTo)
         {
             yield break;
         }
-        var addrTo = addrOpTo.Address;
         var addrFrom = instr.Address;
         if (instr.InstructionClass.HasFlag(InstrClass.Conditional))
         {

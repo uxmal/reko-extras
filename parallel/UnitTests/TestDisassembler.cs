@@ -37,14 +37,14 @@ namespace ParallelScan.UnitTests
                         instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Conditional, Mnemonic.bra);
                     else
                         instr = new TestMachineInstruction(InstrClass.Transfer, Mnemonic.jmp);
-                    instr.Operands = new MachineOperand[] { AddressOperand.Ptr32(uAddr) };
+                    instr.Operands = [Address.Ptr32(uAddr)];
                     break;
                 case 3: // a call.
                     if (!rdr.TryReadBeUInt16(out uAddr))
                         instr = new TestMachineInstruction(InstrClass.Invalid, Mnemonic.Invalid);
                     else 
                         instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Call , Mnemonic.call);
-                    instr.Operands = new MachineOperand[] { AddressOperand.Ptr32(uAddr) };
+                    instr.Operands = [Address.Ptr32(uAddr)];
                     break;
                 case 4: // a jump with delay slot
                     if (!rdr.TryReadBeUInt16(out uAddr))
@@ -53,14 +53,14 @@ namespace ParallelScan.UnitTests
                         instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Conditional | InstrClass.Delay, Mnemonic.braD);
                     else
                         instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Delay, Mnemonic.jmpD);
-                    instr.Operands = new MachineOperand[] { AddressOperand.Ptr32(uAddr) };
+                    instr.Operands = [Address.Ptr32(uAddr)];
                     break;
                 case 5: // a call with delay slot.
                     if (!rdr.TryReadBeUInt16(out uAddr))
                         instr = new TestMachineInstruction(InstrClass.Invalid, Mnemonic.Invalid);
                     else
                         instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Call | InstrClass.Delay, Mnemonic.callD);
-                    instr.Operands = new MachineOperand[] { AddressOperand.Ptr32(uAddr) };
+                    instr.Operands = [Address.Ptr32(uAddr)];
                     break;
                 case 6: // return
                     instr = new TestMachineInstruction(InstrClass.Transfer | InstrClass.Return, Mnemonic.ret);

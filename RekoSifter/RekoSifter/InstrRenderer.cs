@@ -63,6 +63,8 @@ namespace RekoSifter
             case "sparc32":
             case "sparc64":
                 return new SparcRenderer();
+            case "superH":
+                return new SuperHRenderer();
             default:
                 return new InstrRenderer();
             }

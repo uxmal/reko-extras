@@ -377,8 +377,11 @@ namespace ParallelScan
 
         private static Address? DetermineTargetAddress(MachineInstruction instr)
         {
-            if (instr.Operands.Length > 0 && instr.Operands[^1] is Address addr)
+            if (instr.Operands.Length > 0 &&
+                instr.Operands[^1] is Address addr)
+            {
                 return addr;
+            }
             return null;
         }
 

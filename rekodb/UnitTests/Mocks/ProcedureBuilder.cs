@@ -89,7 +89,7 @@ namespace Reko.Database.UnitTests.Mocks
         {
             if (!blocks.TryGetValue(label, out Block? b))
             {
-                b = Procedure.AddBlock(null!, label);
+                b = Procedure.AddBlock(default, label);
                 blocks.Add(label, b);
             }
             return b;

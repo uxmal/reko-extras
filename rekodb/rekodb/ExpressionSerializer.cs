@@ -155,7 +155,7 @@ namespace Reko.Database
         public void VisitMemoryAccess(MemoryAccess access)
         {
             json.BeginList();
-            json.WriteListItem("s");
+            json.WriteListItem("m");
             json.WriteListItem(() => access.EffectiveAddress.Accept(this));
             json.WriteListItem(() => tyrefSer.Serialize(access.DataType));
             json.EndList();
@@ -220,8 +220,8 @@ namespace Reko.Database
         public void VisitSegmentedAddress(SegmentedPointer segptr)
         {
             json.BeginList();
-            json.WriteListItem("s");
-            json.WriteListItem((object)(() => segptr.BasePointer.Accept(this)));
+            json.WriteListItem(":");
+            json.WriteListItem(() => segptr.BasePointer.Accept(this));
             json.WriteListItem(() => segptr.Offset.Accept(this));
             json.EndList();
         }
@@ -252,11 +252,11 @@ namespace Reko.Database
 
         public void VisitUnaryExpression(UnaryExpression unary)
         {
-            var op = unary.Operator switch
+            var op = unary.Operator.Type switch
             {
-                ComplementOperator _ => "~",
-                NegateOperator _ => "-",
-                NotOperator _ => "-",
+                OperatorType.Comp => "~",
+                OperatorType.Neg => "-",
+                OperatorType.Not => "!",
                 _ => throw new NotImplementedException($"{unary}: unimplemented")
             };
             json.BeginList();
