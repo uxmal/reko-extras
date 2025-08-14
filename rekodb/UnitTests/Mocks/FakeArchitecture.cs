@@ -8,6 +8,7 @@ using Reko.Core.Lib;
 using Reko.Core.Machine;
 using Reko.Core.Memory;
 using Reko.Core.Rtl;
+using Reko.Core.Serialization;
 using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
@@ -50,6 +51,8 @@ namespace Reko.Database.UnitTests.Mocks
         public MaskedPattern[] ProcedurePrologs => throw new NotImplementedException();
 
         public FlagGroupStorage? CarryFlag => throw new NotImplementedException();
+
+        public MemoryMap_v1? MemoryMap { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
         public IAssembler CreateAssembler(string? asmDialect)
         {
@@ -156,7 +159,7 @@ namespace Reko.Database.UnitTests.Mocks
             throw new NotImplementedException();
         }
 
-        public CallingConvention? GetCallingConvention(string? ccName)
+        public ICallingConvention? GetCallingConvention(string? ccName)
         {
             throw new NotImplementedException();
         }
@@ -297,6 +300,11 @@ namespace Reko.Database.UnitTests.Mocks
         }
 
         public bool TryRead(IMemory mem, Address addr, PrimitiveType dt, [MaybeNullWhen(false)] out Constant value)
+        {
+            throw new NotImplementedException();
+        }
+
+        ICallingConvention? IProcessorArchitecture.GetCallingConvention(string? ccName)
         {
             throw new NotImplementedException();
         }

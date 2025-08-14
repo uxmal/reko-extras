@@ -84,6 +84,11 @@ internal class EventListener : IDecompilerEventListener
         throw new NotImplementedException();
     }
 
+    public void Error(ProgramAddress paddr, string message)
+    {
+        throw new NotImplementedException();
+    }
+
     public void Info(string message)
     {
         WriteMessage("Info", new NullCodeLocation(""), message);
@@ -130,6 +135,11 @@ internal class EventListener : IDecompilerEventListener
     }
 
     public void Warn(ICodeLocation location, string message, params object[] args)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Warn(ProgramAddress paddr, string message)
     {
         throw new NotImplementedException();
     }

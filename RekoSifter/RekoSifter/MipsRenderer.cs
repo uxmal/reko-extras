@@ -30,17 +30,17 @@ namespace RekoSifter
                     case RegisterStorage reg:
                         RenderRegister(reg, rawRegisterNames, sb);
                         break;
-                    case ImmediateOperand imm:
-                        RenderImmediate(imm.Value, sb);
+                    case Constant imm:
+                        RenderImmediate(imm, sb);
                         break;
-                    case IndirectOperand indirect:
+                    case MemoryOperand indirect:
                         sb.Append(indirect.Offset);
                         sb.Append('(');
                         RenderRegister(indirect.Base, false, sb);
                         sb.Append(')');
                         break;
-                    case AddressOperand addressOperand:
-                        long addr = (int)addressOperand.Address.ToLinear();
+                    case Address addressOperand:
+                        long addr = (int)addressOperand.ToLinear();
                         sb.Append($"0x{addr:x16}");
                         break;
                     default:

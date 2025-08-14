@@ -11,13 +11,14 @@ namespace Reko.Extras.Interactive;
 
 public class Decompiler
 {
-    private readonly IDecompilerHost rwhost;
+    private readonly IDecompilerHost host;
     private readonly Core.Program program;
     private readonly StorageBinder binder;
+    private readonly IRewriterHost rwhost;
 
     public Decompiler(IDecompilerHost host, Reko.Core.Program program)
     {
-        this.rwhost  = host;
+        this.host = host;
         this.program = program;
         this.binder = new StorageBinder();
         this.rwhost = new RewriterHost();
@@ -40,7 +41,11 @@ public class Decompiler
         if (!program.TryCreateImageReader(wi.Address, out var rdr))
             return;
         var rw = program.Architecture.CreateRewriter(rdr, wi.State, binder, rwhost);
-        throw new NotImplementedException();
+        foreach (var cluster in rw)
+        {
+            host.Pause();
+
+        }
     }
 
     private Queue<Workitem> CollectWorkitems()

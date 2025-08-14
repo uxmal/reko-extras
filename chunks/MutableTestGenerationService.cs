@@ -71,5 +71,10 @@ namespace chunks
             lock (lockObject)
             svc.ReportProcedure(fileName, testCaption, proc);
         }
+
+        public void GenerateUnitTestFromProcedure(string fileName, string testCaption, Procedure proc)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

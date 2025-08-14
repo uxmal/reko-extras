@@ -1,5 +1,7 @@
 using Reko.Arch.M68k;
+using Reko.Arch.M68k.Machine;
 using Reko.Core;
+using Reko.Core.Expressions;
 using Reko.Core.Machine;
 using Reko.Core.Types;
 using System;
@@ -35,8 +37,8 @@ namespace RekoSifter
                 case RegisterStorage reg:
                     sb.Append(RegName(reg));
                     break;
-                case ImmediateOperand imm:
-                    sb.AppendFormat("#{0}", imm.Value);
+                case Constant imm:
+                    sb.AppendFormat("#{0}", imm);
                     break;
                 case PostIncrementMemoryOperand post:
                     sb.AppendFormat("{0}@+", RegName(post.Register));
@@ -55,8 +57,8 @@ namespace RekoSifter
                         sb.Append("@");
                     }
                     break;
-                case M68kAddressOperand addrOp:
-                    sb.AppendFormat("0x{0}", addrOp.Address);
+                case Address addrOp:
+                    sb.AppendFormat("0x{0}", addrOp);
                     break;
                 default:
                     sb.AppendFormat("[OPTYPE:{0}]", op.GetType().Name);

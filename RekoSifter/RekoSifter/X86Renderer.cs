@@ -141,14 +141,14 @@ namespace RekoSifter
                         }
                     }
                     break;
-                case ImmediateOperand imm:
-                    RenderObjdumpConstant(instr, imm.Value, instr.dataWidth, false, sb);
+                case Constant imm:
+                    RenderObjdumpConstant(instr, imm, instr.DataWidth, false, sb);
                     break;
                 case MemoryOperand mem:
                     RenderObjdumpMemoryOperand(instr, mem, sb);
                     break;
-                case AddressOperand addr:
-                    sb.AppendFormat("0x{0}", addr.Address.ToString().ToLower());
+                case Address addr:
+                    sb.AppendFormat("0x{0}", addr.ToString().ToLower());
                     break;
                 case FpuOperand fpu:
                     if (fpu.StNumber == 0)
@@ -232,7 +232,7 @@ namespace RekoSifter
             {
                 if (NeedsMemorySizePrefix(instr.Mnemonic))
                 {
-                    switch (mem.Width.Size)
+                    switch (mem.DataType.Size)
                     {
                     case 1: sb.Append("BYTE PTR "); break;
                     case 2: sb.Append("WORD PTR "); break;
@@ -243,7 +243,7 @@ namespace RekoSifter
                     case 16: sb.Append("XMMWORD PTR "); break;
                     case 32: sb.Append("YMMWORD PTR "); break;
                     case 64: sb.Append("ZMMWORD PTR "); break;
-                    default: sb.AppendFormat("[SIZE {0} PTR] ", mem.Width.Size); break;
+                    default: sb.AppendFormat("[SIZE {0} PTR] ", mem.DataType.Size); break;
                     }
                 }
                 sb.AppendFormat("{0}[", mem.SegOverride != null && mem.SegOverride != RegisterStorage.None
@@ -260,7 +260,7 @@ namespace RekoSifter
                     {
                         //$BUG: 32-bit?
                         RenderIndexRegister(
-                            mem.Base.Width.BitSize == 64 ? Registers.riz : Registers.eiz,
+                            mem.Base.DataType.BitSize == 64 ? Registers.riz : Registers.eiz,
                             mem.Scale,
                             sb);
                     }
@@ -293,7 +293,7 @@ namespace RekoSifter
                 if (instr.Broadcast)
                 {
                     sb.Append("{1to");
-                    sb.Append((uint) (instr.Operands[0].Width.BitSize / mem.Width.BitSize));
+                    sb.Append((uint) (instr.Operands[0].DataType.BitSize / mem.DataType.BitSize));
                     sb.Append('}');
                 }
             }

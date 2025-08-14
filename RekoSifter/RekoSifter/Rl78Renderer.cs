@@ -1,5 +1,6 @@
 using Reko.Arch.Rl78;
 using Reko.Core;
+using Reko.Core.Expressions;
 using Reko.Core.Machine;
 using System;
 using System.Collections.Generic;
@@ -26,10 +27,10 @@ namespace RekoSifter
                 case RegisterStorage reg:
                     sb.Append(reg.Name);
                     break;
-                case ImmediateOperand imm:
-                    sb.AppendFormat("0x{0:x}", imm.Value.ToUInt32());
+                case Constant imm:
+                    sb.AppendFormat("0x{0:x}", imm.ToUInt32());
                     break;
-                case AddressOperand addr:
+                case Address addr:
                     sb.Append("@@@");
                     break;
                 case MemoryOperand mem:

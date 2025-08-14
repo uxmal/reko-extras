@@ -343,7 +343,7 @@ namespace ParallelScan
                 {
                     if (iclass.HasFlag(InstrClass.Call))
                     {
-                        edges.Add(new CfgEdge(EdgeType.Call, item.Architecture, item.BlockStart, addrTarget));
+                        edges.Add(new CfgEdge(EdgeType.Call, item.Architecture, item.BlockStart, addrTarget.Value));
                         return edges;
                     }
                     if (iclass.HasFlag(InstrClass.Conditional))
@@ -351,7 +351,7 @@ namespace ParallelScan
                         var addrFallthrough = instr.Address + instr.Length;
                         edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrFallthrough));
                     }
-                    edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrTarget));
+                    edges.Add(new CfgEdge(EdgeType.DirectJump, item.Architecture, item.BlockStart, addrTarget.Value));
                     return edges;
                 }
                 //$TODO: backwalk.
@@ -377,12 +377,9 @@ namespace ParallelScan
 
         private static Address? DetermineTargetAddress(MachineInstruction instr)
         {
-            if (instr.Operands.Length > 0)
-            {
-                return (instr.Operands[^1] as AddressOperand)?.Address;
-            }
-            else
-                return null;
+            if (instr.Operands.Length > 0 && instr.Operands[^1] is Address addr)
+                return addr;
+            return null;
         }
 
         /// <summary>

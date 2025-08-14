@@ -4,9 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Reko.Extras.Interactive
+namespace Reko.Extras.Interactive;
+
+public class DecopilerHost : IDecompilerHost
 {
-    internal class DecopilerHost
+    public void Pause()
     {
+        throw new NotImplementedException();
     }
 }

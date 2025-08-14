@@ -66,8 +66,8 @@ namespace Reko.Benchmarks
             }
 
             var sig = new FunctionType(
-                new Identifier("", returnType, null!),
-                args.Select((arg, i) => IdFromExpression(arg, i)).ToArray());
+                args.Select((arg, i) => IdFromExpression(arg, i)).ToArray(),
+                [ new Identifier("", returnType, null!) ]);
             var intrinsic = EnsureIntrinsicProcedure(name, isIdempotent, sig);
             return new Application(
                 new ProcedureConstant(arch.PointerType, intrinsic),
@@ -102,8 +102,8 @@ namespace Reko.Benchmarks
             }
 
             var sig = new FunctionType(
-                new Identifier("", returnType, null!),
-                args.Select((arg, i) => IdFromExpression(arg, i)).ToArray());
+                args.Select((arg, i) => IdFromExpression(arg, i)).ToArray(),
+                [new Identifier("", returnType, null!)]);
             var intrinsic = EnsureIntrinsicProcedure(name, isIdempotent, sig);
             intrinsic.Characteristics = c;
             return new Application(
