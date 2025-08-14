@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+		xmlns:v="using:Reko.Extras.Interactive.Views"
+		xmlns:vm="using:Reko.Extras.Interactive.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Reko.Extras.Interactive.Views.MainWindow"
+        Title="interactive">
+	<StackPanel>
+		<Menu Background="#CCCCCC">
+			<MenuItem Header="_File">
+				<MenuItem Header="E_xit" Click="menu_FileExit" />
+			</MenuItem>
+		</Menu>
+		<v:CodeView>
+			
+		</v:CodeView>
+		<Label>
+			Hello
+		</Label>
+	</StackPanel>
+</Window>

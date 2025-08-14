@@ -53,6 +53,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "typeinference", "typeinfere
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "blocksoup", "blocksoup\blocksoup.csproj", "{3CE477F1-4E26-4687-8982-05C80DEC5947}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "interactive", "interactive\interactive.csproj", "{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -289,6 +291,18 @@ Global
 		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Release|x64.Build.0 = Release|Any CPU
 		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Release|x86.ActiveCfg = Release|Any CPU
 		{3CE477F1-4E26-4687-8982-05C80DEC5947}.Release|x86.Build.0 = Release|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Debug|x64.Build.0 = Debug|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Debug|x86.Build.0 = Debug|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Release|Any CPU.Build.0 = Release|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Release|x64.ActiveCfg = Release|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Release|x64.Build.0 = Release|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Release|x86.ActiveCfg = Release|Any CPU
+		{66944DE9-E8C6-9B6B-9DB1-32AF594BF686}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

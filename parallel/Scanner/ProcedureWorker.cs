@@ -76,7 +76,7 @@ namespace ParallelScan
         /// </summary>
         public void Process()
         {
-            Verbose("Entering Processing() method on thread {0}", Thread.CurrentThread.ManagedThreadId);
+            Verbose("Entering Process() method on thread {0}", Thread.CurrentThread.ManagedThreadId);
             try
             {
                 do
