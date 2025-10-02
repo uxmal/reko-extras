@@ -2,12 +2,14 @@ using Reko.Core;
 using Reko.Core.Configuration;
 using Reko.Core.Machine;
 using Reko.Core.Memory;
+using Reko.Core.Output;
 using Reko.Core.Services;
 using Reko.ImageLoaders.Elf;
 using Reko.Services;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -495,19 +497,17 @@ Options:
     {
         string reko;
         int instrLength;
-        if (instr.MnemonicAsString == "bra")
-            _ = this;//$DEBUG
         if (instr != null)
         {
             reko = instrRenderer.RenderAsObjdump(instr);
             instrLength = instr.Length;
+            otherDasm!.SetProgramCounter(instr.Address.ToLinear());
         }
         else
         {
             reko = "(null)";
             instrLength = 0;
         }
-        otherDasm!.SetProgramCounter(instr.Address.ToLinear());
         (string odOut, byte[]? odBytes) = otherDasm!.Disassemble(bytes, true);
         var rekoIsBad = reko.Contains("illegal") || reko.Contains("invalid");
         var objdIsBad = otherDasm.IsInvalidInstruction(odOut);
@@ -517,7 +517,7 @@ Options:
             Id = 'R',
             Text = reko,
             Hex = string.Join(" ", bytes.Take(instrLength).Select(b => $"{b:X2}")),
-            Address = instr.Address.ToLinear()
+            Address = instr?.Address.ToLinear()?? 0
         };
         var obj_other = new
         {
@@ -763,14 +763,24 @@ Options:
         rdr.Offset = 0;
         try
         {
-            var instr = dasm.First();
-            return instr;
+            var instr = dasm.FirstOrDefault();
+            if (instr is not null)
+                return instr;
+            Debug.Print("Null instr: {0}", Dump(mem, 0x10));
+            return null;
         }
         catch
         {
             //$TODO: emit some kind of unit test.
             return null;
         }
+    }
+
+    private string Dump(ByteMemoryArea mem, int v)
+    {
+        var bytes = mem.Bytes.Take(v);
+        var sBytes = string.Join(" ", bytes.Select(b => b.ToString("X2")));
+        return sBytes;
     }
 
     private bool DecrementCount()

@@ -6,10 +6,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace angr.analyses;
+namespace prologs;
 
 #pragma warning disable CS8981
 #pragma warning disable IDE1006
+
+public static class defaultdict
+{
+    public static defaultdict<K, V> Create<K, V>(Func<V> generator)
+        where K : notnull
+    {
+        return new defaultdict<K, V>(generator);
+    }
+}
 
 public class defaultdict<K, V> : IDictionary<K, V>
     where K : notnull

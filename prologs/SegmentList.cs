@@ -1,6 +1,6 @@
 ﻿using Reko.Core;
 
-namespace angr.analyses;
+namespace prologs;
 
 /// <summary>
 /// Represents a memory block. This is not the "Segment" in ELF memory model

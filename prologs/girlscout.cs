@@ -1,6 +1,7 @@
-namespace angr.analyses;
-#if !NOT_YET
+namespace prologs;
+#if NOT_YET
 using pickle;
+
 
 using re;
 
@@ -19,7 +20,6 @@ using AngrGirlScoutError = errors.AngrGirlScoutError;
 using static angr.analyses.analysis;
 using cle.backends;
 using System.IO;
-using o = angr.sim_options;
 using static angr.engines.pcode.lifter;
 using Reko.Core;
 using Reko.Core.Lib;
@@ -31,11 +31,15 @@ using Reko.Core.Memory;
 using Reko.ImageLoaders.WebAssembly;
 using System.Net.Sockets;
 using Reko.Core.Rtl;
+using Reko.Core.Collections;
+using System.Net.Http.Headers;
+using Reko.Core.Services;
+using System.Diagnostics;
+using Reko.Core.Diagnostics;
 
 public static class girlscout
 {
-
-    public static logging.Logger l = logging.getLogger(name: nameof(girlscout));
+    private readonly static TraceSwitch l = new("girlscout", "");
 
     // 
     //     We find functions inside the given binary, try to decide the base address if needed, and build a control-flow
@@ -56,13 +60,13 @@ public static class girlscout
 
         private IProcessorArchitecture arch;
 
-        public Program _binary;
+        public Reko.Core.Loading.ILoadedImage _binary;
 
         public Dictionary<object, int> _block_size;
 
         public Address _end;
 
-        public HashSet<(string, long)> _indirect_jumps;
+        public HashSet<(InstrClass, Address)> _indirect_jumps;
 
         public Address _next_addr;
 
@@ -76,7 +80,7 @@ public static class girlscout
 
         public Address _start;
 
-        public HashSet<long> _unassured_functions;
+        public HashSet<Address> _unassured_functions;
 
         public long _valid_memory_region_size;
 
@@ -84,13 +88,16 @@ public static class girlscout
 
         public defaultdict<long, List<object>> _write_addr_to_run;
 
-        public long? base_address;
+        public Address? base_address;
 
-        public DiGraph<Address> cfg;
+        public DiGraph<Address, InstrClass> cfg;
 
         public HashSet<Address> functions;
 
         private DiGraph<Address> _call_map;
+
+        private Dictionary<Address, RtlBlock> liftedBlocks;
+        private StorageBinder binder;
 
         public GirlScout(
             Project project,
@@ -106,7 +113,7 @@ public static class girlscout
             this._end = end is not null ? end.Value : this._binary.GetMaxAddress();
             this._pickle_intermediate_results = pickle_intermediate_results;
             this._perform_full_code_scan = perform_full_code_scan;
-            l.debug("Starts at 0x%08x and ends at 0x%08x.", this._start, this._end);
+            l.Verbose("Starts at 0x%08x and ends at 0x%08x.", this._start, this._end);
             // Valid memory regions
             this._valid_memory_regions = (from _tup_1 in this.program.SegmentMap.Segments.Values
                                           let startR = _tup_1.Address
@@ -124,15 +131,18 @@ public static class girlscout
             // Calls between functions
             this._call_map = new DiGraph<Address>();
             // A CFG - this is not what you get from project.analyses.CFG() !
-            this.cfg = new DiGraph<Address>();
+            this.cfg = new DiGraph<Address, InstrClass>();
             // Create the segment list
             this._seg_list = new SegmentList();
             this._read_addr_to_run = new defaultdict<long, List<object>>(() => []);
             this._write_addr_to_run = new defaultdict<long, List<object>>(() => new List<object>());
             // All IRSBs with an indirect exit target
-            this._indirect_jumps = new HashSet<(string, long)>();
-            this._unassured_functions = new HashSet<long>();
+            this._indirect_jumps = new HashSet<(InstrClass, Address)>();
+            this._unassured_functions = new HashSet<Address>();
             this.base_address = null;
+            this.liftedBlocks = [];
+            this.binder = new StorageBinder();
+
             // Start working!
             this._reconnoiter();
         }
@@ -189,12 +199,12 @@ public static class girlscout
             this._next_addr = curr_addr;
             if (curr_addr < this._end)
             {
-                l.debug("Returning new recon address: 0x%08x", curr_addr);
+                l.Verbose("Returning new recon address: 0x%08x", curr_addr);
                 return curr_addr;
             }
             else
             {
-                l.debug("0x%08x is beyond the ending point.", curr_addr);
+                l.Verbose("0x%08x is beyond the ending point.", curr_addr);
                 return null;
             }
         }
@@ -213,6 +223,7 @@ public static class girlscout
             var start_addr = next_addr.Value;
             var sz = "";
             var is_sz = true;
+            bool reach_end = false;
             var memory = (ByteProgramMemory)this.program.Memory;
             while (is_sz)
             {
@@ -221,8 +232,8 @@ public static class girlscout
                 {
                     try
                     {
-                        l.debug("Searching address {0:X}", next_addr);
-                        if (memory.TryReadUInt8(next_addr.Value, out byte val);
+                        l.Verbose($"Searching address {next_addr:X}");
+                        if (memory.TryReadUInt8(next_addr.Value, out byte val));
                         if (val == 0)
                         {
                             if (sz.Length < 4)
@@ -235,7 +246,7 @@ public static class girlscout
                             }
                             break;
                         }
-                        if (!@string.printable.Contains((char)val))
+                        if (!string.printable.Contains((char)val))
                         {
                             is_sz = false;
                             break;
@@ -246,22 +257,22 @@ public static class girlscout
                     catch (SimValueError)
                     {
                         // Not concretizable
-                        l.debug("Address 0x{0:X8} is not concretizable!", next_addr);
+                        l.Verbose("Address 0x{0:X8} is not concretizable!", next_addr);
                         break;
                     }
                 }
                 if (sz.Length > 0 && is_sz)
                 {
-                    l.debug("Got a string of {0} chars: [{1}]", sz.Count, sz);
-                    // l.debug("Occpy %x - %x", start_addr, start_addr + len(sz) + 1)
-                    this._seg_list.occupy(start_addr, sz.Length + 1);
+                    l.Verbose("Got a string of {0} chars: [{1}]", sz.Count, sz);
+                    // l.Verbose("Occpy %x - %x", start_addr, start_addr + len(sz) + 1)
+                    this._seg_list.occupy(start_addr, sz.Length + 1, "");
                     sz = "";
                     next_addr = this._get_next_addr_to_search();
                     if (next_addr is null)
                     {
                         return null;
                     }
-                    // l.debug("next addr = %x", next_addr)
+                    // l.Verbose("next addr = %x", next_addr)
                     start_addr = next_addr.Value;
                 }
                 if (is_sz)
@@ -274,7 +285,7 @@ public static class girlscout
             {
                 start_addr = start_addr - (long) start_addr.Offset % instr_alignment + instr_alignment;
             }
-            l.debug("_get_next_code_addr() returns 0x%x", start_addr);
+            l.Verbose("_get_next_code_addr() returns 0x%x", start_addr);
             return start_addr;
         }
 
@@ -285,10 +296,9 @@ public static class girlscout
         //         symbolic mode for the final IRSB to get all possible exits of that
         //         IRSB.
         //         
-        public virtual List<Address> _symbolic_reconnoiter(long addr, long target_addr, int max_depth = 10)
+        public virtual List<Address> _symbolic_reconnoiter(Address addr, Address target_addr, int max_depth = 10)
         {
-            var state = this.project.factory.blank_state(addr: addr, mode: "symbolic", add_options: new HashSet{
-                    o.CALLLESS});
+            var state = this.program.Architecture.CreateProcessorState();
             var initial_exit = this.project.factory.path(state);
             var explorer = new Explorer(this.project, start: initial_exit, max_depth: max_depth, find: target_addr, num_find: 1).run();
             if (explorer.found.Count > 0)
@@ -341,7 +351,10 @@ public static class girlscout
             }
         }
 
-        public virtual void _scan_code(ISet<Address> traced_addresses, defaultdict<Address, HashSet<float>> function_exits, ProcessorState initial_state, Address starting_address)
+        public virtual void _scan_code(
+            ISet<Address> traced_addresses,
+            IDictionary<Address, HashSet<Address>> function_exits, 
+            ProcessorState initial_state, Address starting_address)
         {
             // Saving tuples like (current_function_addr, next_exit_addr)
             // Current_function_addr == -1 for exits not inside any function
@@ -358,13 +371,13 @@ public static class girlscout
                 }
                 // Add this node to the CFG first, in case this is a dangling node
                 this.cfg.AddNode(previous_addr);
-                if (current_function_addr.Offset != -1)
+                if (~current_function_addr.Offset != 0)
                 {
-                    l.debug("Tracing new exit 0x%08x in function 0x%08x", previous_addr, current_function_addr);
+                    l.Verbose($"Tracing new exit 0x{previous_addr} in function 0x{current_function_addr}");
                 }
                 else
                 {
-                    l.debug("Tracing new exit 0x%08x", previous_addr);
+                    l.Verbose("Tracing new exit 0x{previous_addr}");
                 }
                 traced_addresses.Add(previous_addr);
                 this._scan_block(previous_addr, state, current_function_addr, function_exits, remaining_exits, traced_addresses);
@@ -375,27 +388,26 @@ public static class girlscout
             Address addr,
             ProcessorState state,
             Address? current_function_addr,
-            IDictionary<Address, List<Address>> function_exits,
-            List<(Address, Address, Address, ProcessorState?)> remaining_exits,
+            IDictionary<Address, HashSet<Address>> function_exits,
+            HashSet<(Address, Address, Address, ProcessorState?)> remaining_exits,
             HashSet<Address> traced_addresses)
         {
             Address? next_addr;
             RtlBlock irsb;
-            // Let's try to create the pyvex IRSB directly, since it's much faster
             try
             {
-                irsb = this.project.factory.block(addr).vex;
+                irsb = this._scan_block_(addr, state, current_function_addr, function_exits, remaining_exits, traced_addresses);
                 // Log the size of this basic block
-                this._block_size[addr] = irsb.size;
+                this._block_size[addr] = irsb.Length;
                 // Occupy the block
-                this._seg_list.occupy(addr, irsb.size);
+                this._seg_list.occupy(addr, irsb.Length, "");
             }
             catch
             {
                 return;
             }
-            var next = irsb.next;
-            var jumpkind = irsb.jumpkind;
+            var next = irsb.FallThrough;
+            var jumpkind = irsb.jumpkind();
             var successors = irsb.Instructions
                 .OfType<RtlTransfer>()
                 .Where(b => b.Target is Address)
@@ -439,6 +451,7 @@ public static class girlscout
                         if (current_function_addr.HasValue)
                         {
                             function_exits[current_function_addr.Value].Add(next_addr.Value);
+            
                         }
                     }
                     // If we have traced it before, don't trace it anymore
@@ -447,7 +460,7 @@ public static class girlscout
                         return;
                     }
                     remaining_exits.Add((next_addr.Value, next_addr.Value, addr, null));
-                    l.debug("Function calls: %d", this.call_map.Nodes.Count);
+                    l.Verbose("Function calls: %d", this.call_map.Nodes.Count);
                 }
             }
         }
@@ -463,18 +476,7 @@ public static class girlscout
             ProcessorState new_state;
             // Get a basic block
             state.InstructionPointer = addr;
-            var s_path = this.project!.factory.path(state);
-            try
-            {
-                var s_run = s_path.next_run;
-            }
-            catch (Exception ex)
-            {
-                // Cannot concretize something when executing the SimRun
-                l.debug(ex);
-                return;
-            }
-            if (s_run is SimIRSB sirsb)
+            var s_run = ScanBlockInstructions(addr, state);
             {
                 // Calculate its entropy to avoid jumping into uninitialized/all-zero space
                 var bytes = sirsb.irsb._state[1]["bytes"];
@@ -488,11 +490,10 @@ public static class girlscout
             }
             // self._static_memory_slice(s_run)
             // Mark that part as occupied
-            if (s_run is SimIRSB)
             {
-                this._seg_list.occupy(addr, s_run.irsb.size);
+                this._seg_list.occupy(addr, s_run.Length, "");
             }
-            var successors = s_run.flat_successors + s_run.unsat_successors;
+            var successors = get_succesors(s_run);
             var has_call_exit = false;
             var tmp_exit_set = new HashSet<Address>();
             foreach (var suc in successors)
@@ -504,7 +505,7 @@ public static class girlscout
             }
             foreach (var suc in successors)
             {
-                var jumpkind = suc.history.jumpkind;
+                InstrClass jumpkind = suc.history.jumpkind;
                 if (has_call_exit && jumpkind == "Ijk_Ret")
                 {
                     jumpkind = "Ijk_FakeRet";
@@ -525,7 +526,7 @@ public static class girlscout
                     // Undecidable jumps (might be a function return, or a conditional branch, etc.)
                     // We log it
                     this._indirect_jumps.Add((suc.history.jumpkind, addr));
-                    l.info("IRSB 0x%x has an indirect exit %s.", addr, suc.history.jumpkind);
+                    l.Inform("IRSB 0x%x has an indirect exit %s.", addr, suc.history.jumpkind);
                     continue;
                 }
                 this.cfg.AddEdge(addr, next_addr, jumpkind: jumpkind);
@@ -545,7 +546,7 @@ public static class girlscout
                 {
                     if (current_function_addr.HasValue)
                     {
-                        function_exits[current_function_addr.Value].add(next_addr);
+                        function_exits[current_function_addr.Value].Add(next_addr);
                     }
                 }
                 // If we have traced it before, don't trace it anymore
@@ -559,7 +560,7 @@ public static class girlscout
                     continue;
                 }
                 tmp_exit_set.Add(next_addr);
-                if (jumpkind == "Ijk_Call")
+                if (jumpkind.HasFlag(InstrClass.Call))
                 {
                     // This is a call. Let's record it
                     new_state = suc.copy();
@@ -573,20 +574,22 @@ public static class girlscout
                     //    del new_state.registers.mem[20 + 16]
                     // 0x8000000: call 0x8000045
                     remaining_exits.Add((next_addr, next_addr, addr, new_state));
-                    l.debug("Function calls: %d", this.call_map.nodes().Count);
+                    l.Verbose($"Function calls: {this.call_map.Nodes.Count}");
                 }
-                else if (jumpkind == "Ijk_Boring" || jumpkind == "Ijk_Ret" || jumpkind == "Ijk_FakeRet")
+                else if (jumpkind == InstrClass.Transfer ||
+                         jumpkind.HasFlag(InstrClass.Return))
                 {
                     new_state = suc.copy();
-                    l.debug("New exit with jumpkind %s", jumpkind);
+                    l.Verbose("New exit with jumpkind %s", jumpkind);
                     // FIXME: should not use current_function_addr if jumpkind is "Ijk_Ret"
-                    remaining_exits.add((current_function_addr, next_addr.Value, addr, new_state));
+                    remaining_exits.Add((current_function_addr, next_addr, addr, new_state));
                 }
-                else if (jumpkind == "Ijk_NoDecode")
+                else if (jumpkind == InstrClass.Invalid)
                 {
                     // That's something VEX cannot decode!
                     // We assume we ran into a deadend
                 }
+                /*
                 else if (jumpkind.startswith("Ijk_Sig"))
                 {
                     // Should not go into that exit
@@ -609,11 +612,40 @@ public static class girlscout
                 else if (jumpkind == "Ijk_EmWarn")
                 {
                 }
+                */
                 else
                 {
                     throw new Exception("NotImplemented");
                 }
             }
+        }
+
+        private RtlBlock ScanBlockInstructions(Address addr, ProcessorState state)
+        {
+            var arch = program.Architecture;
+            var rdr = arch.CreateImageReader(program.Memory, addr);
+            var lifter = arch.CreateRewriter(rdr, state, this.binder, this.host).GetEnumerator();
+            var rtls = new List<RtlInstructionCluster>();
+            while (lifter.MoveNext())
+            {
+                var cluster = lifter.Current;
+                if (lifter.Current.Class == InstrClass.Invalid)
+                    break;
+                rtls.Add(cluster);
+                if (cluster.Class.HasFlag(InstrClass.Transfer))
+                {
+                    break;
+                }
+            }
+            var lastAddr = rtls[^1].Address;
+            var fallthrough = rtls[^1].Address + rtls[^1].Length;
+            return RtlBlock.Create(arch,
+                addr,
+                NamingPolicy.Instance.BlockName(addr),
+                (int)(fallthrough - addr),
+                fallthrough,
+                ProvenanceType.Heuristic,
+                rtls);
         }
 
         // 
@@ -624,42 +656,47 @@ public static class girlscout
         //         :param next_addr:
         //         :returns:
         //         
-        public virtual void _scan_function_prologues(long traced_address, IDictionary<long, HashSet<long>> function_exits, object initial_state)
+        public virtual void _scan_function_prologues(
+            HashSet<Address> traced_address,
+            IDictionary<Address, HashSet<Address>> 
+            function_exits, ProcessorState initial_state)
         {
             // Precompile all regexes
-            var regexes = new HashSet<object>();
-            foreach (var ins_regex in this.project.arch.function_prologs)
+            var regexes = new ByteTrie<object>();
+            foreach (var ins_regex in this.project.Programs[0].Architecture.ProcedurePrologs)
             {
-                var r = re.compile(ins_regex);
-                regexes.Add(r);
+                if (ins_regex.Mask is not null)
+                    regexes.Add(ins_regex.Bytes, ins_regex.Mask, null!);
+                else 
+                    regexes.Add(ins_regex.Bytes, null!);
             }
             // TODO: Make sure self._start is aligned
             // Construct the binary blob first
             foreach (var segment in this.project.Programs[0].SegmentMap.Segments.Values)
             {
-                var bytes_ = segment.MemoryArea;
-                var start_ = segment.Address;
-                foreach (var regex in regexes)
+                var mem = (ByteMemoryArea)segment.MemoryArea;
+                var bytes = mem.Bytes;
+                var start_ = (int)(mem.BaseAddress - segment.Address);
+                var mo = regexes.Match(bytes);
+                while (mo.Success)
                 {
                     // Match them!
-                    foreach (var mo in regex.finditer(bytes_))
+                    var position = mem.BaseAddress + mo.Index;
+                    if (position.Offset % (uint) (this.arch.InstructionBitSize / this.arch.MemoryGranularity) == 0)
                     {
-                        var position = mo.start() + start_;
-                        if (position % (this.arch.InstructionBitSize / this.arch.MemoryGranularity) == 0)
+                        if (!traced_address.Contains(position))
                         {
-                            if (!traced_address.Contains(position))
-                            {
-                                var percentage = this._seg_list.occupied_size * 100.0 / this._valid_memory_region_size;
-                                l.info("Scanning %xh, progress %0.04f%%", position, percentage);
-                                this._unassured_functions.Add(position);
-                                this._scan_code(traced_address, function_exits, initial_state, position);
-                            }
-                            else
-                            {
-                                l.info("Skipping %xh", position);
-                            }
+                            var percentage = this._seg_list.occupied_size * 100.0 / this._valid_memory_region_size;
+                            l.Inform("Scanning %xh, progress %0.04f%%", position, percentage);
+                            this._unassured_functions.Add(position);
+                            this._scan_code(traced_address, function_exits, initial_state, position);
+                        }
+                        else
+                        {
+                            l.Inform("Skipping %xh", position);
                         }
                     }
+                    mo = mo.NextMatch(((ByteMemoryArea)mem).Bytes);
                 }
             }
         }
@@ -671,7 +708,7 @@ public static class girlscout
         public virtual IEnumerable<Address> _process_indirect_jumps()
         {
             var function_starts = new HashSet<Address>();
-            l.info("We have %d indirect jumps", this._indirect_jumps.Count);
+            l.Inform("We have %d indirect jumps", this._indirect_jumps.Count);
             foreach (var (jumpkind, irsb_addr) in this._indirect_jumps)
             {
                 // First execute the current IRSB in concrete mode
@@ -679,32 +716,29 @@ public static class girlscout
                 {
                     break;
                 }
-                if (jumpkind == "Ijk_Call")
+                if (jumpkind.HasFlag(InstrClass.Call))
                 {
-                    var state = this.project.factory.blank_state(addr: irsb_addr, mode: "concrete", add_options: new HashSet{
-                            o.SYMBOLIC_INITIAL_VALUES});
-                    var path = this.project.factory.path(state);
-                    l.debug(irsb_addr.ToString("X"));
+                    var state = this.program.Architecture.CreateProcessorState();
+                    //var path = this.project.factory.path(state);
+                    l.Verbose(irsb_addr.ToString());
                     try
                     {
-                        var r = (path.next_run.successors + path.next_run.unsat_successors)[0];
-                        var ip = r.solver.eval_one(r.ip);
-                        function_starts.Add(ip);
+                        function_starts.Add(irsb_addr);
                         continue;
                     }
                     catch
                     {
                     }
-                    var irsb = this.project.factory.block(irsb_addr).vex;
-                    var stmts = irsb.statements;
+                    var irsb = this.get_block(irsb_addr);
+                    var stmts = irsb.Instructions;
                     // Start slicing from the "next"
-                    var b = new Blade(this.cfg, irsb.addr, -1, project: this.project);
+                    var b = new Blade(this.cfg, irsb.Address, -1, project: this.project);
                     // Debugging output
-                    foreach (var (addr, stmt_idx) in b.slice.nodes().OrderBy(_p_1 => _p_1).ToList())
+                    foreach (var addr, stmt_idx) in b.slice.nodes().OrderBy(_p_1 => _p_1).ToList())
                     {
-                        irsb = this.project.factory.block(addr).vex;
-                        stmts = irsb.statements;
-                        l.debug("%x: %d | %s %d", (addr, stmt_idx), stmts[stmt_idx], b.slice.in_degree((addr, stmt_idx)));
+                        irsb = this.get_block(addr);
+                        stmts = irsb.Instructions;
+                        l.Verbose("%x: %d | %s %d", (addr, stmt_idx), stmts[stmt_idx], b.slice.in_degree((addr, stmt_idx)));
                     }
                     // Get all sources
                     var sources = (from n in b.slice.nodes()
@@ -727,11 +761,11 @@ public static class girlscout
                         {
                             slicecutor.run();
                         }
-                        catch (KeyError)
+                        catch
                         {
                             // This is because the program slice is incomplete.
                             // Blade will support more IRExprs and IRStmts
-                            l.debug("KeyError occurred due to incomplete program slice.", exc_info: ex);
+                            l.Verbose("KeyError occurred due to incomplete program slice.", exc_info: ex);
                             continue;
                         }
                         foreach (var r in slicecutor.reached_targets)
@@ -744,7 +778,7 @@ public static class girlscout
                                 {
                                     var concrete_ip = se.eval_one(target_ip);
                                     function_starts.Add(concrete_ip);
-                                    l.info("Found a function address {0:X}", concrete_ip);
+                                    l.Inform("Found a function address {0:X}", concrete_ip);
                                 }
                             }
                         }
@@ -752,6 +786,15 @@ public static class girlscout
                 }
             }
             return function_starts;
+        }
+
+        private RtlBlock get_block(Address addr)
+        {
+            if (liftedBlocks.TryGetValue(addr, out var block))
+                return block;
+            block = ScanBlockInstructions(addr, program.Architecture.CreateProcessorState());
+            liftedBlocks[addr] = block;
+            return block;
         }
 
         // 
@@ -800,7 +843,7 @@ public static class girlscout
 
         public virtual void _reconnoiter()
         {
-            if (this._binary is cle.backends.blob.Blob)
+            if (this._binary is Reko.Core.Loading.Blob)
             {
                 this._determinebase_address();
             }
@@ -830,22 +873,17 @@ public static class girlscout
             this.functions = new HashSet<Address>();
             this.call_map = new DiGraph<Address>();
             this.cfg = new DiGraph<Address>();
-            var initial_state = this.project.factory.blank_state(mode: "fastpath");
-            var initial_options = initial_state.options - new HashSet {
-                    o.TRACK_CONSTRAINTS} - o.refs;
-            initial_options.Add(o.SUPER_FASTPATH);
-            // initial_options.remove(o.COW_STATES)
-            initial_state.options = initial_options;
+            var initial_state = this.program.Architecture.CreateProcessorState();
             // Sadly, not all calls to functions are explicitly made by call
             // instruction - they could be a jmp or b, or something else. So we
             // should record all exits from a single function, and then add
             // necessary calling edges in our call map during the post-processing
             // phase.
-            var function_exits = new defaultdict<Address, HashSet<Address>>(() => new HashSet<Address>());
+            var function_exits = defaultdict.Create<Address, HashSet<Address>>(() => []);
             var dump_file_prefix = this.program.Location.GetFilename();
             if (this._pickle_intermediate_results && File.Exists(dump_file_prefix + "_indirect_jumps.angr"))
             {
-                l.debug("Loading existing intermediate results.");
+                l.Verbose("Loading existing intermediate results.");
                 this._indirect_jumps = pickle.load(open(dump_file_prefix + "_indirect_jumps.angr", "rb"));
                 this.cfg = pickle.load(open(dump_file_prefix + "_coercecfg.angr", "rb"));
                 this._unassured_functions = pickle.load(open(dump_file_prefix + "_unassured_functions.angr", "rb"));
@@ -857,7 +895,7 @@ public static class girlscout
                 this._scan_function_prologues(traced_address, function_exits, initial_state);
                 if (this._pickle_intermediate_results)
                 {
-                    l.debug("Dumping intermediate results.");
+                    l.Verbose("Dumping intermediate results.");
                     pickle.dump(this._indirect_jumps, open(dump_file_prefix + "_indirect_jumps.angr", "wb"), -1);
                     pickle.dump(this.cfg, open(dump_file_prefix + "_coercecfg.angr", "wb"), -1);
                     pickle.dump(this._unassured_functions, open(dump_file_prefix + "_unassured_functions.angr", "wb"), -1);
@@ -869,22 +907,22 @@ public static class girlscout
                 // Gotta execute each basic block and see where it wants to jump to
                 var function_starts = this._process_indirect_jumps();
                 this.base_address = this._solve_forbase_address(function_starts, this._unassured_functions);
-                l.info("Base address should be 0x{0:X}", this.base_address);
+                l.Inform("Base address should be 0x{0:X}", this.base_address);
             }
             else
             {
-                l.debug("No indirect jumps are found. We switch to the slowpath mode.");
+                l.Verbose("No indirect jumps are found. We switch to the slowpath mode.");
                 // TODO: Slowpath mode...
                 while (true)
                 {
                     var next_addr = this._get_next_code_addr(initial_state);
                     var percentage = this._seg_list.occupied_size * 100.0 / this._valid_memory_region_size;
-                    l.info("Analyzing %xh, progress %0.04f%%", next_addr, percentage);
+                    l.Inform("Analyzing %xh, progress %0.04f%%", next_addr, percentage);
                     if (next_addr == null)
                     {
                         break;
                     }
-                    this.call_map.AddNode(next_addr);
+                    this.call_map.AddNode(next_addr.Value);
                     this._scan_code(traced_address, function_exits, initial_state, next_addr);
                 }
             }
@@ -903,7 +941,7 @@ public static class girlscout
                     }
                 }
             }
-            var nodes = this.call_map.Nodes.OrderBy(_p_1 => _p_1).ToList();
+            var nodes = this.call_map.Nodes.OrderBy(a => a).ToList();
             foreach (var i in Enumerable.Range(0, nodes.Count - 1))
             {
                 if (nodes[i] >= nodes[i + 1] - 4)
@@ -919,7 +957,7 @@ public static class girlscout
                     this.call_map.RemoveNode(nodes[i + 1]);
                 }
             }
-            l.debug("Construction finished.");
+            l.Verbose("Construction finished.");
         }
 
         // 
@@ -934,18 +972,13 @@ public static class girlscout
             this.call_map = new DiGraph<Address>();
             this.cfg = new DiGraph<Address>();
             var initial_state = this.arch.CreateProcessorState();
-            var initial_options = initial_state.options - new HashSet{
-                    o.TRACK_CONSTRAINTS} - o.refs;
-            initial_options.Add(o.SUPER_FASTPATH);
-            // initial_options.remove(o.COW_STATES)
-            initial_state.options = initial_options;
 
             // Sadly, not all calls to functions are explicitly made by call
             // instruction - they could be a jmp or b, or something else. So we
             // should record all exits from a single function, and then add
             // necessary calling edges in our call map during the post-processing
             // phase.
-            var function_exits = new defaultdict<Address, HashSet<float>>(() => new HashSet<float>());
+            var function_exits = new defaultdict<Address, HashSet<Address>>(() => new HashSet<Address>());
             while (true)
             {
                 var next_addr = this._get_next_code_addr(initial_state);
@@ -957,19 +990,19 @@ public static class girlscout
                 // pb.update(percentage * 10000);
                 if (next_addr != null)
                 {
-                    l.info("Analyzing %xh, progress %0.04f%%", next_addr.Value, percentage);
+                    l.Inform("Analyzing %xh, progress %0.04f%%", next_addr.Value, percentage);
                 }
                 else
                 {
-                    l.info("No more addr to analyze. Progress %0.04f%%", percentage);
+                    l.Inform("No more addr to analyze. Progress %0.04f%%", percentage);
                     break;
                 }
                 this.call_map.AddNode(next_addr.Value);
-                this._scan_code(traced_address, function_exits, initial_state, next_addr);
+                this._scan_code(traced_address, function_exits, initial_state, next_addr.Value);
             }
             pb.finish();
             var end_time = datetime.now();
-            l.info("A full code scan takes %d seconds.", (end_time - start_time).seconds);
+            l.Inform("A full code scan takes %d seconds.", (end_time - start_time).seconds);
         }
 
         public virtual double _calc_entropy(byte[] data, int size = 0)
@@ -1057,6 +1090,14 @@ public static class ProgramExtensions
     public static Address GetMaxAddress(this Program program)
     {
         return program.SegmentMap.Segments.Values.Max(s => s.Address + s.Size);
+    }
+}
+
+public static class RtlBlockExtensions
+{
+    public static InstrClass jumpkind(this RtlBlock block)
+    {
+        return block.Instructions[^1].Class;
     }
 }
 #endif

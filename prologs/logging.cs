@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace angr.analyses;
+namespace prologs;
 
 #pragma warning disable CS8981
 #pragma warning disable IDE1006

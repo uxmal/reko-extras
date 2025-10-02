@@ -142,7 +142,7 @@ namespace chunks
                     var formals = args.Select((a, i) =>
                         new Identifier($"arg{i}", a.DataType, new TemporaryStorage("aa", 43, a.DataType)))
                         .ToArray();
-                    intrinsic = new IntrinsicProcedure(name, isIdempotent, FunctionType.Func(ret, formals))
+                    intrinsic = new IntrinsicProcedure(name, isIdempotent, FunctionType.Create(ret, formals))
                     {
                         Characteristics = c,
                     };

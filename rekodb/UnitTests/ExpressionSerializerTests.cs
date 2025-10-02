@@ -42,7 +42,7 @@ namespace Reko.Database.UnitTests
             var tyser = new TypeReferenceSerializer(json);
             var expser = new ExpressionSerializer(tyser, json);
             expser.Serialize(e);
-            Assert.AreEqual(sExpected, sb.Replace("\"", "\'").ToString());
+            Assert.That(sb.Replace("\"", "\'").ToString(), Is.EqualTo(sExpected));
         }
 
         [Test]
@@ -53,7 +53,7 @@ namespace Reko.Database.UnitTests
         [Test]
         public void ExSer_SegmentedAccess()
         {
-            RunTest("['m',[':','seg',{'c':'w16','v':'0x1234<16>'},'w16']", m.SegMem16(seg, m.Word16(0x1234)));
+            RunTest("['m',[':','seg',{'c':'w16','v':'0x1234<16>'}],'w16']", m.SegMem16(seg, m.Word16(0x1234)));
         }
     }
 }
