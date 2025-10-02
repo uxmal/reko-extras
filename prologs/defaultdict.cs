@@ -8,6 +8,9 @@ using System.Threading.Tasks;
 
 namespace angr.analyses;
 
+#pragma warning disable CS8981
+#pragma warning disable IDE1006
+
 public class defaultdict<K, V> : IDictionary<K, V>
     where K : notnull
 {
