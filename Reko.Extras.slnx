@@ -1,0 +1,51 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/batch/">
+    <Project Path="batch/batch/batch.csproj">
+      <BuildType Project="Debug" />
+    </Project>
+  </Folder>
+  <Folder Name="/dehexdump/">
+    <Project Path="dehexdump/dehexdump/dehexdump.csproj" />
+  </Folder>
+  <Folder Name="/findbaseaddr/">
+    <Project Path="findbaseaddr/find_load_addr/FindLoadAddr.csproj" />
+    <Project Path="findbaseaddr/UnitTests/UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/parallel/">
+    <Project Path="parallel/Scanner/parallel-scan.csproj" />
+    <Project Path="parallel/UnitTests/UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/prologs/">
+    <Project Path="prologs/prologs.csproj" />
+  </Folder>
+  <Folder Name="/rekodb/">
+    <Project Path="rekodb/rekodb/rekodb.csproj" />
+    <Project Path="rekodb/UnitTests/UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/RekoSifter/">
+    <Project Path="RekoSifter/bindings/bindings.csproj">
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="RekoSifter/RekoSifter/RekoSifter.csproj">
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="RekoSifter/UnitTests/UnitTests.csproj" />
+  </Folder>
+  <Project Path="Benchmarks/Benchmarks.csproj" />
+  <Project Path="blocksoup/blocksoup.csproj" />
+  <Project Path="chunks/chunks.csproj" />
+  <Project Path="interactive/interactive.csproj" />
+  <Project Path="LLVMTestsConverter/LLVMTestsConverter.csproj">
+    <BuildType Project="Debug" />
+  </Project>
+  <Project Path="swapw/swapw.csproj" />
+  <Project Path="typeinference/typeinference.csproj" />
+  <Project Path="x86opcodes/x86opcodes.csproj" />
+</Solution>
