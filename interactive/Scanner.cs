@@ -6,10 +6,6 @@ using System.Threading.Tasks;
 
 namespace Reko.Extras.Interactive;
 
-public class DecopilerHost : IDecompilerHost
+internal class Scanner
 {
-    public void Pause()
-    {
-        throw new NotImplementedException();
-    }
 }

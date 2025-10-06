@@ -1,17 +1,26 @@
 ﻿using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Types;
+using Reko.Extras.Interactive.ViewModels;
+using Reko.Extras.Interactive.Views;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Reko.Extras.Interactive;
 
 public class RewriterHost : IRewriterHost
 {
+    private readonly DiagnosticsViewModel diagnostics;
+
+    public RewriterHost(DiagnosticsViewModel diagnostics)
+    {
+        this.diagnostics = diagnostics;
+    }
+
     public Constant? GlobalRegisterValue => throw new System.NotImplementedException();
 
     public void Error(Address address, string format, params object[] args)
     {
-        throw new System.NotImplementedException();
+        diagnostics.Error($"{address}: {string.Format(format, args)}");
     }
 
     public IProcessorArchitecture GetArchitecture(string archMoniker)

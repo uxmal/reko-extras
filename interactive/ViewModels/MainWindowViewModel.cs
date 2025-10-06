@@ -9,7 +9,9 @@ namespace Reko.Extras.Interactive.ViewModels;
 public class MainWindowViewModel
 {
     public CodeViewModel? CodeView { get; set; }
-
+    internal DiagnosticsViewModel? Diagnostics { get; set; }
+    public ProgressIndicator? Progress { get; set; }
+    
     public void StepAcross()
     {
         CodeView?.StepAcross();

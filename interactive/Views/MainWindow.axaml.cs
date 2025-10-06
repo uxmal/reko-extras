@@ -33,6 +33,5 @@ public partial class MainWindow : Window
 
             }
         }
-        Debugger.Break();
     }
 }

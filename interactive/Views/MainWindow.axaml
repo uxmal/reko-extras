@@ -6,18 +6,33 @@
 		xmlns:vm="using:Reko.Extras.Interactive.ViewModels"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Reko.Extras.Interactive.Views.MainWindow"
+		x:DataType="vm:MainWindowViewModel"
         Title="interactive">
-	<StackPanel>
-		<Menu Background="#CCCCCC">
+	<DockPanel>
+		
+		<Menu Background="#CCCCCC" DockPanel.Dock="Top" >
 			<MenuItem Header="_File">
 				<MenuItem Header="E_xit" Click="menu_FileExit" />
 			</MenuItem>
 		</Menu>
-		<v:CodeView>
-			
+
+		<StackPanel
+			DockPanel.Dock="Bottom"
+			Orientation="Horizontal"
+			DataContext="{Binding Progress}"
+			Background="#DDDDDD">
+			<Label Content="{Binding StatusText}" />
+			<ProgressBar
+				Minimum="0" Maximum="100"
+				Value="{Binding Value}"
+				Height="30"
+				Width="200"
+				Margin="5,0,0,0" />
+		</StackPanel>
+
+		<v:CodeView
+			x:DataType="vm:CodeViewModel"
+			DataContext="{Binding CodeView}">
 		</v:CodeView>
-		<Label>
-			Hello
-		</Label>
-	</StackPanel>
+	</DockPanel>
 </Window>
