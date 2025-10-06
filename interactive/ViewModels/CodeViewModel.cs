@@ -1,4 +1,5 @@
 ﻿using Reko.Core;
+using Reko.Core.Services;
 using Reko.Loading;
 using System;
 using System.Collections.ObjectModel;
@@ -70,7 +71,8 @@ public class CodeViewModel : ObservableObject
             var loadedFile = loader.Load(ImageLocation.FromUri(this.FileName));
             if (loadedFile is Program program)
             {
-                this.decompiler = new Decompiler(services, this.host, this.rwhost, program);
+                var listener = services.RequireService<IEventListener>();
+                this.decompiler = new Decompiler(services, listener,this.host, this.rwhost, program);
                 this.host.Run();
                 this.RunText = "Pause";
                 decompilerTask = Task.Run(() =>

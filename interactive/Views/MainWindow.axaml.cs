@@ -15,7 +15,7 @@ public partial class MainWindow : Window
         AddHandler(Control.KeyDownEvent, KeyDownHandler, RoutingStrategies.Bubble);
     }
 
-    public MainWindowViewModel? ViewModel => (MainWindowViewModel)DataContext;
+    public MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
 
     private void menu_FileExit(object sender, RoutedEventArgs e)
     {
