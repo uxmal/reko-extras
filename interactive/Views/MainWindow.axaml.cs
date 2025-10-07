@@ -3,7 +3,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Reko.Extras.Interactive.ViewModels;
 using System;
-using System.Diagnostics;
 
 namespace Reko.Extras.Interactive.Views;
 

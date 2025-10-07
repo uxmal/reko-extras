@@ -31,10 +31,11 @@ public class Decompiler
 
     public ScanResults ScanImage()
     {
-
         var scanner = new Scanner(program, listener, host, rwhost);
         var scanResults = scanner.ScanImage();
+
+        var procBuilder = new ProcedureBuilder(scanResults, program, listener);
+        procBuilder.BuildProcedures();
         return scanResults;
     }
-
 }

@@ -6,7 +6,9 @@
 			 xmlns:vm="using:Reko.Extras.Interactive.ViewModels"
              x:Class="Reko.Extras.Interactive.Views.DiagnosticsView"
 			 x:DataType="vm:DiagnosticsViewModel">
+	<!--
   <DataGrid AutoGenerateColumns="True"
             ItemsSource="{Binding Messages}"
             IsReadOnly="True" />
+	-->
 </UserControl>

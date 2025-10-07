@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+			 xmlns:vm="using:Reko.Extras.Interactive.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+			 x:DataType="vm:HybridCodeViewModel"
+             x:Class="Reko.Extras.Interactive.Views.HybridCodeView">
+	<Border BorderThickness="3" BorderBrush="Blue">
+		
+	<ScrollViewer>
+		<ItemsControl ItemsSource="{Binding Items}">
+			<ItemsControl.ItemsPanel>
+				<ItemsPanelTemplate>
+					<VirtualizingStackPanel Orientation="Vertical"/>
+				</ItemsPanelTemplate>
+			</ItemsControl.ItemsPanel>
+			<ItemsControl.ItemTemplate>
+				<DataTemplate>
+					<ItemsControl x:DataType="vm:HybridItem" ItemsSource="{Binding Elements}">
+						<ItemsControl.ItemsPanel>
+							<ItemsPanelTemplate>
+								<StackPanel Orientation="Horizontal"/>
+							</ItemsPanelTemplate>
+						</ItemsControl.ItemsPanel>
+						<ItemsControl.ItemTemplate>
+							<DataTemplate x:DataType="vm:HybridElement">
+								<TextBlock Text="{Binding Text}" /> <!-- Classes="{Binding Classes}" -->
+							</DataTemplate>
+						</ItemsControl.ItemTemplate>
+					</ItemsControl>
+				</DataTemplate>
+			</ItemsControl.ItemTemplate>
+		</ItemsControl>
+	</ScrollViewer>
+	</Border>
+</UserControl>

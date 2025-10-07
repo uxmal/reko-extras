@@ -3,12 +3,17 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 			 xmlns:vm="using:Reko.Extras.Interactive.ViewModels"
+			 xmlns:v="using:Reko.Extras.Interactive.Views"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="Reko.Extras.Interactive.Views.CodeView"
 			 x:DataType="vm:CodeViewModel">
-	<StackPanel Orientation="Horizontal">
+	<DockPanel>
+		<StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
 		<Button Click="openFile_Click">Open...</Button>
 		<Button Command="{Binding DoStep}">Step</Button>
 		<Button Command="{Binding DoRun}" IsEnabled="{Binding IsRunEnabled}" Content="{Binding RunText}">Run</Button>
-	</StackPanel>
+		<ComboBox ItemsSource="{Binding Segments}" SelectedIndex="{Binding SelectedSegmentIndex}"/>
+		</StackPanel>
+		<v:HybridCodeView DataContext="{Binding CodeItems}" />
+	</DockPanel>
 </UserControl>

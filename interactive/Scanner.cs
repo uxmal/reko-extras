@@ -1,22 +1,28 @@
 ﻿using Reko.Core;
+using Reko.Core.Diagnostics;
 using Reko.Core.Rtl;
 using Reko.Core.Services;
 using Reko.Scanning;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Reko.Extras.Interactive;
 
 internal class Scanner
 {
+    private static TraceSwitch trace = new(nameof(Scanner), "")
+    {
+        Level = TraceLevel.Verbose
+    };
+
     private readonly Program program;
     private readonly IEventListener listener;
     private readonly IDecompilerHost host;
     private readonly IRewriterHost rwhost;
     private ScanResults sr;
     private readonly StorageBinder binder;
-    private readonly Dictionary<Address, RtlBlock> blockStarts;
     private readonly Dictionary<Address, Address> blockEnds;
 
     public Scanner(
@@ -32,7 +38,6 @@ internal class Scanner
         this.sr = new ScanResults();
 
         this.binder = new StorageBinder();
-        this.blockStarts = [];
         this.blockEnds = [];
         this.sr = new();
     }
@@ -44,19 +49,30 @@ internal class Scanner
         listener.Progress.ShowProgress("Scanning...", 0, wis.Count);
         while (wis.TryDequeue(out var wi))
         {
+            trace.Verbose($"Scanning {wi.Address}");
+            if (wi.Address.Offset == 0x0C4C)
+                _ = this; //$DEBUG
             var nodes = sr.CFG.Nodes.Count;
             listener.Progress.ShowProgress(blockEnds.Count, blockEnds.Count + wis.Count);
-            var block = blockStarts[wi.Address];
+            var block = sr.Blocks[wi.Address];
             block = this.Process(wi, block);
             if (block is not null)
             {
-                blockEnds.TryAdd(block.Instructions[^1].Address, block.Address);
-                AddEdges(wi, block, wis);
+                Address addrLast = block.Instructions[^1].Address;
+                if (blockEnds.TryAdd(addrLast, block.Address))
+                    AddEdges(wi, block, wis);
+                else
+                    SplitBlock(block, addrLast);
             }
         }
         listener.Progress.Finish();
         host.OnCompleted();
         return sr;
+    }
+
+    private void SplitBlock(RtlBlock block, Address addrLast)
+    {
+        trace.Warn($"Need to split blocks ending at {addrLast}");
     }
 
     private IEnumerable<Workitem> CollectWorkitems()
@@ -77,7 +93,7 @@ internal class Scanner
         foreach (var item in items)
         {
             sr.CFG.AddNode(item.Address);
-            blockStarts[item.Address] = EmptyBlock(item.State.Architecture, item.Address);
+            sr.Blocks[item.Address] = EmptyBlock(item.State.Architecture, item.Address);
             wis.Enqueue(item);
         }
         return wis;
@@ -104,35 +120,55 @@ internal class Scanner
             }
             break;
         case RtlGoto g:
-            if (g.Target is Address addrTarget2)
+            if (g.Target is Address addrGoto)
             {
-                EnqueueEdge(block.Address, addrTarget2, wi.State, wis);
+                EnqueueEdge(block.Address, addrGoto, wi.State, wis);
             }
             else
             {
-                // throw new NotImplementedException("Computed goto");
+                trace.Warn($"//$TODO: Computed goto at {block.Address}");
             }
             break;
         case RtlCall call:
             //$non-returning calls.
             EnqueueEdge(block.Address, block.FallThrough, wi.State.Clone(), wis);
+            if (call.Target is Address addrCall)
+            {
+                sr.CalledAddresses.Add(addrCall);
+                EnqueueCallee(block.Address, addrCall, wi.State, wis);
+            }
             break;
         case RtlAssignment _:
         case RtlReturn _:
         case RtlInvalid _:
         case RtlSideEffect _:
+        case RtlNop _:
             break;
         default:
             throw new NotImplementedException($"Unimplemented {lastRtl}");
         }
     }
 
+    private void EnqueueCallee(Address addrFrom, Address addrTo, ProcessorState state, Queue<Workitem> wis)
+    {
+        if (!sr.Blocks.TryGetValue(addrTo, out var block))
+        {
+            if (sr.Blocks.TryAdd(addrTo, EmptyBlock(state.Architecture, addrTo)))
+            {
+                trace.Verbose($"  Calling {addrTo}");
+                wis.Enqueue(new Workitem(addrTo, state));
+                sr.CFG.Nodes.Add(addrTo);
+            }
+        }
+    }
+
     private void EnqueueEdge(Address addrFrom, Address addrTo, ProcessorState state, Queue<Workitem> wis)
     {
-        if (!blockStarts.TryGetValue(addrTo, out var block))
+        if (!sr.Blocks.TryGetValue(addrTo, out var block))
         {
-            if (blockStarts.TryAdd(addrTo, EmptyBlock(state.Architecture, addrTo)))
+            if (sr.Blocks.TryAdd(addrTo, EmptyBlock(state.Architecture, addrTo)))
             {
+                trace.Verbose($"  Enqueueing {addrFrom} -> {addrTo}");
                 wis.Enqueue(new Workitem(addrTo, state));
                 sr.CFG.Nodes.Add(addrTo);
             }
@@ -152,8 +188,12 @@ internal class Scanner
         while (e.MoveNext())
         {
             var cluster = e.Current;
+            if (cluster.Address.Offset == 0x8BBB)
+                _ = this; //$DEBUG
             host.OnBeforeInstruction(sr.CFG, block, cluster.Address);
             var iclass = cluster.Class;
+            if (iclass.HasFlag(InstrClass.Call))
+                _ = this;//$DEBUG
             if (HasDelaySlot(iclass))
             {
                 var nextCluster = StealNextInstruction(cluster, e, clusters);

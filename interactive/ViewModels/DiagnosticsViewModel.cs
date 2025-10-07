@@ -1,14 +1,18 @@
 ﻿using Reko.Core;
+using Reko.Core.Diagnostics;
 using Reko.Core.Output;
 using Reko.Core.Scripts;
 using Reko.Services;
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 
 namespace Reko.Extras.Interactive.ViewModels;
 
 public class DiagnosticsViewModel : IDecompilerEventListener
 {
+    private static TraceSwitch trace = new TraceSwitch(nameof(DiagnosticsViewModel), "") { Level = TraceLevel.Verbose };
+
     private bool isCanceled;
 
     public DiagnosticsViewModel(ProgressIndicator progress)
@@ -108,12 +112,13 @@ public class DiagnosticsViewModel : IDecompilerEventListener
 
     public void Info(string message)
     {
+        trace.Inform(message);
         Messages.Add(new("I", message, ""));
     }
 
     public void Info(string message, params object[] args)
     {
-        throw new NotImplementedException();
+        Messages.Add(new("I", string.Format(message, args), ""));
     }
 
     public void Info(ICodeLocation location, string message)
