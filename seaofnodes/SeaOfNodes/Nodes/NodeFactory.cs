@@ -17,16 +17,13 @@ public class NodeFactory
 
     private int NextId() => ++number;
 
-    public OperationNode IAdd(Node left, Node right)
+    public OperationNode IAdd(DataType dt, Node cfNode, Node left, Node right)
     {
-        if (left is not ExpressionNode l || right is not ExpressionNode r)
-            throw new ArgumentException("Expected expression nodes");
-        Debug.Assert(l.DataType.BitSize == r.DataType.BitSize);
         return new OperationNode(
             NextId(),
-            l.DataType,
+            dt,
             Operator.IAdd,
-            left, right);
+            cfNode, left, right);
     }
 
     public ConstantNode Word32(uint value) => new ConstantNode(

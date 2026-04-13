@@ -85,7 +85,24 @@ public class NodeRepresentationBuilder
 
     public Node VisitAssignment(Assignment ass)
     {
-        throw new NotImplementedException();
+        Debug.Assert(currentBlock is not null);
+        if (ass.Dst is not Identifier idDst)
+            throw new NotImplementedException();
+
+        var value = ass.Src.Accept(this);
+        WriteIdentifier(currentBlock, idDst, value);
+        return value;
+    }
+
+    private void WriteIdentifier(Block currentBlock, Identifier idDst, Node value)
+    {
+        var state = blocks[currentBlock];
+        if (!state.StorageDefs.TryGetValue(idDst.Storage, out var defs))
+        {
+            defs = [];
+            state.StorageDefs[idDst.Storage] = defs;
+        }
+        defs.Add((default, value));
     }
 
     public Node VisitBranch(Branch branch)
@@ -165,7 +182,13 @@ public class NodeRepresentationBuilder
 
     public Node VisitBinaryExpression(BinaryExpression binExp)
     {
-        throw new NotImplementedException();
+        if (binExp.Operator.Type != Reko.Core.Operators.OperatorType.IAdd)
+            throw new NotImplementedException();
+
+        Debug.Assert(cfNode is not null);
+        var left = binExp.Left.Accept(this);
+        var right = binExp.Right.Accept(this);
+        return factory.IAdd(binExp.DataType, cfNode, left, right);
     }
 
     public Node VisitCast(Cast cast)

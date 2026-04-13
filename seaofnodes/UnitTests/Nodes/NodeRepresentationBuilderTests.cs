@@ -82,4 +82,49 @@ l1:
             m.Return(r1);
         });
     }
+
+        [Test]
+    public void Npb_Add()
+    {
+        var sExpected = 
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r1:word32
+    def r2:word32
+l1:
+    n8 = r1 + r2
+    return n8";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            m.Return(m.IAdd(r1, r2));
+        });
+    }
+
+    [Test]
+    public void Npb_Add_Variable()
+    {
+        var sExpected = 
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r1:word32
+    def r2:word32
+l1:
+    n8 = r1 + r2
+    return n8";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            m.Assign(r1, m.IAdd(r1, r2));
+            m.Return(r1);
+        });
+    }
 }
