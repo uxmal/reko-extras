@@ -45,6 +45,10 @@ public class NodeFactory
         NextId(),
         value);
 
+    public AddressNode CreateAddress(Address addr) => new AddressNode(
+        NextId(),
+        addr);
+
     public StartNode CreateStartNode(Procedure proc)
     {
         var node = new StartNode(NextId());

@@ -242,7 +242,7 @@ public class NodeRepresentationBuilder
 
     public Node VisitAddress(Address addr)
     {
-        throw new NotImplementedException();
+        return factory.CreateAddress(addr);
     }
 
     public Node VisitApplication(Application appl)

@@ -322,6 +322,26 @@ l2:
     }
 
     [Test]
+    public void Npb_Address()
+    {
+        var sExpected =
+        #region Expected
+@"
+ProcedureBuilder_entry:
+l1:
+    return 0800:0042
+    // succ: ProcedureBuilder_exit
+ProcedureBuilder_exit:
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            m.Return(Address.SegPtr(0x800, 0x42));
+        });
+    }
+
+    [Test]
     public void Npb_call()
     {
         string sExpected =
