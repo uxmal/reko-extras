@@ -83,7 +83,7 @@ l1:
         });
     }
 
-        [Test]
+    [Test]
     public void Npb_Add()
     {
         var sExpected = 
@@ -93,8 +93,8 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    n8 = r1 + r2
-    return n8";
+    n9 = r1 + r2
+    return n9";
         #endregion
 
         RunTest(sExpected, m =>
@@ -115,8 +115,8 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    n8 = r1 + r2
-    return n8";
+    n9 = r1 + r2
+    return n9";
         #endregion
 
         RunTest(sExpected, m =>
@@ -127,4 +127,28 @@ l1:
             m.Return(r1);
         });
     }
+
+    [Test]
+    public void Npb_Store()
+    {
+        var sExpected = 
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r1:word32
+    def r2:word32
+l1:
+    Mem9[r1:word32] = r2
+    return";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            m.MStore(r1, r2);
+            m.Return();
+        });
+    }
+
 }

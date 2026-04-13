@@ -69,4 +69,14 @@ public class NodeFactory
         var node = new DefNode(NextId(), name, dt, cfNode);
         return node;
     }
+
+    public MemoryNode CreateMemoryNode(Node cfNode)
+    {
+        return new MemoryNode(NextId(), cfNode);
+    }
+
+    public StoreNode CreateStore(Node cfNode, MemoryNode memNode, DataType dt, Node ea, Node value)
+    {
+        return new StoreNode(NextId(), cfNode, memNode, dt, ea, value);
+    }
 }

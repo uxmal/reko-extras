@@ -18,6 +18,7 @@ public class NodeRepresentationBuilder
     private Node? cfNode;
     private Block? currentBlock;
     private Block? entryBlock;
+        private MemoryNode? memNode;
 
     public NodeRepresentationBuilder()
     {
@@ -38,6 +39,7 @@ public class NodeRepresentationBuilder
         entryBlock = proc.EntryBlock;
         CreateEmptyBlocks(proc);
         LinkBlocks(proc);
+            this.memNode = factory.CreateMemoryNode(start);
         Node.AddEdge(start, blocks[proc.EntryBlock].Node);
         Node.AddEdge(blocks[proc.ExitBlock].Node, end);
 
@@ -152,7 +154,15 @@ public class NodeRepresentationBuilder
 
     public Node VisitStore(Store store)
     {
-        throw new NotImplementedException();
+           Debug.Assert(cfNode is not null);
+           Debug.Assert(memNode is not null);
+           if (store.Dst is not MemoryAccess access)
+              throw new NotImplementedException();
+           var ea = access.EffectiveAddress.Accept(this);
+           var value = store.Src.Accept(this);
+           var storeNode = factory.CreateStore(cfNode, memNode, access.DataType, ea, value);
+           memNode = storeNode;
+           return storeNode;
     }
 
     public Node VisitSwitchInstruction(SwitchInstruction si)

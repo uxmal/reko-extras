@@ -3,7 +3,7 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class StoreNode : Node
+public sealed class StoreNode : MemoryNode
 {
     public StoreNode(
         int number,
@@ -11,7 +11,7 @@ public sealed class StoreNode : Node
         Node memNode,
         DataType dt,
          Node ea,
-         Node value) : base(number, ctrlNode, memNode, ea, value)
+         Node value) : base(number,  ctrlNode, memNode, ea, value)
     {
         this.DataType = dt;
     }
@@ -26,6 +26,9 @@ public sealed class StoreNode : Node
         var ea = Inputs[2];
         Debug.Assert(ea is not null);
         ea.RenderReference(sw);
-        sw.Write($":{DataType}]");
+           sw.Write($":{DataType}] = ");
+           var value = Inputs[3];
+           Debug.Assert(value is not null);
+           value.RenderReference(sw);
     }
 }
