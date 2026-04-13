@@ -6,19 +6,23 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public sealed class SliceNode : ExpressionNode
 {
-    public SliceNode(int number, DataType dt, Node input, Node offset)
-        : base(number, dt, input, offset)
+    public SliceNode(int number, DataType dt, Node? cfNode, Node input, int offset)
+        : base(number, dt, cfNode, input)
     {
+        this.Offset = offset;
     }
+
+    public int Offset { get; }
 
     public override void Render(TextWriter sw)
     {
         this.RenderReference(sw);
-        sw.Write(" = Slice(");
+        sw.Write(" = SLICE(");
         this.Inputs[1]!.RenderReference(sw);
         sw.Write(", ");
         sw.Write(this.DataType);
-        this.Inputs[2]!.RenderReference(sw);
+        sw.Write(", ");
+        sw.Write(this.Offset);
         sw.Write(')');
     }
 }

@@ -1,12 +1,10 @@
 using System.Diagnostics;
-using System.Linq;
 using Reko.Analysis;
 using Reko.Core;
 using Reko.Core.Code;
 using Reko.Core.Expressions;
 using Reko.Core.Lib;
 using Reko.Core.Types;
-using Reko.ImageLoaders.OdbgScript;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
@@ -18,6 +16,7 @@ public class NodeRepresentationBuilder
     private readonly ProgramDataFlow programFlow;
     private readonly Dictionary<Block, BlockState> blocks;
     private readonly HashSet<Procedure> sccProcs;
+    private readonly bool captureExceptions;
     private bool procedureHadTranslationError;
     private Node? cfNode;
     private Block? currentBlock;
@@ -31,6 +30,7 @@ public class NodeRepresentationBuilder
         this.factory = new NodeFactory();
         this.blocks = [];
         this.sccProcs = [];
+        this.captureExceptions = false;
     }
 
     private record struct BlockState(
@@ -86,6 +86,8 @@ public class NodeRepresentationBuilder
             }
             catch
             {
+                if (!captureExceptions)
+                    throw;
                 Console.Out.WriteLine($"Error: {stmt.Instruction} in block {block}");
                 procedureHadTranslationError = true;
             }
@@ -274,7 +276,8 @@ public class NodeRepresentationBuilder
 
     public Node VisitConditionOf(ConditionOf cof)
     {
-        throw new NotImplementedException();
+        var input = cof.Expression.Accept(this);
+        return factory.Cond(cof.DataType, cfNode, input);
     }
 
     public Node VisitConstant(Constant c)
@@ -284,7 +287,8 @@ public class NodeRepresentationBuilder
 
     public Node VisitConversion(Conversion conversion)
     {
-        throw new NotImplementedException();
+        var input = conversion.Expression.Accept(this);
+        return factory.CreateConversion(cfNode, conversion.DataType, conversion.SourceDataType, input);
     }
 
     public Node VisitDereference(Dereference deref)
@@ -433,7 +437,8 @@ public class NodeRepresentationBuilder
 
     public Node VisitSlice(Slice slice)
     {
-        throw new NotImplementedException();
+        var input = slice.Expression.Accept(this);
+        return factory.CreateSlice(cfNode, slice.DataType, input, slice.Offset);
     }
 
     public Node VisitStringConstant(StringConstant str)

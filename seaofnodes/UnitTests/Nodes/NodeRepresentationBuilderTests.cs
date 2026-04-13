@@ -1,5 +1,6 @@
 using Reko.Analysis;
 using Reko.Core;
+using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
 
 namespace Reko.Extras.SeaOfNodes.UnitTests.Nodes;
@@ -322,6 +323,51 @@ l2:
     }
 
     [Test]
+    public void Npb_Convert()
+    {
+        var sExpected =
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r2:word32
+l1:
+    n9 = SLICE(r2, byte, 0)
+    n10 = CONVERT(n9, byte, uint64)
+    Mem11[0x123400<32>:uint64] = n10
+    return";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r2 = m.Reg32("r2", 2);
+            m.MStore(m.Word32(0x123400), m.Convert(m.Slice(r2, PrimitiveType.Byte), PrimitiveType.Byte, PrimitiveType.UInt64));
+            m.Return();
+        });
+    }
+
+    [Test]
+    public void Npb_Slice()
+    {
+        var sExpected =
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r1:word32
+l1:
+    n9 = SLICE(r1, byte, 0)
+    Mem10[0x123400<32>:byte] = n9
+    return";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            m.MStore(m.Word32(0x123400), m.Slice(r1, PrimitiveType.Byte));
+            m.Return();
+        });
+    }
+
+    [Test]
     public void Npb_Address()
     {
         var sExpected =
@@ -381,6 +427,35 @@ l1:
             m.Assign(r2, 4);
             m.Call(procSub, 4);
             m.MStore(m.Word32(0x012300), r1);
+            m.Return();
+        });
+    }
+
+    [Test]
+    public void Npb_cond_test()
+    {
+        string sExpected =
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r1:word32
+    def r2:word32
+l1:
+    n9 = r1 - r2
+    n10 = cond(n9)
+    Mem12[0x123400<32>:word32] = n10
+    return";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            var status = RegisterStorage.Reg32("status", 0x10);
+            var _grf = new FlagGroupStorage(status, 3, "CZ");
+            var CZ = m.Frame.EnsureFlagGroup(_grf);
+            m.Assign(CZ, m.Cond(status.DataType, m.ISub(r1, r2)));
+            m.MStore(m.Word32(0x123400), CZ);
             m.Return();
         });
     }

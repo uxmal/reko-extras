@@ -49,6 +49,12 @@ public class NodeFactory
         NextId(),
         addr);
 
+    public SliceNode CreateSlice(Node? cfNode, DataType dt, Node input, int offset)
+        => new SliceNode(NextId(), dt, cfNode, input, offset);
+
+    public ConversionNode CreateConversion(Node? cfNode, DataType dstType, DataType srcType, Node input)
+        => new ConversionNode(NextId(), dstType, srcType, cfNode, input);
+
     public StartNode CreateStartNode(Procedure proc)
     {
         var node = new StartNode(NextId());
@@ -127,4 +133,10 @@ public class NodeFactory
     {
         return new CallNode(NextId(), cfNode, callee);
     }
+
+    public CondNode Cond(DataType dt, Node? cfNode, Node input)
+    {
+        return new CondNode(NextId(), dt, cfNode, input);
+    }
+
 }

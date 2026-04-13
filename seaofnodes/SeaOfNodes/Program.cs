@@ -9,7 +9,7 @@ using Reko.Loading;
 using Reko.Services;
 using System.ComponentModel.Design;
 
-// args = new[] { @"\dev\uxmal\reko\master\subjects\regressions\angr-148\test" };
+args = new[] { @"\dev\uxmal\reko\master\subjects\regressions\angr-148\test" };
 if (args.Length != 1)
 {
 	Console.Error.WriteLine("Usage: SeaOfNodes <path-to-executable>");
