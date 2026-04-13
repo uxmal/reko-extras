@@ -66,7 +66,8 @@ public class NodeGraphRenderer
         var blockNodes = reachable
             .Where(node => node is not StartNode && node is not EndNode && node is not BlockNode)
             .Where(node => node.Inputs.FirstOrDefault() == block)
-            .OrderBy(node => node.Number)
+            .OrderBy(node => node is PhiNode ? 0 : 1)
+            .ThenBy(node => node.Number)
             .ToArray();
 
         for (int i = 0; i < blockNodes.Length; ++i)

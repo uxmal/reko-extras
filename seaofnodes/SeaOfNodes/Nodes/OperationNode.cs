@@ -11,7 +11,7 @@ public sealed class OperationNode : ExpressionNode
         { OperatorType.IAdd, " + " },
         { OperatorType.ISub, " - " },
         { OperatorType.USub, " -u " },
-        { OperatorType.IMul, " *" },
+        { OperatorType.IMul, " * " },
         { OperatorType.SMul, " *s " },
         { OperatorType.UMul, " *u " },
         { OperatorType.SDiv, " /s " },
@@ -73,7 +73,9 @@ public sealed class OperationNode : ExpressionNode
         {
             // Unary prefix operator: cfNode at [0], operand at [1]
             sw.Write(opName);
-            Inputs[1]!.RenderReference(sw);
+            var input = Inputs[1];
+            Debug.Assert(input is not null);
+            input.RenderReference(sw);
         }
         else
         {

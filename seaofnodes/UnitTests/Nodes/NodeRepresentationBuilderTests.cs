@@ -272,4 +272,37 @@ ProcedureBuilder_exit:
             m.Return(r1);
         });
     }
+
+    [Test]
+    public void Nbp_Phi_loop()
+    {
+        string sExpected = 
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r1:word32
+    def r2:word32
+l1:
+    n11 = r1 + 1<32>
+    n14 = n11 * 8<32>
+    n15 = 0x123400<32> + n14
+    Mem18[n15:word32] = r2
+    n19 = n11 < r2
+    if (n19) goto l1
+l2:
+    return n11";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            m.Label("l1");
+            m.Assign(r1, m.IAdd(r1, 1));
+            m.MStore(m.IAdd(m.Word32(0x123400), m.IMul(r1, 8)), r2);
+            m.BranchIf(m.Lt(r1, r2), "l1");
+            m.Label("l2");
+            m.Return(r1);
+        });
+    }
 }

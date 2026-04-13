@@ -282,16 +282,35 @@ public class NodeRepresentationBuilder
             Node.AddEdge(arg, phi);
         }
 
-        // Trivial phi: all data args (Inputs[1..]) are the same node
-        var dataArgs = phi.Inputs.Skip(1).ToList();
-        if (dataArgs.Count > 0 && dataArgs.All(a => ReferenceEquals(a, dataArgs[0])))
+        var sameNode = GetTrivialPhiReplacement(phi);
+        if (sameNode is not null)
         {
-            var sameNode = dataArgs[0]!;
             state.StorageDefs[storage] = [(default, sameNode)];
             Node.Replace(phi, sameNode);
             return sameNode;
         }
         return phi;
+    }
+
+    private static Node? GetTrivialPhiReplacement(PhiNode phi)
+    {
+        Node? candidate = null;
+        foreach (var input in phi.Inputs.Skip(1))
+        {
+            if (input is null || ReferenceEquals(input, phi))
+                continue;
+
+            if (candidate is null)
+            {
+                candidate = input;
+                continue;
+            }
+
+            if (!ReferenceEquals(candidate, input))
+                return null;
+        }
+
+        return candidate;
     }
 
     public Node VisitMemberPointerSelector(MemberPointerSelector mps)
