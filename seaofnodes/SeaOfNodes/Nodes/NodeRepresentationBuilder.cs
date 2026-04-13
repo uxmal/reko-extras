@@ -18,6 +18,7 @@ public class NodeRepresentationBuilder
     private readonly ProgramDataFlow programFlow;
     private readonly Dictionary<Block, BlockState> blocks;
     private readonly HashSet<Procedure> sccProcs;
+    private bool procedureHadTranslationError;
     private Node? cfNode;
     private Block? currentBlock;
     private Block? entryBlock;
@@ -40,6 +41,7 @@ public class NodeRepresentationBuilder
 
     public StartNode Select(Procedure proc)
     {
+        procedureHadTranslationError = false;
         StartNode start = factory.CreateStartNode(proc);
         EndNode end = factory.CreateEndNode(start);
         entryBlock = proc.EntryBlock;
@@ -57,6 +59,8 @@ public class NodeRepresentationBuilder
         }
         return start;
     }
+
+    public bool ProcedureHadTranslationError => procedureHadTranslationError;
 
     private void LinkBlocks(Procedure proc)
     {
@@ -76,7 +80,15 @@ public class NodeRepresentationBuilder
         this.cfNode = state.Node;
         foreach (var stmt in block.Statements)
         {
-            stmt.Instruction.Accept(this);
+            try
+            {
+                stmt.Instruction.Accept(this);
+            }
+            catch
+            {
+                Console.Out.WriteLine($"Error: {stmt.Instruction} in block {block}");
+                procedureHadTranslationError = true;
+            }
         }
         return state;
     }
