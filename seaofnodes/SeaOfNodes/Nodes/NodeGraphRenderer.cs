@@ -8,6 +8,7 @@ public class NodeGraphRenderer
     public void Render(StartNode node, TextWriter sw)
     {
         var reachable = CollectReachableNodes(node);
+        var defMode = reachable.OfType<DefNode>().Any();
         var blocks = reachable.OfType<BlockNode>().ToArray();
         var entryBlock = node.Outputs.OfType<BlockNode>().First();
         var endNode = reachable.OfType<EndNode>().First();
@@ -18,12 +19,24 @@ public class NodeGraphRenderer
             .ToList();
 
         orderedBlocks.Insert(0, entryBlock);
-        orderedBlocks.Add(exitBlock);
-
-        foreach (var block in orderedBlocks)
+        if (!defMode || HasRenderableNodes(exitBlock, reachable))
         {
-            RenderBlock(block, reachable, sw);
+            orderedBlocks.Add(exitBlock);
         }
+
+        for (int i = 0; i < orderedBlocks.Count; ++i)
+        {
+            var block = orderedBlocks[i];
+            var suppressFinalNodeNewline = defMode && i == orderedBlocks.Count - 1;
+            RenderBlock(block, reachable, sw, !defMode, suppressFinalNodeNewline);
+        }
+    }
+
+    private static bool HasRenderableNodes(BlockNode block, HashSet<Node> reachable)
+    {
+        return reachable
+            .Where(node => node is not StartNode && node is not EndNode && node is not BlockNode)
+            .Any(node => node.Inputs.FirstOrDefault() == block);
     }
 
     private static HashSet<Node> CollectReachableNodes(StartNode start)
@@ -45,7 +58,7 @@ public class NodeGraphRenderer
         return reachable;
     }
 
-    private static void RenderBlock(BlockNode block, HashSet<Node> reachable, TextWriter sw)
+    private static void RenderBlock(BlockNode block, HashSet<Node> reachable, TextWriter sw, bool renderSuccessors, bool suppressFinalNodeNewline)
     {
         sw.WriteLine($"{block.Block}:");
 
@@ -55,14 +68,18 @@ public class NodeGraphRenderer
             .OrderBy(node => node.Number)
             .ToArray();
 
-        foreach (var node in blockNodes)
+        for (int i = 0; i < blockNodes.Length; ++i)
         {
+            var node = blockNodes[i];
             sw.Write("    ");
             node.Render(sw);
-            sw.WriteLine();
+            if (!(suppressFinalNodeNewline && i == blockNodes.Length - 1))
+            {
+                sw.WriteLine();
+            }
         }
 
-        if (blockNodes.Length > 0 && block.Block.Succ.Count > 0)
+        if (renderSuccessors && blockNodes.Length > 0 && block.Block.Succ.Count > 0)
         {
             var successors = string.Join(", ", block.Block.Succ.Select(succ => succ.ToString()));
             sw.WriteLine($"    // succ: {successors}");

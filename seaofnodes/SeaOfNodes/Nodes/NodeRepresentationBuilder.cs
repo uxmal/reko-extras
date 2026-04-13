@@ -4,6 +4,7 @@ using Reko.Core;
 using Reko.Core.Code;
 using Reko.Core.Expressions;
 using Reko.Core.Lib;
+using Reko.Core.Types;
 using Reko.ImageLoaders.OdbgScript;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
@@ -15,6 +16,8 @@ public class NodeRepresentationBuilder
     private readonly NodeFactory factory;
     private Dictionary<Block, BlockState> blocks;
     private Node? cfNode;
+    private Block? currentBlock;
+    private Block? entryBlock;
 
     public NodeRepresentationBuilder()
     {
@@ -32,6 +35,7 @@ public class NodeRepresentationBuilder
     {
         StartNode start = factory.CreateStartNode(proc);
         EndNode end = factory.CreateEndNode(start);
+        entryBlock = proc.EntryBlock;
         CreateEmptyBlocks(proc);
         LinkBlocks(proc);
         Node.AddEdge(start, blocks[proc.EntryBlock].Node);
@@ -60,6 +64,7 @@ public class NodeRepresentationBuilder
 
     private BlockState TranslateBlock(Block block, BlockState state)
     {
+        this.currentBlock = block;
         this.cfNode = state.Node;
         foreach (var stmt in block.Statements)
         {
@@ -200,7 +205,35 @@ public class NodeRepresentationBuilder
 
     public Node VisitIdentifier(Identifier id)
     {
-        throw new NotImplementedException();
+        Debug.Assert(currentBlock is not null);
+        return ResolveDefinition(currentBlock, id.Storage, id.Name, id.DataType);
+    }
+
+    private Node ResolveDefinition(Block block, Storage storage, string name, DataType dt)
+    {
+        var state = blocks[block];
+        if (state.StorageDefs.TryGetValue(storage, out var defs) && defs.Count > 0)
+        {
+            return defs[^1].Item2;
+        }
+
+        if (block == entryBlock)
+        {
+            var defNode = factory.CreateDefNode(state.Node, name, dt);
+            state.StorageDefs[storage] =
+            [
+                (default, defNode)
+            ];
+            return defNode;
+        }
+
+        if (block.Pred.Count == 0)
+            throw new InvalidOperationException("Unable to resolve storage definition due to missing predecessors.");
+
+        if (block.Pred.Count > 1)
+            throw new NotImplementedException("Phi insertion for multiple predecessors is not implemented yet.");
+
+        return ResolveDefinition(block.Pred[0], storage, name, dt);
     }
 
     public Node VisitMemberPointerSelector(MemberPointerSelector mps)

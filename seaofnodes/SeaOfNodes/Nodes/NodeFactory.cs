@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Operators;
+using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
@@ -63,6 +64,12 @@ public class NodeFactory
     public Node CreateReturnNode(Node cfNode, Node value)
     {
         var node = new ReturnNode(NextId(), cfNode, value);
+        return node;
+    }
+
+    public DefNode CreateDefNode(Node cfNode, string name, DataType dt)
+    {
+        var node = new DefNode(NextId(), name, dt, cfNode);
         return node;
     }
 }

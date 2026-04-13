@@ -63,4 +63,23 @@ ProcedureBuilder_exit:
             m.Return(m.Word32(42));
         });
     }
+
+    [Test]
+    public void Npb_DefReturn()
+    {
+        var sExpected = 
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r1:word32
+l1:
+    return r1";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            m.Return(r1);
+        });
+    }
 }
