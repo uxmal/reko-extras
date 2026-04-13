@@ -32,6 +32,10 @@ public class NodeFactory
         NextId(),
         Constant.Word32(value));
 
+    public ConstantNode Const(Constant value) => new ConstantNode(
+        NextId(),
+        value);
+
     public StartNode CreateStartNode(Procedure proc)
     {
         var node = new StartNode(NextId());
@@ -53,6 +57,12 @@ public class NodeFactory
     public Node CreateReturnNode(Node cfNode)
     {
         var node = new ReturnNode(NextId(), cfNode);
+        return node;
+    }
+
+    public Node CreateReturnNode(Node cfNode, Node value)
+    {
+        var node = new ReturnNode(NextId(), cfNode, value);
         return node;
     }
 }

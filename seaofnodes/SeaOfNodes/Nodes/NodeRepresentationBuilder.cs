@@ -115,10 +115,12 @@ public class NodeRepresentationBuilder
 
     public Node VisitReturnInstruction(ReturnInstruction ret)
     {
-        if (ret.Expression is not null)
-            throw new NotImplementedException();
-            Debug.Assert(cfNode is not null);
+        Debug.Assert(cfNode is not null);
+        if (ret.Expression is null)
             return factory.CreateReturnNode(cfNode);
+
+        var value = ret.Expression.Accept(this);
+        return factory.CreateReturnNode(cfNode, value);
     }
 
     public Node VisitSideEffect(SideEffect side)
@@ -178,7 +180,7 @@ public class NodeRepresentationBuilder
 
     public Node VisitConstant(Constant c)
     {
-        throw new NotImplementedException();
+        return factory.Const(c);
     }
 
     public Node VisitConversion(Conversion conversion)

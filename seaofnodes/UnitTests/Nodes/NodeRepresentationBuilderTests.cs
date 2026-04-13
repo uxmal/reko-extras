@@ -43,4 +43,24 @@ ProcedureBuilder_exit:
             m.Return();
         });
     }
+
+    [Test]
+    public void Npb_ReturnValue()
+    {
+        var sExpected = 
+        #region Expected
+@"
+ProcedureBuilder_entry:
+l1:
+    return 0x2A<32>
+    // succ: ProcedureBuilder_exit
+ProcedureBuilder_exit:
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            m.Return(m.Word32(42));
+        });
+    }
 }

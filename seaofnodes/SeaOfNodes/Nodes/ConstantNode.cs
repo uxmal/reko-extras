@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Reko.Core.Expressions;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
