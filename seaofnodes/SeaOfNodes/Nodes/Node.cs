@@ -15,14 +15,30 @@ public abstract class Node
         }
     }
 
+    protected Node(int number, Node? cfNode,params Node?[] inputs)
+    {
+        this.Number = number;
+        this.Inputs = [];
+        this.Outputs = [];
+        
+        AddEdge(cfNode, this);
+        foreach (var input in inputs)
+        {
+            if (input is not null)
+                AddEdge(input, this);
+        }
+    }
+
     public int Number { get; internal set; }
     public List<Node?> Inputs { get; set; }
     public List<Node> Outputs { get; set; }
 
-    public static void AddEdge(Node from, Node to)
+    public static void AddEdge(Node? def, Node use)
     {
-        from.Outputs.Add(to);
-        to.Inputs.Add(from);
+        if (def is null)
+            return;
+        def.Outputs.Add(use);
+        use.Inputs.Add(def);
     }
 
     /// <summary>

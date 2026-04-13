@@ -50,7 +50,6 @@ public class NodeGraphRenderer
             var node = workList.Pop();
             if (!reachable.Add(node))
                 continue;
-
             foreach (var output in node.Outputs)
             {
                 workList.Push(output);
@@ -73,6 +72,8 @@ public class NodeGraphRenderer
         for (int i = 0; i < blockNodes.Length; ++i)
         {
             var node = blockNodes[i];
+            if (IsSuppressed(node))
+                continue;
             sw.Write("    ");
             node.Render(sw);
             if (!(suppressFinalNodeNewline && i == blockNodes.Length - 1))
@@ -91,6 +92,22 @@ public class NodeGraphRenderer
             var successors = string.Join(", ", block.Block.Succ.Select(succ => succ.ToString()));
             sw.WriteLine($"    // succ: {successors}");
         }
+    }
+
+    private static bool IsSuppressed(Node node)
+    {
+        // Don't render def subnodes of call nodes; CallNode
+        // already renders them as part of its output.
+        if (node is DefNode defNode &&
+            defNode.Inputs.Count >= 2 &&
+            defNode.Inputs[1] is CallNode)
+            return true;
+        if (node is UseNode useNode &&
+            useNode.Outputs.Count == 1 &&
+            useNode.Outputs[0] is CallNode)
+            return true;
+
+        return false;
     }
 
     private static bool ShouldRenderGoto(BlockNode block, BlockNode? nextBlock, Node[] blockNodes)

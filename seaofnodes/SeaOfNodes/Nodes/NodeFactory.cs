@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Reko.Core;
 using Reko.Core.Expressions;
+using Reko.Core.Lib;
 using Reko.Core.Operators;
 using Reko.Core.Types;
 
@@ -74,9 +75,17 @@ public class NodeFactory
         return node;
     }
 
-    public DefNode CreateDefNode(Node cfNode, string name, DataType dt)
+
+    public DefNode CreateDefNode(Node cfNode, Storage storage, string? name, DataType dt)
     {
-        var node = new DefNode(NextId(), name, dt, cfNode);
+        var node = new DefNode(NextId(), storage, dt, name, cfNode);
+        return node;
+    }
+
+
+    public DefNode CreateDefNode(Node cfNode, Storage storage, DataType dt)
+    {
+        var node = new DefNode(NextId(), storage, dt, null, cfNode);
         return node;
     }
 
@@ -95,8 +104,23 @@ public class NodeFactory
         return new PhiNode(NextId(), cfNode);
     }
 
-    internal IfNode If(Node? cfNode, Node predicate)
+    public IfNode If(Node? cfNode, Node predicate)
     {
         return new IfNode(NextId(), cfNode, predicate);
+    }
+
+    public Node CreateUse(Node? cfNode, Storage stg, BitRange bitRange)
+    {
+        return new UseNode(NextId(), stg, bitRange, cfNode);
+    }
+
+    public ProcedureConstantNode ProcedureConstant(ProcedureBase procedure)
+    {
+        return new ProcedureConstantNode(NextId(), procedure);
+    }
+
+    public CallNode Call(Node? cfNode, Node callee)
+    {
+        return new CallNode(NextId(), cfNode, callee);
     }
 }

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Linq;
+using Reko.Analysis;
 using Reko.Core;
 using Reko.Core.Code;
 using Reko.Core.Expressions;
@@ -14,16 +15,21 @@ public class NodeRepresentationBuilder
     , ExpressionVisitor<Node>
 {
     private readonly NodeFactory factory;
-    private Dictionary<Block, BlockState> blocks;
+    private readonly ProgramDataFlow programFlow;
+    private readonly Dictionary<Block, BlockState> blocks;
+    private readonly HashSet<Procedure> sccProcs;
     private Node? cfNode;
     private Block? currentBlock;
     private Block? entryBlock;
     private MemoryNode? memNode;
 
-    public NodeRepresentationBuilder()
+
+    public NodeRepresentationBuilder(ProgramDataFlow programFlow)
     {
+        this.programFlow = programFlow;
         this.factory = new NodeFactory();
         this.blocks = [];
+        this.sccProcs = [];
     }
 
     private record struct BlockState(
@@ -92,19 +98,8 @@ public class NodeRepresentationBuilder
             throw new NotImplementedException();
 
         var value = ass.Src.Accept(this);
-        WriteIdentifier(currentBlock, idDst, value);
+        WriteIdentifier(currentBlock, idDst.Storage, value);
         return value;
-    }
-
-    private void WriteIdentifier(Block currentBlock, Identifier idDst, Node value)
-    {
-        var state = blocks[currentBlock];
-        if (!state.StorageDefs.TryGetValue(idDst.Storage, out var defs))
-        {
-            defs = [];
-            state.StorageDefs[idDst.Storage] = defs;
-        }
-        defs.Add((default, value));
     }
 
     public Node VisitBranch(Branch branch)
@@ -121,6 +116,56 @@ public class NodeRepresentationBuilder
     }
 
     public Node VisitCallInstruction(CallInstruction call)
+    {
+        var callee = call.Callee.Accept(this);
+        if (call.Callee is ProcedureConstant pc &&
+            pc.Procedure is Procedure proc &&
+            programFlow.ProcedureFlows.TryGetValue(proc, out var calleeFlow) &&
+            !sccProcs.Contains(proc))
+        {
+            // If the callee is a procedure constant and it's not part of the
+            // current recursion group, we should know what storages are live
+            // in and trashed.
+            return GenerateUseDefsForKnownCallee(call, callee, proc, calleeFlow);
+        }
+        else
+        {
+            return GenerateUseDefsForUnknownCallee(call);
+        }
+    }
+
+    private CallNode GenerateUseDefsForKnownCallee(CallInstruction call, Node callee, Procedure proc, ProcedureFlow calleeFlow)
+    {
+        var callNode = factory.Call(this.cfNode, callee);
+        foreach (var (stgUse, bitRange) in calleeFlow.BitsUsed)
+        {
+            var value = ReadIdentifier(this.currentBlock!, stgUse, stgUse.Name, stgUse.DataType);
+            if (stgUse is RegisterStorage reg)
+            {
+                Debug.Assert(this.cfNode is not null);
+                var useNode = factory.CreateUse(this.cfNode, reg, bitRange);
+                Node.AddEdge(value, useNode);
+                Node.AddEdge(useNode, callNode);
+            }
+            else 
+                throw new NotImplementedException();
+        }
+        foreach (var stgDef in calleeFlow.Trashed)
+        {
+            if (stgDef is RegisterStorage reg)
+            {
+                Debug.Assert(this.cfNode is not null);
+                var defNode = factory.CreateDefNode(this.cfNode, reg, null, reg.DataType);
+                Node.AddEdge(callNode, defNode);
+                WriteIdentifier(this.currentBlock!, stgDef, defNode);
+            }
+            else
+                throw new NotImplementedException();
+        }
+        return callNode;
+    }
+
+    private Node GenerateUseDefsForUnknownCallee(CallInstruction call)
     {
         throw new NotImplementedException();
     }
@@ -243,10 +288,10 @@ public class NodeRepresentationBuilder
     public Node VisitIdentifier(Identifier id)
     {
         Debug.Assert(currentBlock is not null);
-        return ResolveDefinition(currentBlock, id.Storage, id.Name, id.DataType);
+        return ReadIdentifier(currentBlock, id.Storage, id.Name, id.DataType);
     }
 
-    private Node ResolveDefinition(Block block, Storage storage, string name, DataType dt)
+    private Node ReadIdentifier(Block block, Storage storage, string name, DataType dt)
     {
         var state = blocks[block];
         if (state.StorageDefs.TryGetValue(storage, out var defs) && defs.Count > 0)
@@ -256,7 +301,8 @@ public class NodeRepresentationBuilder
 
         if (block == entryBlock)
         {
-            var defNode = factory.CreateDefNode(state.Node, name, dt);
+            //$TODO: nameFromStorage.
+            var defNode = factory.CreateDefNode(state.Node, storage, name, dt);
             state.StorageDefs[storage] =
             [
                 (default, defNode)
@@ -268,7 +314,7 @@ public class NodeRepresentationBuilder
             throw new InvalidOperationException("Unable to resolve storage definition due to missing predecessors.");
 
         if (block.Pred.Count == 1)
-            return ResolveDefinition(block.Pred[0], storage, name, dt);
+            return ReadIdentifier(block.Pred[0], storage, name, dt);
 
         var phi = factory.CreatePhi(state.Node);
         state.StorageDefs[storage] =
@@ -278,7 +324,7 @@ public class NodeRepresentationBuilder
 
         foreach (var pred in block.Pred)
         {
-            var arg = ResolveDefinition(pred, storage, name, dt);
+            var arg = ReadIdentifier(pred, storage, name, dt);
             Node.AddEdge(arg, phi);
         }
 
@@ -312,6 +358,18 @@ public class NodeRepresentationBuilder
 
         return candidate;
     }
+
+    private void WriteIdentifier(Block currentBlock, Storage stgDst, Node value)
+    {
+        var state = blocks[currentBlock];
+        if (!state.StorageDefs.TryGetValue(stgDst, out var defs))
+        {
+            defs = [];
+            state.StorageDefs[stgDst] = defs;
+        }
+        defs.Add((default, value));
+    }
+
 
     public Node VisitMemberPointerSelector(MemberPointerSelector mps)
     {
@@ -348,7 +406,7 @@ public class NodeRepresentationBuilder
 
     public Node VisitProcedureConstant(ProcedureConstant pc)
     {
-        throw new NotImplementedException();
+        return factory.ProcedureConstant(pc.Procedure);
     }
 
     public Node VisitScopeResolution(ScopeResolution scopeResolution)

@@ -18,10 +18,12 @@ namespace Reko.Extras.SeaOfNodes.UnitTests;
 public class FakeArchitecture : IProcessorArchitecture
 {
     public FakeArchitecture()
+        : this(new ServiceContainer())
     {
     }
-    public FakeArchitecture(ServiceContainer serviceContainer)
+    public FakeArchitecture(ServiceContainer services)
     {
+        this.Services = services;
     }
 
     public string Name => "fake-arch";
@@ -52,7 +54,7 @@ public class FakeArchitecture : IProcessorArchitecture
 
     public int ReturnAddressOnStack => throw new NotImplementedException();
 
-    public IServiceProvider Services => throw new NotImplementedException();
+    public IServiceProvider Services { get; }
 
     public RegisterStorage StackRegister { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 

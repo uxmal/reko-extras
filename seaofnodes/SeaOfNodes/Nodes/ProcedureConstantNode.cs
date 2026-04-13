@@ -13,6 +13,11 @@ public sealed class ProcedureConstantNode : Node
 
     public override void Render(TextWriter sw)
     {
-        sw.Write($"proc{base.Number}({Procedure.Name})");
+        this.RenderReference(sw);
+    }
+
+    public override void RenderReference(TextWriter sw)
+    {
+        sw.Write(Procedure.Name);
     }
 }

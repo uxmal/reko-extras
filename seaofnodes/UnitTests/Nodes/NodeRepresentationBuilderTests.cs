@@ -1,3 +1,5 @@
+using Reko.Analysis;
+using Reko.Core;
 using Reko.Extras.SeaOfNodes.Nodes;
 
 namespace Reko.Extras.SeaOfNodes.UnitTests.Nodes;
@@ -5,12 +7,25 @@ namespace Reko.Extras.SeaOfNodes.UnitTests.Nodes;
 [TestFixture]
 public class NodeRepresentationBuilderTests
 {
+    private ProgramBuilder pb;
+    private ProgramDataFlow programFlow;
+
+    public NodeRepresentationBuilderTests()
+    {
+        this.pb = new ProgramBuilder();
+        this.programFlow = new Reko.Analysis.ProgramDataFlow();
+    }
+
     private void RunTest(string sExpected, Action<ProcedureBuilder> testCodeBuilder)
     {
+        this.pb = new ProgramBuilder();
+        this.programFlow = new ProgramDataFlow();
         var m = new ProcedureBuilder();
+        m.ProgramBuilder = this.pb;
+
         testCodeBuilder(m);
-        m.Procedure.Write(false, Console.Out);
-        var builder = new NodeRepresentationBuilder();
+
+        var builder = new NodeRepresentationBuilder(this.programFlow);
         var graph = builder.Select(m.Procedure);
         var renderer = new NodeGraphRenderer();
         var sw = new StringWriter();
@@ -27,7 +42,7 @@ public class NodeRepresentationBuilderTests
     [Test]
     public void Npb_Create()
     {
-        var sExpected = 
+        var sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -47,7 +62,7 @@ ProcedureBuilder_exit:
     [Test]
     public void Npb_ReturnValue()
     {
-        var sExpected = 
+        var sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -67,7 +82,7 @@ ProcedureBuilder_exit:
     [Test]
     public void Npb_DefReturn()
     {
-        var sExpected = 
+        var sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -86,7 +101,7 @@ l1:
     [Test]
     public void Npb_Add()
     {
-        var sExpected = 
+        var sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -108,7 +123,7 @@ l1:
     [Test]
     public void Npb_Add_Variable()
     {
-        var sExpected = 
+        var sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -131,7 +146,7 @@ l1:
     [Test]
     public void Npb_Store()
     {
-        var sExpected = 
+        var sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -154,7 +169,7 @@ l1:
     [Test]
     public void Npb_Store_Fork()
     {
-        string sExpected = 
+        string sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -192,7 +207,7 @@ m2_nonneg:
     [Test]
     public void Npb_Phi_diamond()
     {
-        string sExpected = 
+        string sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -232,7 +247,7 @@ m3_done:
     [Test]
     public void Npb_redundantPhi()
     {
-        string sExpected = 
+        string sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -276,7 +291,7 @@ ProcedureBuilder_exit:
     [Test]
     public void Nbp_Phi_loop()
     {
-        string sExpected = 
+        string sExpected =
         #region Expected
 @"
 ProcedureBuilder_entry:
@@ -303,6 +318,50 @@ l2:
             m.BranchIf(m.Lt(r1, r2), "l1");
             m.Label("l2");
             m.Return(r1);
+        });
+    }
+
+    [Test]
+    public void Npb_call()
+    {
+        string sExpected =
+        #region Expected
+@"
+ProcedureBuilder_entry:
+l1:
+    call procSub
+        uses: r1:3<32> r2:4<32>
+        defs: r1:n13
+    Mem15[0x12300<32>:word32] = n13
+    return";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+
+            // Simulate the creation of a subroutine.
+            var procSub = Procedure.Create(
+                m.Architecture,
+                "procSub", 
+                Address.Ptr32(0x12380),
+                m.Architecture.CreateFrame());
+            var procSubFlow = new ProcedureFlow(m.Procedure)
+            {
+                BitsUsed = {
+                     { r1.Storage, r1.Storage.GetBitRange() },
+                     { r2.Storage, r2.Storage.GetBitRange() }
+                },
+                Trashed = { r1.Storage }
+            };
+            programFlow.ProcedureFlows.Add(procSub, procSubFlow);
+
+            m.Assign(r1, 3);
+            m.Assign(r2, 4);
+            m.Call(procSub, 4);
+            m.MStore(m.Word32(0x012300), r1);
+            m.Return();
         });
     }
 }
