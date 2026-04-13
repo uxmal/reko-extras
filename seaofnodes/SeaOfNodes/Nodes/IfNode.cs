@@ -11,6 +11,7 @@ public sealed class IfNode : CfNode
     {
         sw.Write("if (");
         this.Predicate.RenderReference(sw);
-        sw.Write(")");
+        sw.Write(") goto ");
+        sw.Write(((BlockNode)this.Outputs[1]).Block.DisplayName);
     }
 }

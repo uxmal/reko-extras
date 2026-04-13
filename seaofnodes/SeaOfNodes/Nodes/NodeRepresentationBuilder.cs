@@ -18,7 +18,7 @@ public class NodeRepresentationBuilder
     private Node? cfNode;
     private Block? currentBlock;
     private Block? entryBlock;
-        private MemoryNode? memNode;
+    private MemoryNode? memNode;
 
     public NodeRepresentationBuilder()
     {
@@ -39,7 +39,7 @@ public class NodeRepresentationBuilder
         entryBlock = proc.EntryBlock;
         CreateEmptyBlocks(proc);
         LinkBlocks(proc);
-            this.memNode = factory.CreateMemoryNode(start);
+        this.memNode = factory.CreateMemoryNode(start);
         Node.AddEdge(start, blocks[proc.EntryBlock].Node);
         Node.AddEdge(blocks[proc.ExitBlock].Node, end);
 
@@ -109,7 +109,15 @@ public class NodeRepresentationBuilder
 
     public Node VisitBranch(Branch branch)
     {
-        throw new NotImplementedException();
+        var predicate = branch.Condition.Accept(this);
+        IfNode ifNode = factory.If(this.cfNode, predicate);
+        Debug.Assert(this.currentBlock is not null);
+        var falseBranch = this.blocks[currentBlock].Node;
+        var trueBranch = this.blocks[branch.Target].Node;
+        Node.AddEdge(ifNode, falseBranch);
+        Node.AddEdge(ifNode, trueBranch);
+        this.cfNode = ifNode;
+        return ifNode;
     }
 
     public Node VisitCallInstruction(CallInstruction call)
@@ -154,15 +162,15 @@ public class NodeRepresentationBuilder
 
     public Node VisitStore(Store store)
     {
-           Debug.Assert(cfNode is not null);
-           Debug.Assert(memNode is not null);
-           if (store.Dst is not MemoryAccess access)
-              throw new NotImplementedException();
-           var ea = access.EffectiveAddress.Accept(this);
-           var value = store.Src.Accept(this);
-           var storeNode = factory.CreateStore(cfNode, memNode, access.DataType, ea, value);
-           memNode = storeNode;
-           return storeNode;
+        Debug.Assert(cfNode is not null);
+        Debug.Assert(memNode is not null);
+        if (store.Dst is not MemoryAccess access)
+            throw new NotImplementedException();
+        var ea = access.EffectiveAddress.Accept(this);
+        var value = store.Src.Accept(this);
+        var storeNode = factory.CreateStore(cfNode, memNode, access.DataType, ea, value);
+        memNode = storeNode;
+        return storeNode;
     }
 
     public Node VisitSwitchInstruction(SwitchInstruction si)
@@ -192,13 +200,9 @@ public class NodeRepresentationBuilder
 
     public Node VisitBinaryExpression(BinaryExpression binExp)
     {
-        if (binExp.Operator.Type != Reko.Core.Operators.OperatorType.IAdd)
-            throw new NotImplementedException();
-
-        Debug.Assert(cfNode is not null);
         var left = binExp.Left.Accept(this);
         var right = binExp.Right.Accept(this);
-        return factory.IAdd(binExp.DataType, cfNode, left, right);
+        return factory.Bin(binExp.DataType, binExp.Operator, cfNode, left, right);
     }
 
     public Node VisitCast(Cast cast)

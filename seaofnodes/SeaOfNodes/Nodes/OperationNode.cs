@@ -36,7 +36,7 @@ public sealed class OperationNode : ExpressionNode
         { OperatorType.Lt, " < " },
         { OperatorType.Gt, " > " },
         { OperatorType.Le, " <= " },
-        { OperatorType.Ge, " >=" },
+        { OperatorType.Ge, " >= " },
         { OperatorType.Feq, " ==f " },
         { OperatorType.Fne, " !=f " },
         { OperatorType.Flt, " <f " },

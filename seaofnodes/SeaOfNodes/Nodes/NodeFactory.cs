@@ -17,12 +17,12 @@ public class NodeFactory
 
     private int NextId() => ++number;
 
-    public OperationNode IAdd(DataType dt, Node cfNode, Node left, Node right)
+    public OperationNode Bin(DataType dt, Operator op, Node? cfNode, Node left, Node right)
     {
         return new OperationNode(
             NextId(),
             dt,
-            Operator.IAdd,
+            op,
             cfNode, left, right);
     }
 
@@ -78,5 +78,10 @@ public class NodeFactory
     public StoreNode CreateStore(Node cfNode, MemoryNode memNode, DataType dt, Node ea, Node value)
     {
         return new StoreNode(NextId(), cfNode, memNode, dt, ea, value);
+    }
+
+    internal IfNode If(Node? cfNode, Node predicate)
+    {
+        return new IfNode(NextId(), cfNode, predicate);
     }
 }

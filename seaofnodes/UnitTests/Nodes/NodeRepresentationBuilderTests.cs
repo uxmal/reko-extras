@@ -151,4 +151,42 @@ l1:
         });
     }
 
+    [Test]
+    public void Npb_Store_Fork()
+    {
+        string sExpected = 
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r1:word32
+    def r2:word32
+l1:
+    n11 = r1 + r2
+    n13 = n11 >= 0<32>
+    if (n13) goto m2_nonneg
+m1_neg:
+    Mem19[0x123400<32>:word32] = n11
+    return
+m2_nonneg:
+    Mem16[0x123404<32>:word32] = n11
+    return";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            m.Assign(r1, m.IAdd(r1, r2));
+            m.BranchIf(m.Ge0(r1), "m2_nonneg");
+
+            m.Label("m1_neg");
+            m.MStore(m.Word32(0x00123400), r1);
+            m.Return();
+
+            m.Label("m2_nonneg");
+            m.MStore(m.Word32(0x00123404), r1);
+            m.Return();
+        });
+    }
+
 }
