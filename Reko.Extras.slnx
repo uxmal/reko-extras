@@ -5,7 +5,7 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/batch/">
-    <Project Path="batch/batch/batch.csproj">
+    <Project Path="batch/batch/batch.csproj" Id="2eed9141-30f2-4c4b-88bd-3f8e2301de3c">
       <BuildType Project="Debug" />
     </Project>
   </Folder>
@@ -38,11 +38,15 @@
     </Project>
     <Project Path="RekoSifter/UnitTests/UnitTests.csproj" />
   </Folder>
+  <Folder Name="/seaofnodes/">
+    <Project Path="seaofnodes/SeaOfNodes/SeaOfNodes.csproj" />
+    <Project Path="seaofnodes/UnitTests/UnitTests.csproj" />
+  </Folder>
   <Project Path="Benchmarks/Benchmarks.csproj" />
   <Project Path="blocksoup/blocksoup.csproj" />
   <Project Path="chunks/chunks.csproj" />
   <Project Path="interactive/interactive.csproj" />
-  <Project Path="LLVMTestsConverter/LLVMTestsConverter.csproj">
+  <Project Path="LLVMTestsConverter/LLVMTestsConverter.csproj" Id="7e9a293e-a73d-406b-b5ef-ced4ec1b9446">
     <BuildType Project="Debug" />
   </Project>
   <Project Path="swapw/swapw.csproj" />

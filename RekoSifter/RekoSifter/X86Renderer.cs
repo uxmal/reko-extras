@@ -142,7 +142,7 @@ namespace RekoSifter
                     }
                     break;
                 case Constant imm:
-                    RenderObjdumpConstant(instr, imm, instr.DataWidth, false, sb);
+                    RenderObjdumpConstant(instr, imm, instr.dataWidth, false, sb);
                     break;
                 case MemoryOperand mem:
                     RenderObjdumpMemoryOperand(instr, mem, sb);

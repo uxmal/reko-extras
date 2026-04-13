@@ -1,0 +1,58 @@
+using System.Diagnostics;
+using Reko.Core;
+using Reko.Core.Expressions;
+using Reko.Core.Operators;
+
+namespace Reko.Extras.SeaOfNodes.Nodes;
+
+public class NodeFactory
+{
+    private int number;
+
+    public NodeFactory()
+    {
+        this.number = 0;
+    }
+
+    private int NextId() => ++number;
+
+    public OperationNode IAdd(Node left, Node right)
+    {
+        if (left is not ExpressionNode l || right is not ExpressionNode r)
+            throw new ArgumentException("Expected expression nodes");
+        Debug.Assert(l.DataType.BitSize == r.DataType.BitSize);
+        return new OperationNode(
+            NextId(),
+            l.DataType,
+            Operator.IAdd,
+            left, right);
+    }
+
+    public ConstantNode Word32(uint value) => new ConstantNode(
+        NextId(),
+        Constant.Word32(value));
+
+    public StartNode CreateStartNode(Procedure proc)
+    {
+        var node = new StartNode(NextId());
+        return node;
+    }
+
+    public BlockNode CreateBlockNode(Block block)
+    {
+        var node = new BlockNode(NextId(), block, []);
+        return node;
+    }
+
+    public EndNode CreateEndNode(StartNode start)
+    {
+        var node = new EndNode(NextId());
+        return node;
+    }
+
+    public Node CreateReturnNode(Node cfNode)
+    {
+        var node = new ReturnNode(NextId(), cfNode);
+        return node;
+    }
+}
