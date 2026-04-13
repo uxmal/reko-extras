@@ -26,6 +26,16 @@ public class NodeFactory
             cfNode, left, right);
     }
 
+    public OperationNode CreateUnary(DataType dt, Operator op, Node? cfNode, Node operand)
+    {
+        return new OperationNode(NextId(), dt, op, cfNode, operand);
+    }
+
+    public LoadNode CreateLoad(Node cfNode, Node memNode, DataType dt, Node ea)
+    {
+        return new LoadNode(NextId(), cfNode, memNode, dt, ea);
+    }
+
     public ConstantNode Word32(uint value) => new ConstantNode(
         NextId(),
         Constant.Word32(value));

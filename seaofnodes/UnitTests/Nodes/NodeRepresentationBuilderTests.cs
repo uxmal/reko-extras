@@ -228,4 +228,48 @@ m3_done:
             m.Return(r1);
         });
     }
+
+    [Test]
+    public void Npb_redundantPhi()
+    {
+        string sExpected = 
+        #region Expected
+@"
+ProcedureBuilder_entry:
+l1:
+    n11 = Mem11[0x123400<32>:word32]
+    n13 = n11 >= 0<32>
+    if (n13) goto m2_ge
+    // succ: m1_lt, m2_ge
+m1_lt:
+    n15 = -n11
+    goto m3_done
+    // succ: m3_done
+m2_ge:
+m3_done:
+    n16 = PHI(n15, n11)
+    return n16
+    // succ: ProcedureBuilder_exit
+ProcedureBuilder_exit:
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            m.Assign(r2, m.Mem32(m.Word32(0x123400)));
+            m.BranchIf(m.Ge0(r2), "m2_ge");
+
+            m.Label("m1_lt");
+            m.Assign(r1, m.Neg(r2));
+            m.Goto("m3_done");
+
+            m.Label("m2_ge");
+            m.Assign(r1, r2);
+
+            m.Label("m3_done");
+            m.Return(r1);
+        });
+    }
 }

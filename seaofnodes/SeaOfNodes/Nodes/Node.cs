@@ -15,7 +15,7 @@ public abstract class Node
         }
     }
 
-    public int Number { get; }
+    public int Number { get; internal set; }
     public List<Node?> Inputs { get; set; }
     public List<Node> Outputs { get; set; }
 
@@ -23,7 +23,35 @@ public abstract class Node
     {
         from.Outputs.Add(to);
         to.Inputs.Add(from);
-    }   
+    }
+
+    /// <summary>
+    /// Replaces all uses of <paramref name="original"/> with <paramref name="substitute"/>,
+    /// disconnects <paramref name="original"/> from the graph, and updates
+    /// <paramref name="substitute"/>.Number to the minimum of both numbers.
+    /// </summary>
+    public static void Replace(Node original, Node substitute)
+    {
+        substitute.Number = Math.Min(original.Number, substitute.Number);
+
+        foreach (var consumer in original.Outputs.ToList())
+        {
+            for (int i = 0; i < consumer.Inputs.Count; i++)
+            {
+                if (ReferenceEquals(consumer.Inputs[i], original))
+                {
+                    consumer.Inputs[i] = substitute;
+                    substitute.Outputs.Add(consumer);
+                }
+            }
+        }
+
+        foreach (var producer in original.Inputs)
+            producer?.Outputs.Remove(original);
+
+        original.Inputs.Clear();
+        original.Outputs.Clear();
+    }
 
     public virtual void RenderReference(TextWriter sw)
     {

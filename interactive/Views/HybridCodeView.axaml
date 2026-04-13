@@ -9,7 +9,13 @@
 	<Border BorderThickness="3" BorderBrush="Blue">
 		
 	<ScrollViewer>
+
 		<ItemsControl ItemsSource="{Binding Items}">
+			<ItemsControl.Styles>
+				<Style Selector="TextBlock">
+					<Setter Property="FontFamily" Value="Consolas"/>
+				</Style>
+			</ItemsControl.Styles>
 			<ItemsControl.ItemsPanel>
 				<ItemsPanelTemplate>
 					<VirtualizingStackPanel Orientation="Vertical"/>

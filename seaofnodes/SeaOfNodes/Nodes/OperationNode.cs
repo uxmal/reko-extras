@@ -69,13 +69,22 @@ public sealed class OperationNode : ExpressionNode
         this.RenderReference(sw);
         sw.Write(" = ");
         string opName = operatorName[this.Operator.Type];
-        for (int i = 1; i < Inputs.Count; i++)
+        if (Inputs.Count == 2)
         {
-            if (i > 1)
-                sw.Write(opName);
-            var input = Inputs[i];
-            Debug.Assert(input is not null);
-            input.RenderReference(sw);
+            // Unary prefix operator: cfNode at [0], operand at [1]
+            sw.Write(opName);
+            Inputs[1]!.RenderReference(sw);
+        }
+        else
+        {
+            for (int i = 1; i < Inputs.Count; i++)
+            {
+                if (i > 1)
+                    sw.Write(opName);
+                var input = Inputs[i];
+                Debug.Assert(input is not null);
+                input.RenderReference(sw);
+            }
         }
     }
 

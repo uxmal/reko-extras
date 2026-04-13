@@ -281,6 +281,16 @@ public class NodeRepresentationBuilder
             var arg = ResolveDefinition(pred, storage, name, dt);
             Node.AddEdge(arg, phi);
         }
+
+        // Trivial phi: all data args (Inputs[1..]) are the same node
+        var dataArgs = phi.Inputs.Skip(1).ToList();
+        if (dataArgs.Count > 0 && dataArgs.All(a => ReferenceEquals(a, dataArgs[0])))
+        {
+            var sameNode = dataArgs[0]!;
+            state.StorageDefs[storage] = [(default, sameNode)];
+            Node.Replace(phi, sameNode);
+            return sameNode;
+        }
         return phi;
     }
 
@@ -291,7 +301,10 @@ public class NodeRepresentationBuilder
 
     public Node VisitMemoryAccess(MemoryAccess access)
     {
-        throw new NotImplementedException();
+        Debug.Assert(cfNode is not null);
+        Debug.Assert(memNode is not null);
+        var ea = access.EffectiveAddress.Accept(this);
+        return factory.CreateLoad(cfNode, memNode, access.DataType, ea);
     }
 
     public Node VisitMkSequence(MkSequence seq)
@@ -346,6 +359,7 @@ public class NodeRepresentationBuilder
 
     public Node VisitUnaryExpression(UnaryExpression unary)
     {
-        throw new NotImplementedException();
+        var operand = unary.Expression.Accept(this);
+        return factory.CreateUnary(unary.DataType, unary.Operator, cfNode, operand);
     }
 }
