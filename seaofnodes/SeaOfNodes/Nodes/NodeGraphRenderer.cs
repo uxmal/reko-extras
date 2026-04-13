@@ -27,8 +27,9 @@ public class NodeGraphRenderer
         for (int i = 0; i < orderedBlocks.Count; ++i)
         {
             var block = orderedBlocks[i];
+            var nextBlock = i + 1 < orderedBlocks.Count ? orderedBlocks[i + 1] : null;
             var suppressFinalNodeNewline = defMode && i == orderedBlocks.Count - 1;
-            RenderBlock(block, reachable, sw, !defMode, suppressFinalNodeNewline);
+            RenderBlock(block, nextBlock, reachable, sw, !defMode, suppressFinalNodeNewline);
         }
     }
 
@@ -58,7 +59,7 @@ public class NodeGraphRenderer
         return reachable;
     }
 
-    private static void RenderBlock(BlockNode block, HashSet<Node> reachable, TextWriter sw, bool renderSuccessors, bool suppressFinalNodeNewline)
+    private static void RenderBlock(BlockNode block, BlockNode? nextBlock, HashSet<Node> reachable, TextWriter sw, bool renderSuccessors, bool suppressFinalNodeNewline)
     {
         sw.WriteLine($"{block.Block}:");
 
@@ -79,10 +80,26 @@ public class NodeGraphRenderer
             }
         }
 
+        if (ShouldRenderGoto(block, nextBlock, blockNodes))
+        {
+            sw.WriteLine($"    goto {block.Block.Succ[0]}");
+        }
+
         if (renderSuccessors && blockNodes.Length > 0 && block.Block.Succ.Count > 0)
         {
             var successors = string.Join(", ", block.Block.Succ.Select(succ => succ.ToString()));
             sw.WriteLine($"    // succ: {successors}");
         }
+    }
+
+    private static bool ShouldRenderGoto(BlockNode block, BlockNode? nextBlock, Node[] blockNodes)
+    {
+        if (block.Block.Succ.Count == 0)
+            return false;
+
+        if (blockNodes.Any(node => node is CfNode))
+            return false;
+
+        return nextBlock is null || block.Block.Succ[0] != nextBlock.Block;
     }
 }

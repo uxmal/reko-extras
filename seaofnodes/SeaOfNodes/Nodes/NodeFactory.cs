@@ -80,6 +80,11 @@ public class NodeFactory
         return new StoreNode(NextId(), cfNode, memNode, dt, ea, value);
     }
 
+    public PhiNode CreatePhi(Node cfNode)
+    {
+        return new PhiNode(NextId(), cfNode);
+    }
+
     internal IfNode If(Node? cfNode, Node predicate)
     {
         return new IfNode(NextId(), cfNode, predicate);

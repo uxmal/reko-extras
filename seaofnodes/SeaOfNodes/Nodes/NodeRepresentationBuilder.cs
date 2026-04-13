@@ -267,10 +267,21 @@ public class NodeRepresentationBuilder
         if (block.Pred.Count == 0)
             throw new InvalidOperationException("Unable to resolve storage definition due to missing predecessors.");
 
-        if (block.Pred.Count > 1)
-            throw new NotImplementedException("Phi insertion for multiple predecessors is not implemented yet.");
+        if (block.Pred.Count == 1)
+            return ResolveDefinition(block.Pred[0], storage, name, dt);
 
-        return ResolveDefinition(block.Pred[0], storage, name, dt);
+        var phi = factory.CreatePhi(state.Node);
+        state.StorageDefs[storage] =
+        [
+            (default, phi)
+        ];
+
+        foreach (var pred in block.Pred)
+        {
+            var arg = ResolveDefinition(pred, storage, name, dt);
+            Node.AddEdge(arg, phi);
+        }
+        return phi;
     }
 
     public Node VisitMemberPointerSelector(MemberPointerSelector mps)

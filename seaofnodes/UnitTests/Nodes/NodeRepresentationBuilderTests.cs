@@ -189,4 +189,43 @@ m2_nonneg:
         });
     }
 
+    [Test]
+    public void Npb_Phi_diamond()
+    {
+        string sExpected = 
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r1:word32
+    def r2:word32
+l1:
+    n12 = r1 >= r2
+    if (n12) goto m2_ge
+m1_lt:
+    n17 = r2 + 1<32>
+    goto m3_done
+m2_ge:
+    n15 = r1 - 1<32>
+m3_done:
+    n18 = PHI(n17, n15)
+    return n18";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            m.BranchIf(m.Ge(r1, r2), "m2_ge");
+
+            m.Label("m1_lt");
+            m.Assign(r1, m.IAdd(r2, 1));
+            m.Goto("m3_done");
+
+            m.Label("m2_ge");
+            m.Assign(r1, m.ISub(r1, 1));
+
+            m.Label("m3_done");
+            m.Return(r1);
+        });
+    }
 }
