@@ -12,7 +12,7 @@ public sealed class UseNode : Node
         this.BitRange = bitRange;
     }
 
-    public string Name => Storage.Name;
+    public new string Name => Storage.Name;
     public Storage Storage { get; }
     public BitRange BitRange { get; }
 

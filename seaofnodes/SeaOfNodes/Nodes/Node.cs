@@ -44,6 +44,7 @@ public abstract class Node
     }
 
     public int Number { get; internal set; }
+    public string? Name { get; set; }
     public List<Node?> Inputs { get; set; }
     public List<Node> Outputs { get; set; }
 
@@ -85,7 +86,10 @@ public abstract class Node
 
     public virtual void RenderReference(TextWriter sw)
     {
-        sw.Write($"n{this.Number}");
+        if (this.Name is not null)
+            sw.Write(this.Name);
+        else
+            sw.Write($"n{this.Number}");
     }
 
     public abstract void Render(TextWriter sw);

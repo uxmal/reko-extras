@@ -21,9 +21,11 @@ public class FakeArchitecture : IProcessorArchitecture
         : this(new ServiceContainer())
     {
     }
+
     public FakeArchitecture(ServiceContainer services)
     {
         this.Services = services;
+        this.StackRegister = RegisterStorage.Reg32("sp", 31);
     }
 
     public string Name => "fake-arch";
@@ -56,7 +58,7 @@ public class FakeArchitecture : IProcessorArchitecture
 
     public IServiceProvider Services { get; }
 
-    public RegisterStorage StackRegister { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+    public RegisterStorage StackRegister { get; set;}
 
     public PrimitiveType WordWidth => throw new NotImplementedException();
 

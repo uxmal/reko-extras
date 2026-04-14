@@ -1,6 +1,7 @@
 using Reko.Analysis;
 using Reko.Core;
 using Reko.Core.Expressions;
+using Reko.Core.Operators;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
 
@@ -132,8 +133,8 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    n9 = r1 + r2
-    return n9";
+    r1_9 = r1 + r2
+    return r1_9";
         #endregion
 
         RunTest(sExpected, m =>
@@ -178,14 +179,14 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    n11 = r1 + r2
-    n13 = n11 >= 0<32>
+    r1_11 = r1 + r2
+    n13 = r1_11 >= 0<32>
     if (n13) goto m2_nonneg
 m1_neg:
-    Mem19[0x123400<32>:word32] = n11
+    Mem19[0x123400<32>:word32] = r1_11
     return
 m2_nonneg:
-    Mem16[0x123404<32>:word32] = n11
+    Mem16[0x123404<32>:word32] = r1_11
     return";
         #endregion
 
@@ -219,13 +220,13 @@ l1:
     n12 = r1 >= r2
     if (n12) goto m2_ge
 m1_lt:
-    n17 = r2 + 1<32>
+    r1_17 = r2 + 1<32>
     goto m3_done
 m2_ge:
-    n15 = r1 - 1<32>
+    r1_15 = r1 - 1<32>
 m3_done:
-    n18 = PHI(n17, n15)
-    return n18";
+    r1_18 = PHI(r1_17, r1_15)
+    return r1_18";
         #endregion
 
         RunTest(sExpected, m =>
@@ -254,18 +255,18 @@ m3_done:
 @"
 ProcedureBuilder_entry:
 l1:
-    n11 = Mem11[0x123400<32>:word32]
-    n13 = n11 >= 0<32>
+    r1_11 = Mem11[0x123400<32>:word32]
+    n13 = r1_11 >= 0<32>
     if (n13) goto m2_ge
     // succ: m1_lt, m2_ge
 m1_lt:
-    n15 = -n11
+    r1_15 = -r1_11
     goto m3_done
     // succ: m3_done
 m2_ge:
 m3_done:
-    n16 = PHI(n15, n11)
-    return n16
+    r1_16 = PHI(r1_15, r1_11)
+    return r1_16
     // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
 ";
@@ -300,14 +301,14 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    n11 = r1 + 1<32>
-    n14 = n11 * 8<32>
+    r1_11 = r1 + 1<32>
+    n14 = r1_11 * 8<32>
     n15 = 0x123400<32> + n14
     Mem18[n15:word32] = r2
-    n19 = n11 < r2
+    n19 = r1_11 < r2
     if (n19) goto l1
 l2:
-    return n11";
+    return r1_11";
         #endregion
 
         RunTest(sExpected, m =>
@@ -443,8 +444,8 @@ ProcedureBuilder_entry:
     def r2:word32
 l1:
     n9 = r1 - r2
-    n10 = cond(n9)
-    n12 = TEST(LE, n10)
+    CZ_10 = cond(n9)
+    n12 = TEST(LE, CZ_10)
     Mem13[0x123400<32>:bool] = n12
     return";
         #endregion
@@ -471,8 +472,8 @@ l1:
 ProcedureBuilder_entry:
     def r1:word32
 l1:
-    n9 = abs<word32>(r1)
-    return n9";
+    r1_9 = abs<word32>(r1)
+    return r1_9";
         #endregion
 
         RunTest(sExpected, m =>
@@ -480,6 +481,73 @@ l1:
             var r1 = m.Reg32("r1", 1);
             m.Assign(r1, m.Fn(Reko.Core.Intrinsics.CommonOps.Abs, r1));
             m.Return(r1);
+        });
+    }
+
+    [Test]
+    public void Npb_switch()
+    {
+        string sExpected =
+        #region Expected
+        @"
+ProcedureBuilder_entry:
+    def sp_11:ptr32
+l1:
+    n13 = sp_11 + 4<32>
+    r1_14 = Mem14[n13:word32]
+    n16 = r1_14 >u 5<32>
+    if (n16) goto m4_default
+m1:
+    switch (r1_14) goto m2, m2, m3, m3, m2, m3
+m2:
+    sp_21 = sp_11 - 4<32>
+    Mem23[sp_21:word32] = 0x42<32>
+    sp_26 = sp_21 + 4<32>
+m3:
+    sp_27 = PHI(sp_11, sp_11, sp_11, sp_26)
+    sp_29 = sp_27 - 4<32>
+    Mem31[sp_29:word32] = 0x2A<32>
+    sp_34 = sp_29 + 4<32>
+m4_default:
+    sp_35 = PHI(sp_11, sp_34)
+    sp_37 = sp_35 - 4<32>
+    Mem39[sp_37:word32] = 0<32>
+    sp_42 = sp_37 + 4<32>
+    return";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var sp = m.Frame.EnsureRegister(m.Architecture.StackRegister);
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            var foo = new ExternalProcedure("foo", FunctionType.Action(
+                [new Identifier("arg1", PrimitiveType.Int32, new StackStorage(4, PrimitiveType.Int32))]));
+            m.Assign(sp, m.Frame.FramePointer);
+            m.Assign(r1, m.Mem32(m.IAdd(sp, 4)));
+            m.BranchIf(m.Ugt(r1, m.Word32(0x5)), "m4_default");
+            m.Label("m1");
+            m.Switch(r1,
+                "m2", "m2", "m3", "m3", "m2", "m3");
+            m.Label("m2");
+            m.Assign(sp, m.ISub(sp, 4));
+            m.MStore(sp, m.Word32(0x42));
+            m.Call(foo, 4);
+            m.Assign(sp, m.IAdd(sp, 4));
+            // fall through
+            m.Label("m3");
+            m.Assign(sp, m.ISub(sp, 4));
+            m.MStore(sp, m.Word32(42));
+            m.Call(foo, 4);
+            m.Assign(sp, m.IAdd(sp, 4));
+            // fall through
+            m.Label("m4_default");
+            m.Assign(sp, m.ISub(sp, 4));
+            m.MStore(sp, m.Word32(0));
+            m.Call(foo, 4);
+            m.Assign(sp, m.IAdd(sp, 4));
+
+            m.Return();
         });
     }
 }

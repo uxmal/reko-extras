@@ -86,16 +86,9 @@ public class NodeFactory
     }
 
 
-    public DefNode CreateDefNode(Node cfNode, Storage storage, string? name, DataType dt)
-    {
-        var node = new DefNode(NextId(), storage, dt, name, cfNode);
-        return node;
-    }
-
-
     public DefNode CreateDefNode(Node cfNode, Storage storage, DataType dt)
     {
-        var node = new DefNode(NextId(), storage, dt, null, cfNode);
+        var node = new DefNode(NextId(), storage, dt, cfNode);
         return node;
     }
 
@@ -144,8 +137,19 @@ public class NodeFactory
         return new TestNode(NextId(), dt, conditionCode, cfNode, input);
     }
 
-    internal Node Apply(DataType dataType, Node? cfNode, Node fn, Node[] args)
+    public Node Apply(DataType dataType, Node? cfNode, Node fn, Node[] args)
     {
         return new ApplicationNode(NextId(), dataType, cfNode, fn, args);
     }
+
+    public Node SideEffect(Node cfNode, Node expNode)
+    {
+        return new SideEffectNode(NextId(), cfNode, expNode);
+    }
+
+    public SwitchNode CreateSwitch(Node cfNode, Node selector, string[] targets)
+    {
+        return new SwitchNode(NextId(), cfNode, selector, targets);
+    }
+
 }

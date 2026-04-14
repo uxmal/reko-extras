@@ -5,13 +5,10 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public sealed class DefNode : Node
 {
-    private readonly string? name;
-
-    public DefNode(int number, Storage storage, DataType dt, string? name, params Node?[] inputs) : base(number, inputs)
+    public DefNode(int number, Storage storage, DataType dt, params Node?[] inputs) : base(number, inputs)
     {
         this.Storage = storage;
         this.DataType = dt;
-        this.name = name;
     }
 
     public DataType DataType { get; }
@@ -27,9 +24,9 @@ public sealed class DefNode : Node
 
     public override void RenderReference(TextWriter sw)
     {
-        if (name is not null)
+        if (Name is not null)
         {
-            sw.Write(name);
+            sw.Write(Name);
             return;
         }
         base.RenderReference(sw);

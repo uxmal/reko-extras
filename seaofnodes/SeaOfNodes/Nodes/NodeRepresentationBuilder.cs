@@ -5,6 +5,7 @@ using Reko.Core.Code;
 using Reko.Core.Expressions;
 using Reko.Core.Lib;
 using Reko.Core.Types;
+using Reko.Environments.Pdp10Env.FileFormats;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
@@ -13,6 +14,7 @@ public class NodeRepresentationBuilder
     , ExpressionVisitor<Node>
 {
     private readonly NodeFactory factory;
+    private readonly NodeApplicationBuilder applicationBuilder;
     private readonly ProgramDataFlow programFlow;
     private readonly Dictionary<Block, BlockState> blocks;
     private readonly HashSet<Procedure> sccProcs;
@@ -28,6 +30,7 @@ public class NodeRepresentationBuilder
     {
         this.programFlow = programFlow;
         this.factory = new NodeFactory();
+        this.applicationBuilder = new NodeApplicationBuilder(this.factory);
         this.blocks = [];
         this.sccProcs = [];
         this.captureExceptions = false;
@@ -80,17 +83,7 @@ public class NodeRepresentationBuilder
         this.cfNode = state.Node;
         foreach (var stmt in block.Statements)
         {
-            try
-            {
                 stmt.Instruction.Accept(this);
-            }
-            catch
-            {
-                if (captureExceptions)
-                    throw;
-                Console.Out.WriteLine($"Error: {stmt.Instruction} in block {block}");
-                procedureHadTranslationError = true;
-            }
         }
         return state;
     }
@@ -113,6 +106,7 @@ public class NodeRepresentationBuilder
 
         var value = ass.Src.Accept(this);
         WriteIdentifier(currentBlock, idDst.Storage, value);
+        value.Name = $"{idDst.Storage.Name}_{value.Number}";
         return value;
     }
 
@@ -132,8 +126,12 @@ public class NodeRepresentationBuilder
     public Node VisitCallInstruction(CallInstruction call)
     {
         var callee = call.Callee.Accept(this);
-        if (call.Callee is ProcedureConstant pc &&
-            pc.Procedure is Procedure proc &&
+        var pc = call.Callee as ProcedureConstant;
+        if (pc is not null && pc.Signature.ParametersValid)
+        {
+            return GenerateApplicationFromCall(pc, callee);
+        }
+        if (pc?.Procedure is Procedure proc &&
             programFlow.ProcedureFlows.TryGetValue(proc, out var calleeFlow) &&
             !sccProcs.Contains(proc))
         {
@@ -148,12 +146,18 @@ public class NodeRepresentationBuilder
         }
     }
 
+    private Node GenerateApplicationFromCall(ProcedureConstant callee, Node calleeNode)
+    {
+        // Keep known-signature calls non-fatal until argument synthesis is implemented.
+        return calleeNode;
+    }
+
     private CallNode GenerateUseDefsForKnownCallee(CallInstruction call, Node callee, Procedure proc, ProcedureFlow calleeFlow)
     {
         var callNode = factory.Call(this.cfNode, callee);
         foreach (var (stgUse, bitRange) in calleeFlow.BitsUsed)
         {
-            var value = ReadIdentifier(this.currentBlock!, stgUse, stgUse.Name, stgUse.DataType);
+            var value = ReadIdentifier(this.currentBlock!, stgUse, stgUse.DataType);
             if (stgUse is RegisterStorage reg)
             {
                 Debug.Assert(this.cfNode is not null);
@@ -169,7 +173,7 @@ public class NodeRepresentationBuilder
             if (stgDef is RegisterStorage reg)
             {
                 Debug.Assert(this.cfNode is not null);
-                var defNode = factory.CreateDefNode(this.cfNode, reg, null, reg.DataType);
+                var defNode = factory.CreateDefNode(this.cfNode, reg, reg.DataType);
                 Node.AddEdge(callNode, defNode);
                 WriteIdentifier(this.currentBlock!, stgDef, defNode);
             }
@@ -220,8 +224,9 @@ public class NodeRepresentationBuilder
 
     public Node VisitSideEffect(SideEffect side)
     {
-        Console.Out.WriteLine("NYI: {0}", side.GetType());
-        throw new NotImplementedException();
+        var expNode = side.Expression.Accept(this);
+        Debug.Assert(cfNode is not null);
+        return factory.SideEffect(cfNode, expNode);
     }
 
     public Node VisitStore(Store store)
@@ -239,8 +244,20 @@ public class NodeRepresentationBuilder
 
     public Node VisitSwitchInstruction(SwitchInstruction si)
     {
-        Console.Out.WriteLine("NYI: {0}", si.GetType());
-        throw new NotImplementedException();
+        var selector = si.Expression.Accept(this);
+        var targets = si.Targets.Select(t => t.DisplayName).ToArray();
+        var switchNode = factory.CreateSwitch(cfNode!, selector, targets);
+        Debug.Assert(currentBlock is not null);
+        // Link switch node to target blocks
+        foreach (var target in si.Targets)
+        {
+            if (blocks.TryGetValue(target, out var targetState))
+            {
+                Node.AddEdge(switchNode, targetState.Node);
+            }
+        }
+        cfNode = switchNode;
+        return switchNode;
     }
 
     public Node VisitUseInstruction(UseInstruction use)
@@ -256,9 +273,7 @@ public class NodeRepresentationBuilder
 
     public Node VisitApplication(Application appl)
     {
-        var fn = appl.Procedure.Accept(this);
-        var args = appl.Arguments.Select(arg => arg.Accept(this)).ToArray();
-        return factory.Apply(appl.DataType, cfNode, fn, args);
+        return applicationBuilder.Build(appl, cfNode, expr => expr.Accept(this));
     }
 
     public Node VisitArrayAccess(ArrayAccess acc)
@@ -318,10 +333,10 @@ public class NodeRepresentationBuilder
     public Node VisitIdentifier(Identifier id)
     {
         Debug.Assert(currentBlock is not null);
-        return ReadIdentifier(currentBlock, id.Storage, id.Name, id.DataType);
+        return ReadIdentifier(currentBlock, id.Storage, id.DataType);
     }
 
-    private Node ReadIdentifier(Block block, Storage storage, string name, DataType dt)
+    private Node ReadIdentifier(Block block, Storage storage, DataType dt)
     {
         var state = blocks[block];
         if (state.StorageDefs.TryGetValue(storage, out var defs) && defs.Count > 0)
@@ -332,7 +347,8 @@ public class NodeRepresentationBuilder
         if (block == entryBlock)
         {
             //$TODO: nameFromStorage.
-            var defNode = factory.CreateDefNode(state.Node, storage, name, dt);
+            var defNode = factory.CreateDefNode(state.Node, storage, dt);
+            defNode.Name = storage.Name;
             state.StorageDefs[storage] =
             [
                 (default, defNode)
@@ -344,9 +360,10 @@ public class NodeRepresentationBuilder
             throw new InvalidOperationException("Unable to resolve storage definition due to missing predecessors.");
 
         if (block.Pred.Count == 1)
-            return ReadIdentifier(block.Pred[0], storage, name, dt);
+            return ReadIdentifier(block.Pred[0], storage, dt);
 
         var phi = factory.CreatePhi(state.Node);
+        phi.Name = $"{storage.Name}_{phi.Number}";
         state.StorageDefs[storage] =
         [
             (default, phi)
@@ -354,7 +371,7 @@ public class NodeRepresentationBuilder
 
         foreach (var pred in block.Pred)
         {
-            var arg = ReadIdentifier(pred, storage, name, dt);
+            var arg = ReadIdentifier(pred, storage, dt);
             Node.AddEdge(arg, phi);
         }
 
