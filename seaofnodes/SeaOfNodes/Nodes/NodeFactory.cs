@@ -139,4 +139,13 @@ public class NodeFactory
         return new CondNode(NextId(), dt, cfNode, input);
     }
 
+    public TestNode CreateTest(DataType dt, ConditionCode conditionCode, Node? cfNode, Node input)
+    {
+        return new TestNode(NextId(), dt, conditionCode, cfNode, input);
+    }
+
+    internal Node Apply(DataType dataType, Node? cfNode, Node fn, Node[] args)
+    {
+        return new ApplicationNode(NextId(), dataType, cfNode, fn, args);
+    }
 }

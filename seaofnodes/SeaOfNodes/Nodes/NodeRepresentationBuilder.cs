@@ -86,7 +86,7 @@ public class NodeRepresentationBuilder
             }
             catch
             {
-                if (!captureExceptions)
+                if (captureExceptions)
                     throw;
                 Console.Out.WriteLine($"Error: {stmt.Instruction} in block {block}");
                 procedureHadTranslationError = true;
@@ -186,21 +186,25 @@ public class NodeRepresentationBuilder
 
     public Node VisitComment(CodeComment code)
     {
+        Console.Out.WriteLine("NYI: {0}", code.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitDefInstruction(DefInstruction def)
     {
+        Console.Out.WriteLine("NYI: {0}", def.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitGotoInstruction(GotoInstruction gotoInstruction)
     {
+        Console.Out.WriteLine("NYI: {0}", gotoInstruction.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitPhiAssignment(PhiAssignment phi)
     {
+        Console.Out.WriteLine("NYI: {0}", phi.GetType());
         throw new NotImplementedException();
     }
 
@@ -216,6 +220,7 @@ public class NodeRepresentationBuilder
 
     public Node VisitSideEffect(SideEffect side)
     {
+        Console.Out.WriteLine("NYI: {0}", side.GetType());
         throw new NotImplementedException();
     }
 
@@ -234,11 +239,13 @@ public class NodeRepresentationBuilder
 
     public Node VisitSwitchInstruction(SwitchInstruction si)
     {
+        Console.Out.WriteLine("NYI: {0}", si.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitUseInstruction(UseInstruction use)
     {
+        Console.Out.WriteLine("NYI: {0}", use.GetType());
         throw new NotImplementedException();
     }
 
@@ -249,11 +256,14 @@ public class NodeRepresentationBuilder
 
     public Node VisitApplication(Application appl)
     {
-        throw new NotImplementedException();
+        var fn = appl.Procedure.Accept(this);
+        var args = appl.Arguments.Select(arg => arg.Accept(this)).ToArray();
+        return factory.Apply(appl.DataType, cfNode, fn, args);
     }
 
     public Node VisitArrayAccess(ArrayAccess acc)
     {
+        Console.Out.WriteLine("NYI: {0}", acc.GetType());
         throw new NotImplementedException();
     }
 
@@ -266,11 +276,13 @@ public class NodeRepresentationBuilder
 
     public Node VisitCast(Cast cast)
     {
+        Console.Out.WriteLine("NYI: {0}", cast.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitConditionalExpression(ConditionalExpression cond)
     {
+        Console.Out.WriteLine("NYI: {0}", cond.GetType());
         throw new NotImplementedException();
     }
 
@@ -293,11 +305,13 @@ public class NodeRepresentationBuilder
 
     public Node VisitDereference(Dereference deref)
     {
+        Console.Out.WriteLine("NYI: {0}", deref.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitFieldAccess(FieldAccess acc)
     {
+        Console.Out.WriteLine("NYI: {0}", acc.GetType());
         throw new NotImplementedException();
     }
 
@@ -389,6 +403,7 @@ public class NodeRepresentationBuilder
 
     public Node VisitMemberPointerSelector(MemberPointerSelector mps)
     {
+        Console.Out.WriteLine("NYI: {0}", mps.GetType());
         throw new NotImplementedException();
     }
 
@@ -402,21 +417,25 @@ public class NodeRepresentationBuilder
 
     public Node VisitMkSequence(MkSequence seq)
     {
+        Console.Out.WriteLine("NYI: {0}", seq.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitOutArgument(OutArgument outArgument)
     {
+        Console.Out.WriteLine("NYI: {0}", outArgument.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitPhiFunction(PhiFunction phi)
     {
+        Console.Out.WriteLine("NYI: {0}", phi.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitPointerAddition(PointerAddition pa)
     {
+        Console.Out.WriteLine("NYI: {0}", pa.GetType());
         throw new NotImplementedException();
     }
 
@@ -427,11 +446,13 @@ public class NodeRepresentationBuilder
 
     public Node VisitScopeResolution(ScopeResolution scopeResolution)
     {
+        Console.Out.WriteLine("NYI: {0}", scopeResolution.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitSegmentedAddress(SegmentedPointer address)
     {
+        Console.Out.WriteLine("NYI: {0}", address.GetType());
         throw new NotImplementedException();
     }
 
@@ -443,12 +464,14 @@ public class NodeRepresentationBuilder
 
     public Node VisitStringConstant(StringConstant str)
     {
+        Console.Out.WriteLine("NYI: {0}", str.GetType());
         throw new NotImplementedException();
     }
 
     public Node VisitTestCondition(TestCondition tc)
     {
-        throw new NotImplementedException();
+        var input = tc.Expression.Accept(this);
+        return factory.CreateTest(tc.DataType, tc.ConditionCode, cfNode, input);
     }
 
     public Node VisitUnaryExpression(UnaryExpression unary)

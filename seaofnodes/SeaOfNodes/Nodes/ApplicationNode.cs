@@ -6,6 +6,10 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public sealed class ApplicationNode : ExpressionNode
 {
+    public ApplicationNode(int number, DataType dt, Node? cfNode, Node fn, params Node?[] inputs) : base(number, dt, cfNode, fn, inputs)
+    {
+    }
+
     public ApplicationNode(int number, DataType dt, params Node?[] inputs) : base(number, dt, inputs)
     {
     }

@@ -7,7 +7,7 @@ public abstract class Node
         this.Number = number;
         this.Inputs = [];
         this.Outputs = [];
-        
+
         foreach (var input in inputs)
         {
             if (input is not null)
@@ -15,17 +15,31 @@ public abstract class Node
         }
     }
 
-    protected Node(int number, Node? cfNode,params Node?[] inputs)
+    protected Node(int number, Node? cfNode, params Node?[] inputs)
     {
         this.Number = number;
         this.Inputs = [];
         this.Outputs = [];
-        
+
         AddEdge(cfNode, this);
         foreach (var input in inputs)
         {
             if (input is not null)
                 AddEdge(input, this);
+        }
+    }
+
+    protected Node(int number, Node? cfNode, Node n, params Node?[] inputs)
+    {
+        this.Number = number;
+        this.Inputs = [];
+        this.Outputs = [];
+
+        AddEdge(cfNode, this);
+        AddEdge(n, this);
+        foreach (var input in inputs)
+        {
+            AddEdge(input, this);
         }
     }
 

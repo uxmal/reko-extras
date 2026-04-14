@@ -9,5 +9,10 @@ public abstract class ExpressionNode : Node
         DataType = dt;
     }
 
+    protected ExpressionNode(int number, DataType dt, Node? cfNode, Node n, params Node?[] inputs) : base(number, cfNode, n, inputs)
+    {
+        DataType = dt;
+    }
+
     public DataType DataType { get; }
 }

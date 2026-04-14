@@ -1,5 +1,6 @@
 using Reko.Analysis;
 using Reko.Core;
+using Reko.Core.Expressions;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
 
@@ -443,7 +444,8 @@ ProcedureBuilder_entry:
 l1:
     n9 = r1 - r2
     n10 = cond(n9)
-    Mem12[0x123400<32>:word32] = n10
+    n12 = TEST(LE, n10)
+    Mem13[0x123400<32>:bool] = n12
     return";
         #endregion
 
@@ -455,8 +457,29 @@ l1:
             var _grf = new FlagGroupStorage(status, 3, "CZ");
             var CZ = m.Frame.EnsureFlagGroup(_grf);
             m.Assign(CZ, m.Cond(status.DataType, m.ISub(r1, r2)));
-            m.MStore(m.Word32(0x123400), CZ);
+            m.MStore(m.Word32(0x123400), m.Test(ConditionCode.LE, CZ));
             m.Return();
+        });
+    }
+
+    [Test]
+    public void Npb_application()
+    {
+        string sExpected =
+        #region Expected
+        @"
+ProcedureBuilder_entry:
+    def r1:word32
+l1:
+    n9 = abs<word32>(r1)
+    return n9";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            m.Assign(r1, m.Fn(Reko.Core.Intrinsics.CommonOps.Abs, r1));
+            m.Return(r1);
         });
     }
 }
