@@ -35,9 +35,7 @@ public class NodeGraphRenderer
 
     private static bool HasRenderableNodes(BlockNode block, HashSet<Node> reachable)
     {
-        return reachable
-            .Where(node => node is not StartNode && node is not EndNode && node is not BlockNode)
-            .Any(node => node.Inputs.FirstOrDefault() == block);
+        return GetBlockNodes(block, reachable).Length > 0;
     }
 
     private static HashSet<Node> CollectReachableNodes(StartNode start)
@@ -62,12 +60,7 @@ public class NodeGraphRenderer
     {
         sw.WriteLine($"{block.Block}:");
 
-        var blockNodes = reachable
-            .Where(node => node is not StartNode && node is not EndNode && node is not BlockNode)
-            .Where(node => node.Inputs.FirstOrDefault() == block)
-            .OrderBy(node => node is PhiNode ? 0 : 1)
-            .ThenBy(node => node.Number)
-            .ToArray();
+        var blockNodes = GetBlockNodes(block, reachable);
 
         for (int i = 0; i < blockNodes.Length; ++i)
         {
@@ -94,8 +87,42 @@ public class NodeGraphRenderer
         }
     }
 
+    private static Node[] GetBlockNodes(BlockNode block, HashSet<Node> reachable)
+    {
+        var controlledNodes = new HashSet<Node>();
+        var workList = new Stack<Node>();
+        workList.Push(block);
+        while (workList.Count > 0)
+        {
+            var ctrl = workList.Pop();
+            foreach (var output in ctrl.Outputs)
+            {
+                if (!reachable.Contains(output))
+                    continue;
+                if (output is StartNode or EndNode or BlockNode)
+                    continue;
+                if (!ReferenceEquals(output.Inputs.FirstOrDefault(), ctrl))
+                    continue;
+                if (!controlledNodes.Add(output))
+                    continue;
+
+                workList.Push(output);
+            }
+        }
+
+        return controlledNodes
+            .OrderBy(node => node is PhiNode ? 0 : 1)
+            .ThenBy(node => node.Number)
+            .ToArray();
+    }
+
     private static bool IsSuppressed(Node node)
     {
+        if (node is ApplicationNode applicationNode &&
+            applicationNode.Outputs.Count == 1 &&
+            applicationNode.Outputs[0] is SideEffectNode)
+            return true;
+
         // Don't render def subnodes of call nodes; CallNode
         // already renders them as part of its output.
         if (node is DefNode defNode &&

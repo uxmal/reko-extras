@@ -137,7 +137,7 @@ public class NodeFactory
         return new TestNode(NextId(), dt, conditionCode, cfNode, input);
     }
 
-    public Node Apply(DataType dataType, Node? cfNode, Node fn, Node[] args)
+    public Node Apply(DataType dataType, Node? cfNode, Node fn, params Node[] args)
     {
         return new ApplicationNode(NextId(), dataType, cfNode, fn, args);
     }

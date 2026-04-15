@@ -502,17 +502,20 @@ m1:
 m2:
     sp_21 = sp_11 - 4<32>
     Mem23[sp_21:word32] = 0x42<32>
-    sp_26 = sp_21 + 4<32>
+    foo()
+    sp_28 = sp_21 + 4<32>
 m3:
-    sp_27 = PHI(sp_11, sp_11, sp_11, sp_26)
-    sp_29 = sp_27 - 4<32>
-    Mem31[sp_29:word32] = 0x2A<32>
-    sp_34 = sp_29 + 4<32>
+    sp_29 = PHI(sp_11, sp_11, sp_11, sp_28)
+    sp_31 = sp_29 - 4<32>
+    Mem33[sp_31:word32] = 0x2A<32>
+    foo()
+    sp_38 = sp_31 + 4<32>
 m4_default:
-    sp_35 = PHI(sp_11, sp_34)
-    sp_37 = sp_35 - 4<32>
-    Mem39[sp_37:word32] = 0<32>
-    sp_42 = sp_37 + 4<32>
+    sp_39 = PHI(sp_11, sp_38)
+    sp_41 = sp_39 - 4<32>
+    Mem43[sp_41:word32] = 0<32>
+    foo()
+    sp_48 = sp_41 + 4<32>
     return";
         #endregion
 

@@ -18,7 +18,6 @@ public class NodeRepresentationBuilder
     private readonly ProgramDataFlow programFlow;
     private readonly Dictionary<Block, BlockState> blocks;
     private readonly HashSet<Procedure> sccProcs;
-    private readonly bool captureExceptions;
     private bool procedureHadTranslationError;
     private Node? cfNode;
     private Block? currentBlock;
@@ -33,7 +32,6 @@ public class NodeRepresentationBuilder
         this.applicationBuilder = new NodeApplicationBuilder(this.factory);
         this.blocks = [];
         this.sccProcs = [];
-        this.captureExceptions = false;
     }
 
     private record struct BlockState(
@@ -41,6 +39,19 @@ public class NodeRepresentationBuilder
         Dictionary<Storage, List<(BitRange, Node)>> StorageDefs)
     {
     }
+
+    private enum ReadStoragePhase
+    {
+        Resolve,
+        AfterSinglePredecessor,
+        AfterPhiPredecessor,
+    }
+
+    private record struct ReadStorageFrame(
+        ReadStoragePhase Phase,
+        Block Block,
+        PhiNode? Phi,
+        int PredecessorIndex);
 
     public StartNode Select(Procedure proc)
     {
@@ -105,7 +116,7 @@ public class NodeRepresentationBuilder
             throw new NotImplementedException();
 
         var value = ass.Src.Accept(this);
-        WriteIdentifier(currentBlock, idDst.Storage, value);
+        WriteStorage(currentBlock, idDst.Storage, value);
         value.Name = $"{idDst.Storage.Name}_{value.Number}";
         return value;
     }
@@ -149,7 +160,10 @@ public class NodeRepresentationBuilder
     private Node GenerateApplicationFromCall(ProcedureConstant callee, Node calleeNode)
     {
         // Keep known-signature calls non-fatal until argument synthesis is implemented.
-        return calleeNode;
+        Node a = factory.Apply(VoidType.Instance, this.cfNode, calleeNode);
+        Node s = factory.SideEffect(this.cfNode!, a);
+        cfNode = s;
+        return s;
     }
 
     private CallNode GenerateUseDefsForKnownCallee(CallInstruction call, Node callee, Procedure proc, ProcedureFlow calleeFlow)
@@ -157,7 +171,7 @@ public class NodeRepresentationBuilder
         var callNode = factory.Call(this.cfNode, callee);
         foreach (var (stgUse, bitRange) in calleeFlow.BitsUsed)
         {
-            var value = ReadIdentifier(this.currentBlock!, stgUse, stgUse.DataType);
+            var value = ReadStorage(this.currentBlock!, stgUse, stgUse.DataType);
             if (stgUse is RegisterStorage reg)
             {
                 Debug.Assert(this.cfNode is not null);
@@ -175,7 +189,7 @@ public class NodeRepresentationBuilder
                 Debug.Assert(this.cfNode is not null);
                 var defNode = factory.CreateDefNode(this.cfNode, reg, reg.DataType);
                 Node.AddEdge(callNode, defNode);
-                WriteIdentifier(this.currentBlock!, stgDef, defNode);
+                WriteStorage(this.currentBlock!, stgDef, defNode);
             }
             else
                 throw new NotImplementedException();
@@ -333,56 +347,110 @@ public class NodeRepresentationBuilder
     public Node VisitIdentifier(Identifier id)
     {
         Debug.Assert(currentBlock is not null);
-        return ReadIdentifier(currentBlock, id.Storage, id.DataType);
+        return ReadStorage(currentBlock, id.Storage, id.DataType);
     }
 
-    private Node ReadIdentifier(Block block, Storage storage, DataType dt)
+    private Node ReadStorage(Block block, Storage storage, DataType dt)
     {
-        var state = blocks[block];
-        if (state.StorageDefs.TryGetValue(storage, out var defs) && defs.Count > 0)
+        var work = new Stack<ReadStorageFrame>();
+        work.Push(new ReadStorageFrame(ReadStoragePhase.Resolve, block, null, 0));
+
+        Node? lastResult = null;
+        while (work.TryPop(out var frame))
         {
-            return defs[^1].Item2;
+            switch (frame.Phase)
+            {
+            case ReadStoragePhase.Resolve:
+            {
+                var state = blocks[frame.Block];
+                // If it's defined in the current block, return the latest definition.
+                if (state.StorageDefs.TryGetValue(storage, out var defs) && defs.Count > 0)
+                {
+                    lastResult = defs[^1].Item2;
+                    break;
+                }
+
+                // If it's not defined and this is the entry block,
+                // create a new def node.
+                if (frame.Block == entryBlock)
+                {
+                    //$TODO: nameFromStorage.
+                    var defNode = factory.CreateDefNode(state.Node, storage, dt);
+                    defNode.Name = storage.Name;
+                    state.StorageDefs[storage] =
+                    [
+                        (default, defNode)
+                    ];
+                    WriteStorage(frame.Block, storage, defNode);
+                    lastResult = defNode;
+                    break;
+                }
+
+                if (frame.Block.Pred.Count == 0)
+                    throw new InvalidOperationException("Unable to resolve storage definition due to missing predecessors.");
+
+                if (frame.Block.Pred.Count == 1)
+                {
+                    work.Push(new ReadStorageFrame(ReadStoragePhase.AfterSinglePredecessor, frame.Block, null, 0));
+                    work.Push(new ReadStorageFrame(ReadStoragePhase.Resolve, frame.Block.Pred[0], null, 0));
+                    break;
+                }
+
+                var phi = factory.CreatePhi(state.Node);
+                phi.Name = $"{storage.Name}_{phi.Number}";
+                WriteStorage(frame.Block, storage, phi);
+
+                state.StorageDefs[storage] =
+                [
+                    (default, phi)
+                ];
+
+                work.Push(new ReadStorageFrame(ReadStoragePhase.AfterPhiPredecessor, frame.Block, phi, 0));
+                work.Push(new ReadStorageFrame(ReadStoragePhase.Resolve, frame.Block.Pred[0], null, 0));
+                break;
+            }
+
+            case ReadStoragePhase.AfterSinglePredecessor:
+                Debug.Assert(lastResult is not null);
+                WriteStorage(frame.Block, storage, lastResult);
+                break;
+
+            case ReadStoragePhase.AfterPhiPredecessor:
+            {
+                Debug.Assert(frame.Phi is not null);
+                Debug.Assert(lastResult is not null);
+                Node.AddEdge(lastResult, frame.Phi);
+
+                var nextPredIndex = frame.PredecessorIndex + 1;
+                if (nextPredIndex < frame.Block.Pred.Count)
+                {
+                    work.Push(new ReadStorageFrame(ReadStoragePhase.AfterPhiPredecessor, frame.Block, frame.Phi, nextPredIndex));
+                    work.Push(new ReadStorageFrame(ReadStoragePhase.Resolve, frame.Block.Pred[nextPredIndex], null, 0));
+                    break;
+                }
+
+                var state = blocks[frame.Block];
+                var sameNode = GetTrivialPhiReplacement(frame.Phi);
+                if (sameNode is not null)
+                {
+                    state.StorageDefs[storage] = [(default, sameNode)];
+                    Node.Replace(frame.Phi, sameNode);
+                    lastResult = sameNode;
+                }
+                else
+                {
+                    lastResult = frame.Phi;
+                }
+                break;
+            }
+
+            default:
+                throw new InvalidOperationException($"Unexpected read-storage phase: {frame.Phase}.");
+            }
         }
 
-        if (block == entryBlock)
-        {
-            //$TODO: nameFromStorage.
-            var defNode = factory.CreateDefNode(state.Node, storage, dt);
-            defNode.Name = storage.Name;
-            state.StorageDefs[storage] =
-            [
-                (default, defNode)
-            ];
-            return defNode;
-        }
-
-        if (block.Pred.Count == 0)
-            throw new InvalidOperationException("Unable to resolve storage definition due to missing predecessors.");
-
-        if (block.Pred.Count == 1)
-            return ReadIdentifier(block.Pred[0], storage, dt);
-
-        var phi = factory.CreatePhi(state.Node);
-        phi.Name = $"{storage.Name}_{phi.Number}";
-        state.StorageDefs[storage] =
-        [
-            (default, phi)
-        ];
-
-        foreach (var pred in block.Pred)
-        {
-            var arg = ReadIdentifier(pred, storage, dt);
-            Node.AddEdge(arg, phi);
-        }
-
-        var sameNode = GetTrivialPhiReplacement(phi);
-        if (sameNode is not null)
-        {
-            state.StorageDefs[storage] = [(default, sameNode)];
-            Node.Replace(phi, sameNode);
-            return sameNode;
-        }
-        return phi;
+        Debug.Assert(lastResult is not null);
+        return lastResult;
     }
 
     private static Node? GetTrivialPhiReplacement(PhiNode phi)
@@ -406,7 +474,7 @@ public class NodeRepresentationBuilder
         return candidate;
     }
 
-    private void WriteIdentifier(Block currentBlock, Storage stgDst, Node value)
+    private void WriteStorage(Block currentBlock, Storage stgDst, Node value)
     {
         var state = blocks[currentBlock];
         if (!state.StorageDefs.TryGetValue(stgDst, out var defs))
