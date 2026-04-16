@@ -27,82 +27,51 @@ public class NodeFactory
             cfNode, left, right);
     }
 
-    public OperationNode CreateUnary(DataType dt, Operator op, Node? cfNode, Node operand)
-    {
-        return new OperationNode(NextId(), dt, op, cfNode, operand);
-    }
-
-    public LoadNode CreateLoad(Node cfNode, Node memNode, DataType dt, Node ea)
-    {
-        return new LoadNode(NextId(), cfNode, memNode, dt, ea);
-    }
-
-    public ConstantNode Word32(uint value) => new ConstantNode(
-        NextId(),
-        Constant.Word32(value));
-
-    public ConstantNode Const(Constant value) => new ConstantNode(
-        NextId(),
-        value);
-
-    public AddressNode CreateAddress(Address addr) => new AddressNode(
+    public AddressNode Address(Address addr) => new AddressNode(
         NextId(),
         addr);
 
-    public SliceNode CreateSlice(Node? cfNode, DataType dt, Node input, int offset)
-        => new SliceNode(NextId(), dt, cfNode, input, offset);
-
-    public ConversionNode CreateConversion(Node? cfNode, DataType dstType, DataType srcType, Node input)
-        => new ConversionNode(NextId(), dstType, srcType, cfNode, input);
-
-    public StartNode CreateStartNode(Procedure proc)
+    public ApplicationNode Apply(DataType dataType, Node? cfNode, Node fn, params Node[] args)
     {
-        var node = new StartNode(NextId());
-        return node;
+        return new ApplicationNode(NextId(), dataType, cfNode, fn, args);
     }
 
-    public BlockNode CreateBlockNode(Block block)
+    public BlockNode Block(Block block)
     {
         var node = new BlockNode(NextId(), block, []);
         return node;
     }
 
-    public EndNode CreateEndNode(StartNode start)
+    public CallNode Call(Node? cfNode, Node callee)
     {
-        var node = new EndNode(NextId());
-        return node;
+        return new CallNode(NextId(), cfNode, callee);
     }
 
-    public Node CreateReturnNode(Node cfNode)
-    {
-        var node = new ReturnNode(NextId(), cfNode);
-        return node;
-    }
+    public ConstantNode Const(Constant value) => new ConstantNode(
+        NextId(),
+        value);
 
-    public Node CreateReturnNode(Node cfNode, Node value)
-    {
-        var node = new ReturnNode(NextId(), cfNode, value);
-        return node;
-    }
+    public ConversionNode Convert(Node? cfNode, DataType dstType, DataType srcType, Node input)
+        => new ConversionNode(NextId(), dstType, srcType, cfNode, input);
 
-
-    public DefNode CreateDefNode(Node cfNode, Storage storage, DataType dt)
+    public DefNode Def(Node cfNode, Storage storage, DataType dt)
     {
         var node = new DefNode(NextId(), storage, dt, cfNode);
         return node;
     }
 
-    public MemoryNode CreateMemoryNode(Node cfNode)
+    public EndNode End(StartNode start)
+    {
+        var node = new EndNode(NextId());
+        return node;
+    }
+
+    public MemoryNode Mem(Node cfNode)
     {
         return new MemoryNode(NextId(), cfNode);
     }
 
-    public StoreNode CreateStore(Node cfNode, MemoryNode memNode, DataType dt, Node ea, Node value)
-    {
-        return new StoreNode(NextId(), cfNode, memNode, dt, ea, value);
-    }
-
-    public PhiNode CreatePhi(Node cfNode)
+    public PhiNode Phi(Node cfNode)
     {
         return new PhiNode(NextId(), cfNode);
     }
@@ -112,19 +81,15 @@ public class NodeFactory
         return new IfNode(NextId(), cfNode, predicate);
     }
 
-    public Node CreateUse(Node? cfNode, Storage stg, BitRange bitRange)
+    public LoadNode Load(Node cfNode, Node memNode, DataType dt, Node ea)
     {
-        return new UseNode(NextId(), stg, bitRange, cfNode);
+        return new LoadNode(NextId(), cfNode, memNode, dt, ea);
     }
+
 
     public ProcedureConstantNode ProcedureConstant(ProcedureBase procedure)
     {
         return new ProcedureConstantNode(NextId(), procedure);
-    }
-
-    public CallNode Call(Node? cfNode, Node callee)
-    {
-        return new CallNode(NextId(), cfNode, callee);
     }
 
     public CondNode Cond(DataType dt, Node? cfNode, Node input)
@@ -132,14 +97,16 @@ public class NodeFactory
         return new CondNode(NextId(), dt, cfNode, input);
     }
 
-    public TestNode CreateTest(DataType dt, ConditionCode conditionCode, Node? cfNode, Node input)
+    public Node Return(Node cfNode)
     {
-        return new TestNode(NextId(), dt, conditionCode, cfNode, input);
+        var node = new ReturnNode(NextId(), cfNode);
+        return node;
     }
 
-    public Node Apply(DataType dataType, Node? cfNode, Node fn, params Node[] args)
+    public Node Return(Node cfNode, Node value)
     {
-        return new ApplicationNode(NextId(), dataType, cfNode, fn, args);
+        var node = new ReturnNode(NextId(), cfNode, value);
+        return node;
     }
 
     public Node SideEffect(Node cfNode, Node expNode)
@@ -147,9 +114,41 @@ public class NodeFactory
         return new SideEffectNode(NextId(), cfNode, expNode);
     }
 
-    public SwitchNode CreateSwitch(Node cfNode, Node selector, string[] targets)
+    public SliceNode Slice(Node? cfNode, DataType dt, Node input, int offset)
+        => new SliceNode(NextId(), dt, cfNode, input, offset);
+
+    public StartNode Start(Procedure proc)
+    {
+        var node = new StartNode(NextId());
+        return node;
+    }
+
+    public StoreNode Store(Node cfNode, MemoryNode memNode, DataType dt, Node ea, Node value)
+    {
+        return new StoreNode(NextId(), cfNode, memNode, dt, ea, value);
+    }
+
+    public SwitchNode Switch(Node cfNode, Node selector, string[] targets)
     {
         return new SwitchNode(NextId(), cfNode, selector, targets);
     }
 
+    public TestNode Test(DataType dt, ConditionCode conditionCode, Node? cfNode, Node input)
+    {
+        return new TestNode(NextId(), dt, conditionCode, cfNode, input);
+    }
+
+    public OperationNode Unary(DataType dt, Operator op, Node? cfNode, Node operand)
+    {
+        return new OperationNode(NextId(), dt, op, cfNode, operand);
+    }
+
+    public Node Use(Node? cfNode, Storage stg, BitRange bitRange)
+    {
+        return new UseNode(NextId(), stg, bitRange, cfNode);
+    }
+
+    public ConstantNode Word32(uint value) => new ConstantNode(
+        NextId(),
+        Constant.Word32(value));
 }

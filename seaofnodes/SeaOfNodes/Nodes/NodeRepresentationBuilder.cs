@@ -77,12 +77,12 @@ public class NodeRepresentationBuilder
     public StartNode Transform(Procedure proc)
     {
         procedureHadTranslationError = false;
-        StartNode start = factory.CreateStartNode(proc);
-        EndNode end = factory.CreateEndNode(start);
+        StartNode start = factory.Start(proc);
+        EndNode end = factory.End(start);
         entryBlock = proc.EntryBlock;
         CreateEmptyBlocks(proc);
         LinkBlocks(proc);
-        this.memNode = factory.CreateMemoryNode(start);
+        this.memNode = factory.Mem(start);
         Node.AddEdge(start, blocks[proc.EntryBlock].Node);
         Node.AddEdge(blocks[proc.ExitBlock].Node, end);
 
@@ -122,7 +122,7 @@ public class NodeRepresentationBuilder
     {
         foreach (var block in proc.ControlGraph.Blocks)
         {
-            var node = factory.CreateBlockNode(block);
+            var node = factory.Block(block);
             blocks[block] = new BlockState(node);
         }
         return blocks;
@@ -192,7 +192,7 @@ public class NodeRepresentationBuilder
             if (stgUse is RegisterStorage reg)
             {
                 Debug.Assert(this.cfNode is not null);
-                var useNode = factory.CreateUse(this.cfNode, reg, bitRange);
+                var useNode = factory.Use(this.cfNode, reg, bitRange);
                 Node.AddEdge(value, useNode);
                 Node.AddEdge(useNode, callNode);
             }
@@ -204,7 +204,7 @@ public class NodeRepresentationBuilder
             if (stgDef is RegisterStorage reg)
             {
                 Debug.Assert(this.cfNode is not null);
-                var defNode = factory.CreateDefNode(this.cfNode, reg, reg.DataType);
+                var defNode = factory.Def(this.cfNode, reg, reg.DataType);
                 Node.AddEdge(callNode, defNode);
                 WriteStorage(blocks[this.currentBlock!], stgDef, defNode);
             }
@@ -247,10 +247,10 @@ public class NodeRepresentationBuilder
     {
         Debug.Assert(cfNode is not null);
         if (ret.Expression is null)
-            return factory.CreateReturnNode(cfNode);
+            return factory.Return(cfNode);
 
         var value = ret.Expression.Accept(this);
-        return factory.CreateReturnNode(cfNode, value);
+        return factory.Return(cfNode, value);
     }
 
     public Node VisitSideEffect(SideEffect side)
@@ -268,7 +268,7 @@ public class NodeRepresentationBuilder
             throw new NotImplementedException();
         var ea = access.EffectiveAddress.Accept(this);
         var value = store.Src.Accept(this);
-        var storeNode = factory.CreateStore(cfNode, memNode, access.DataType, ea, value);
+        var storeNode = factory.Store(cfNode, memNode, access.DataType, ea, value);
         memNode = storeNode;
         return storeNode;
     }
@@ -277,7 +277,7 @@ public class NodeRepresentationBuilder
     {
         var selector = si.Expression.Accept(this);
         var targets = si.Targets.Select(t => t.DisplayName).ToArray();
-        var switchNode = factory.CreateSwitch(cfNode!, selector, targets);
+        var switchNode = factory.Switch(cfNode!, selector, targets);
         Debug.Assert(currentBlock is not null);
         // Link switch node to target blocks
         foreach (var target in si.Targets)
@@ -299,7 +299,7 @@ public class NodeRepresentationBuilder
 
     public Node VisitAddress(Address addr)
     {
-        return factory.CreateAddress(addr);
+        return factory.Address(addr);
     }
 
     public Node VisitApplication(Application appl)
@@ -346,7 +346,7 @@ public class NodeRepresentationBuilder
     public Node VisitConversion(Conversion conversion)
     {
         var input = conversion.Expression.Accept(this);
-        return factory.CreateConversion(cfNode, conversion.DataType, conversion.SourceDataType, input);
+        return factory.Convert(cfNode, conversion.DataType, conversion.SourceDataType, input);
     }
 
     public Node VisitDereference(Dereference deref)
@@ -432,7 +432,7 @@ public class NodeRepresentationBuilder
                     break;
                 }
 
-                var phi = factory.CreatePhi(state.Node);
+                var phi = factory.Phi(state.Node);
                 phi.Name = GenerateName(storage, phi);
                 WriteStorage(state, storage, phi);
 
@@ -485,7 +485,7 @@ public class NodeRepresentationBuilder
 
     private Node? CreateDefNode(BlockState state, Storage storage, DataType dt)
     {
-        var defNode = factory.CreateDefNode(state.Node, storage, dt);
+        var defNode = factory.Def(state.Node, storage, dt);
         defNode.Name = storage.Name;
         WriteStorage(state, storage, defNode);
         return defNode;
@@ -609,7 +609,7 @@ public class NodeRepresentationBuilder
         Debug.Assert(cfNode is not null);
         Debug.Assert(memNode is not null);
         var ea = access.EffectiveAddress.Accept(this);
-        return factory.CreateLoad(cfNode, memNode, access.DataType, ea);
+        return factory.Load(cfNode, memNode, access.DataType, ea);
     }
 
     public Node VisitMkSequence(MkSequence seq)
@@ -656,7 +656,7 @@ public class NodeRepresentationBuilder
     public Node VisitSlice(Slice slice)
     {
         var input = slice.Expression.Accept(this);
-        return factory.CreateSlice(cfNode, slice.DataType, input, slice.Offset);
+        return factory.Slice(cfNode, slice.DataType, input, slice.Offset);
     }
 
     public Node VisitStringConstant(StringConstant str)
@@ -668,13 +668,13 @@ public class NodeRepresentationBuilder
     public Node VisitTestCondition(TestCondition tc)
     {
         var input = tc.Expression.Accept(this);
-        return factory.CreateTest(tc.DataType, tc.ConditionCode, cfNode, input);
+        return factory.Test(tc.DataType, tc.ConditionCode, cfNode, input);
     }
 
     public Node VisitUnaryExpression(UnaryExpression unary)
     {
         var operand = unary.Expression.Accept(this);
-        return factory.CreateUnary(unary.DataType, unary.Operator, cfNode, operand);
+        return factory.Unary(unary.DataType, unary.Operator, cfNode, operand);
     }
 
     private string? GenerateName(Storage storage, Node value)

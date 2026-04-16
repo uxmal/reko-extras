@@ -18,9 +18,9 @@ public class NodeApplicationBuilderTests
 
         var factory = new NodeFactory();
         var builder = new NodeApplicationBuilder(factory);
-        var start = factory.CreateStartNode(m.Procedure);
+        var start = factory.Start(m.Procedure);
         var callee = factory.ProcedureConstant(procedure);
-        var argument = factory.CreateDefNode(start, r1.Storage, r1.DataType);
+        var argument = factory.Def(start, r1.Storage, r1.DataType);
 
         var node = builder.Build(
             application,
@@ -52,7 +52,7 @@ public class NodeApplicationBuilderTests
 
         var factory = new NodeFactory();
         var builder = new NodeApplicationBuilder(factory);
-        var start = factory.CreateStartNode(m.Procedure);
+        var start = factory.Start(m.Procedure);
         var callee = factory.ProcedureConstant(procedure);
         var first = factory.Const(Constant.Word32(1));
         var second = factory.Const(Constant.Word32(2));
