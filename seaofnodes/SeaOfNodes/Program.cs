@@ -38,8 +38,7 @@ foreach (Reko.Core.Program program in decompiler.Project.Programs)
 		var hadError = false;
 		try
 		{
-			var graph = builder.Select(proc);
-			hadError = builder.ProcedureHadTranslationError;
+			var graph = builder.Transform(proc);
 			var renderer = new NodeGraphRenderer();
 			renderer.Render(graph, Console.Out);
 		}

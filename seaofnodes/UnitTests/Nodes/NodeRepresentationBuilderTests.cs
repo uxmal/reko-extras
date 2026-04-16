@@ -29,7 +29,7 @@ public class NodeRepresentationBuilderTests
         testCodeBuilder(m);
 
         var builder = new NodeRepresentationBuilder(this.programFlow);
-        var graph = builder.Select(m.Procedure);
+        var graph = builder.Transform(m.Procedure);
         var renderer = new NodeGraphRenderer();
         var sw = new StringWriter();
         sw.WriteLine();

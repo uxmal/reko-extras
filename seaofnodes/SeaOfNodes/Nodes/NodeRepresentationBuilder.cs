@@ -1,12 +1,12 @@
-using System.Diagnostics;
 using Reko.Analysis;
 using Reko.Core;
 using Reko.Core.Code;
 using Reko.Core.Expressions;
+using Reko.Core.Graphs;
 using Reko.Core.Lib;
 using Reko.Core.Operators;
 using Reko.Core.Types;
-using Reko.Environments.Pdp10Env.FileFormats;
+using System.Diagnostics;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
@@ -35,11 +35,28 @@ public class NodeRepresentationBuilder
         this.sccProcs = [];
     }
 
-    private record struct BlockState(
-        BlockNode Node,
-        Dictionary<Storage, List<(BitRange, Node)>> StorageDefs,
-        Dictionary<RegisterStorage, List<(FlagGroupStorage, Node)>> FlagGroupDefs)
-    {
+    /// <summary>
+    /// Tracks the reaching definitions of each storage in a block.
+    /// </summary>
+    /// <param name="Node"><see cref="BlockNode"/> corresponding to a block.</param>
+    /// <param name="RegisterDefs">Reaching definitions for registers.</param>
+    /// <param name="FlagGroupDefs">Reaching definitions for flag groups.</param>
+    /// <param name="TemporaryDefs">Reaching definitions for temporaries.</param>
+    private class BlockState { 
+
+        public BlockState(BlockNode node)
+        {
+            this.Node = node;
+            this.RegisterDefs = [];
+            this.FlagGroupDefs = [];
+            this.TemporaryDefs = [];
+        }
+
+        public BlockNode Node { get; }
+
+        public Dictionary<RegisterStorage, List<(BitRange, Node)>> RegisterDefs { get; }
+        public Dictionary<RegisterStorage, List<(FlagGroupStorage, Node)>> FlagGroupDefs { get; }
+        public Dictionary<TemporaryStorage, Node> TemporaryDefs { get; }
     }
 
     private enum ReadStoragePhase
@@ -49,13 +66,15 @@ public class NodeRepresentationBuilder
         AfterPhiPredecessor,
     }
 
-    private record struct ReadStorageFrame(
-        ReadStoragePhase Phase,
-        Block Block,
-        PhiNode? Phi,
-        int PredecessorIndex);
-
-    public StartNode Select(Procedure proc)
+    /// <summary>
+    /// Transforms the IR in a <see cref="Procedure"/> to a
+    /// sea-of-nodes representation, returning the
+    /// <see cref="StartNode"/> of the procedure.
+    /// </summary>
+    /// <param name="proc">Procedure to transform.</param>
+    /// <returns>The <see cref="StartNode"/> of the transformed procedure.
+    /// </returns>
+    public StartNode Transform(Procedure proc)
     {
         procedureHadTranslationError = false;
         StartNode start = factory.CreateStartNode(proc);
@@ -67,7 +86,7 @@ public class NodeRepresentationBuilder
         Node.AddEdge(start, blocks[proc.EntryBlock].Node);
         Node.AddEdge(blocks[proc.ExitBlock].Node, end);
 
-        var rpo = new Reko.Core.Graphs.DfsIterator<Block>(proc.ControlGraph);
+        var rpo = new DfsIterator<Block>(proc.ControlGraph);
         foreach (var block in rpo.ReversePostOrder())
         {
             var state = blocks[block];
@@ -75,8 +94,6 @@ public class NodeRepresentationBuilder
         }
         return start;
     }
-
-    public bool ProcedureHadTranslationError => procedureHadTranslationError;
 
     private void LinkBlocks(Procedure proc)
     {
@@ -96,7 +113,7 @@ public class NodeRepresentationBuilder
         this.cfNode = state.Node;
         foreach (var stmt in block.Statements)
         {
-                stmt.Instruction.Accept(this);
+            stmt.Instruction.Accept(this);
         }
         return state;
     }
@@ -106,7 +123,7 @@ public class NodeRepresentationBuilder
         foreach (var block in proc.ControlGraph.Blocks)
         {
             var node = factory.CreateBlockNode(block);
-            blocks[block] = new BlockState(node, [], []);
+            blocks[block] = new BlockState(node);
         }
         return blocks;
     }
@@ -114,12 +131,11 @@ public class NodeRepresentationBuilder
     public Node VisitAssignment(Assignment ass)
     {
         Debug.Assert(currentBlock is not null);
-        if (ass.Dst is not Identifier idDst)
-            throw new NotImplementedException();
+        var idDst = ass.Dst;
 
         var value = ass.Src.Accept(this);
-        WriteStorage(currentBlock, idDst.Storage, value);
-        value.Name = $"{idDst.Storage.Name}_{value.Number}";
+        value.Name = GenerateName(idDst.Storage, value);
+        WriteStorage(blocks[currentBlock], idDst.Storage, value);
         return value;
     }
 
@@ -161,7 +177,6 @@ public class NodeRepresentationBuilder
 
     private Node GenerateApplicationFromCall(ProcedureConstant callee, Node calleeNode)
     {
-        // Keep known-signature calls non-fatal until argument synthesis is implemented.
         Node a = factory.Apply(VoidType.Instance, this.cfNode, calleeNode);
         Node s = factory.SideEffect(this.cfNode!, a);
         cfNode = s;
@@ -191,7 +206,7 @@ public class NodeRepresentationBuilder
                 Debug.Assert(this.cfNode is not null);
                 var defNode = factory.CreateDefNode(this.cfNode, reg, reg.DataType);
                 Node.AddEdge(callNode, defNode);
-                WriteStorage(this.currentBlock!, stgDef, defNode);
+                WriteStorage(blocks[this.currentBlock!], stgDef, defNode);
             }
             else
                 throw new NotImplementedException();
@@ -352,6 +367,35 @@ public class NodeRepresentationBuilder
         return ReadStorage(currentBlock, id.Storage, id.DataType);
     }
 
+
+    /// <summary>
+    /// To avoid recursion and exhausting the return stack, we reify the
+    /// stack of read-storage operations into a work queue.
+    /// </summary>
+    /// <param name="Phase"></param>
+    /// <param name="Block">Block being processed.</param>
+    /// <param name="Phi"></param>
+    /// <param name="PredecessorIndex"></param>
+    private record struct ReadStorageFrame(
+        ReadStoragePhase Phase,
+        Block Block,
+        PhiNode? Phi,
+        int PredecessorIndex);
+
+
+    /// <summary>
+    /// Searches "backwards" to locate the most recent definition of the given
+    /// <paramref name="storage"/>, starting at the given <paramref name="block"/>.
+    /// If no definition was found, we search the predecessor(s) of the block.
+    /// If there are multiple predecessors, we create a <see cref="PhiNode"/>
+    /// to merge the definitions of the various predecessors. If we reach the entry
+    /// block without finding a definition, we create a new <see cref="DefNode"/>.
+    /// </summary>
+    /// <param name="block"></param>
+    /// <param name="storage"></param>
+    /// <param name="dt"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     private Node ReadStorage(Block block, Storage storage, DataType dt)
     {
         var work = new Stack<ReadStorageFrame>();
@@ -365,38 +409,16 @@ public class NodeRepresentationBuilder
             case ReadStoragePhase.Resolve:
             {
                 var state = blocks[frame.Block];
-                if (storage is FlagGroupStorage flagGroup)
-                {
-                    var flagValue = TryReadFlagGroupStorage(frame.Block, flagGroup);
-                    if (flagValue is not null)
-                    {
-                        lastResult = flagValue;
-                        break;
-                    }
-                }
-                else
-                {
-                    // If it's defined in the current block, return the latest definition.
-                    if (state.StorageDefs.TryGetValue(storage, out var defs) && defs.Count > 0)
-                    {
-                        lastResult = defs[^1].Item2;
-                        break;
-                    }
-                }
+                // If it's defined in the current block, return the latest definition.
+                lastResult = ReadLocalStorage(storage, state, frame);
+                if (lastResult is not null)
+                    break;
 
                 // If it's not defined and this is the entry block,
                 // create a new def node.
                 if (frame.Block == entryBlock)
                 {
-                    //$TODO: nameFromStorage.
-                    var defNode = factory.CreateDefNode(state.Node, storage, dt);
-                    defNode.Name = storage.Name;
-                    state.StorageDefs[storage] =
-                    [
-                        (default, defNode)
-                    ];
-                    WriteStorage(frame.Block, storage, defNode);
-                    lastResult = defNode;
+                    lastResult = CreateDefNode(state, storage, dt);
                     break;
                 }
 
@@ -405,28 +427,23 @@ public class NodeRepresentationBuilder
 
                 if (frame.Block.Pred.Count == 1)
                 {
-                    work.Push(new ReadStorageFrame(ReadStoragePhase.AfterSinglePredecessor, frame.Block, null, 0));
-                    work.Push(new ReadStorageFrame(ReadStoragePhase.Resolve, frame.Block.Pred[0], null, 0));
+                    work.Push(new(ReadStoragePhase.AfterSinglePredecessor, frame.Block, null, 0));
+                    work.Push(new(ReadStoragePhase.Resolve, frame.Block.Pred[0], null, 0));
                     break;
                 }
 
                 var phi = factory.CreatePhi(state.Node);
-                phi.Name = $"{storage.Name}_{phi.Number}";
-                WriteStorage(frame.Block, storage, phi);
+                phi.Name = GenerateName(storage, phi);
+                WriteStorage(state, storage, phi);
 
-                state.StorageDefs[storage] =
-                [
-                    (default, phi)
-                ];
-
-                work.Push(new ReadStorageFrame(ReadStoragePhase.AfterPhiPredecessor, frame.Block, phi, 0));
-                work.Push(new ReadStorageFrame(ReadStoragePhase.Resolve, frame.Block.Pred[0], null, 0));
+                work.Push(new(ReadStoragePhase.AfterPhiPredecessor, frame.Block, phi, 0));
+                work.Push(new(ReadStoragePhase.Resolve, frame.Block.Pred[0], null, 0));
                 break;
             }
 
             case ReadStoragePhase.AfterSinglePredecessor:
                 Debug.Assert(lastResult is not null);
-                WriteStorage(frame.Block, storage, lastResult);
+                WriteStorage(blocks[frame.Block], storage, lastResult);
                 break;
 
             case ReadStoragePhase.AfterPhiPredecessor:
@@ -443,11 +460,10 @@ public class NodeRepresentationBuilder
                     break;
                 }
 
-                var state = blocks[frame.Block];
                 var sameNode = GetTrivialPhiReplacement(frame.Phi);
                 if (sameNode is not null)
                 {
-                    state.StorageDefs[storage] = [(default, sameNode)];
+                    WriteStorage(blocks[frame.Block], storage, sameNode);
                     Node.Replace(frame.Phi, sameNode);
                     lastResult = sameNode;
                 }
@@ -465,6 +481,43 @@ public class NodeRepresentationBuilder
 
         Debug.Assert(lastResult is not null);
         return lastResult;
+    }
+
+    private Node? CreateDefNode(BlockState state, Storage storage, DataType dt)
+    {
+        var defNode = factory.CreateDefNode(state.Node, storage, dt);
+        defNode.Name = storage.Name;
+        WriteStorage(state, storage, defNode);
+        return defNode;
+    }
+
+    private Node? ReadLocalStorage(Storage storage, BlockState state, in ReadStorageFrame frame)
+    {
+        switch (storage)
+        {
+        case FlagGroupStorage flagGroup:
+            var flagValue = TryReadFlagGroupStorage(frame.Block, flagGroup);
+            if (flagValue is not null)
+            {
+                return flagValue;
+            }
+            break;
+        case RegisterStorage regUse:
+            if (state.RegisterDefs.TryGetValue(regUse, out var defs) && defs.Count > 0)
+            {
+                return defs[^1].Item2;
+            }
+            break;
+        case TemporaryStorage temp:
+            if (state.TemporaryDefs.TryGetValue(temp, out var tempNode))
+            {
+                return tempNode;
+            }
+            break;
+        default: throw new NotImplementedException(storage.GetType().Name);
+        }
+        return null;
+
     }
 
     private static Node? GetTrivialPhiReplacement(PhiNode phi)
@@ -504,35 +557,44 @@ public class NodeRepresentationBuilder
             if (!candidateStorage.Covers(storage))
                 continue;
 
-            var maskNode = factory.Bin(storage.DataType, Operator.And, cfNode, candidateNode, factory.Word32((uint) requestedMask));
-            maskNode.Name = $"{storage.Name}_{maskNode.Number}";
-            WriteStorage(block, storage, maskNode);
-            return maskNode;
+            var andNode = factory.Bin(storage.DataType, Operator.And, cfNode, candidateNode, factory.Word32((uint) requestedMask));
+            andNode.Name = GenerateName(storage, andNode);
+            WriteStorage(state, storage, andNode);
+            return andNode;
         }
         return null;
     }
 
-    private void WriteStorage(Block currentBlock, Storage stgDst, Node value)
+    private void WriteStorage(BlockState state, Storage stgDst, Node value)
     {
-        var state = blocks[currentBlock];
-        if (!state.StorageDefs.TryGetValue(stgDst, out var defs))
+        switch (stgDst)
         {
-            defs = [];
-            state.StorageDefs[stgDst] = defs;
+        case RegisterStorage regDst:
+            if (!state.RegisterDefs.TryGetValue(regDst, out var defs))
+            {
+                defs = [];
+                state.RegisterDefs[regDst] = defs;
+            }
+            defs.Add((default, value));
+            state.RegisterDefs[regDst] = defs;
+            break;
+        case FlagGroupStorage flagGroup:
+
+            if (!state.FlagGroupDefs.TryGetValue(flagGroup.FlagRegister, out var flagDefs))
+            {
+                flagDefs = [];
+                state.FlagGroupDefs[flagGroup.FlagRegister] = flagDefs;
+            }
+
+            flagDefs.RemoveAll(entry => flagGroup.Covers(entry.Item1));
+            flagDefs.Add((flagGroup, value));
+            break;
+        case TemporaryStorage tmp:
+            state.TemporaryDefs[tmp] = value;
+            break;
+        default:  
+            throw new NotImplementedException(stgDst.GetType().Name);
         }
-        defs.Add((default, value));
-
-        if (stgDst is not FlagGroupStorage flagGroup)
-            return;
-
-        if (!state.FlagGroupDefs.TryGetValue(flagGroup.FlagRegister, out var flagDefs))
-        {
-            flagDefs = [];
-            state.FlagGroupDefs[flagGroup.FlagRegister] = flagDefs;
-        }
-
-        flagDefs.RemoveAll(entry => flagGroup.Covers(entry.Item1));
-        flagDefs.Add((flagGroup, value));
     }
 
 
@@ -614,4 +676,11 @@ public class NodeRepresentationBuilder
         var operand = unary.Expression.Accept(this);
         return factory.CreateUnary(unary.DataType, unary.Operator, cfNode, operand);
     }
+
+    private string? GenerateName(Storage storage, Node value)
+    {
+        return $"{storage.Name}_{value.Number}";
+    }
+
+
 }
