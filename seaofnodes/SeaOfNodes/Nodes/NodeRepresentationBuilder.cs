@@ -4,6 +4,7 @@ using Reko.Core;
 using Reko.Core.Code;
 using Reko.Core.Expressions;
 using Reko.Core.Lib;
+using Reko.Core.Operators;
 using Reko.Core.Types;
 using Reko.Environments.Pdp10Env.FileFormats;
 
@@ -36,7 +37,8 @@ public class NodeRepresentationBuilder
 
     private record struct BlockState(
         BlockNode Node,
-        Dictionary<Storage, List<(BitRange, Node)>> StorageDefs)
+        Dictionary<Storage, List<(BitRange, Node)>> StorageDefs,
+        Dictionary<RegisterStorage, List<(FlagGroupStorage, Node)>> FlagGroupDefs)
     {
     }
 
@@ -104,7 +106,7 @@ public class NodeRepresentationBuilder
         foreach (var block in proc.ControlGraph.Blocks)
         {
             var node = factory.CreateBlockNode(block);
-            blocks[block] = new BlockState(node, []);
+            blocks[block] = new BlockState(node, [], []);
         }
         return blocks;
     }
@@ -363,11 +365,23 @@ public class NodeRepresentationBuilder
             case ReadStoragePhase.Resolve:
             {
                 var state = blocks[frame.Block];
-                // If it's defined in the current block, return the latest definition.
-                if (state.StorageDefs.TryGetValue(storage, out var defs) && defs.Count > 0)
+                if (storage is FlagGroupStorage flagGroup)
                 {
-                    lastResult = defs[^1].Item2;
-                    break;
+                    var flagValue = TryReadFlagGroupStorage(frame.Block, flagGroup);
+                    if (flagValue is not null)
+                    {
+                        lastResult = flagValue;
+                        break;
+                    }
+                }
+                else
+                {
+                    // If it's defined in the current block, return the latest definition.
+                    if (state.StorageDefs.TryGetValue(storage, out var defs) && defs.Count > 0)
+                    {
+                        lastResult = defs[^1].Item2;
+                        break;
+                    }
                 }
 
                 // If it's not defined and this is the entry block,
@@ -474,6 +488,30 @@ public class NodeRepresentationBuilder
         return candidate;
     }
 
+    private Node? TryReadFlagGroupStorage(Block block, FlagGroupStorage storage)
+    {
+        var state = blocks[block];
+        if (!state.FlagGroupDefs.TryGetValue(storage.FlagRegister, out var defs) || defs.Count == 0)
+            return null;
+
+        var requestedMask = storage.FlagGroupBits;
+        for (int i = defs.Count - 1; i >= 0; --i)
+        {
+            var (candidateStorage, candidateNode) = defs[i];
+            if (candidateStorage.FlagGroupBits == requestedMask)
+                return candidateNode;
+
+            if (!candidateStorage.Covers(storage))
+                continue;
+
+            var maskNode = factory.Bin(storage.DataType, Operator.And, cfNode, candidateNode, factory.Word32((uint) requestedMask));
+            maskNode.Name = $"{storage.Name}_{maskNode.Number}";
+            WriteStorage(block, storage, maskNode);
+            return maskNode;
+        }
+        return null;
+    }
+
     private void WriteStorage(Block currentBlock, Storage stgDst, Node value)
     {
         var state = blocks[currentBlock];
@@ -483,6 +521,18 @@ public class NodeRepresentationBuilder
             state.StorageDefs[stgDst] = defs;
         }
         defs.Add((default, value));
+
+        if (stgDst is not FlagGroupStorage flagGroup)
+            return;
+
+        if (!state.FlagGroupDefs.TryGetValue(flagGroup.FlagRegister, out var flagDefs))
+        {
+            flagDefs = [];
+            state.FlagGroupDefs[flagGroup.FlagRegister] = flagDefs;
+        }
+
+        flagDefs.RemoveAll(entry => flagGroup.Covers(entry.Item1));
+        flagDefs.Add((flagGroup, value));
     }
 
 

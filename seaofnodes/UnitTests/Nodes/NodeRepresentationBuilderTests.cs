@@ -553,4 +553,35 @@ m4_default:
             m.Return();
         });
     }
+
+    [Test]
+    public void Npb_overlapping_FlagGroups()
+    {
+        string sExpected =
+        #region Expected
+        @"
+ProcedureBuilder_entry:
+    def r1:word32
+    def r2:word32
+l1:
+    n9 = r1 - r2
+    CZ_10 = cond(n9)
+    C_12 = CZ_10 & 1<32>
+    n13 = TEST(ULT, C_12)
+    return n13";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var status = RegisterStorage.Reg32("status", 0x10);
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            var _cz = new FlagGroupStorage(status, 3, "CZ");
+            var _c = new FlagGroupStorage(status, 1, "C");
+            var CZ = m.Frame.EnsureFlagGroup(_cz);
+            var C = m.Frame.EnsureFlagGroup(_c);
+            m.Assign(CZ, m.Cond(status.DataType, m.ISub(r1, r2)));
+            m.Return(m.Test(ConditionCode.ULT, C));
+        });
+    }
 }
