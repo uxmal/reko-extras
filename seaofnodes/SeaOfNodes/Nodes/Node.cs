@@ -48,6 +48,13 @@ public abstract class Node
     public List<Node?> Inputs { get; set; }
     public List<Node> Outputs { get; set; }
 
+    /// <summary>
+    /// Returns true if this node is "floating" — it was created without an explicit
+    /// control-flow dependency (cfNode was null), so it can be scheduled anywhere
+    /// between its inputs and its consumers.
+    /// </summary>
+    public virtual bool IsFloating => false;
+
     public static void AddEdge(Node? def, Node use)
     {
         if (def is null)

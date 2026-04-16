@@ -18,7 +18,7 @@ public sealed class SliceNode : ExpressionNode
     {
         this.RenderReference(sw);
         sw.Write(" = SLICE(");
-        this.Inputs[1]!.RenderReference(sw);
+        this.Inputs[InputOffset]!.RenderReference(sw);
         sw.Write(", ");
         sw.Write(this.DataType);
         sw.Write(", ");

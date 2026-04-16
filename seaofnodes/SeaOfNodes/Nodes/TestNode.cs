@@ -19,7 +19,7 @@ public sealed class TestNode : ExpressionNode
         sw.Write(" = TEST(");
         sw.Write(this.ConditionCode);
         sw.Write(", ");
-        this.Inputs[1]!.RenderReference(sw);
+        this.Inputs[InputOffset]!.RenderReference(sw);
         sw.Write(')');
     }
 }

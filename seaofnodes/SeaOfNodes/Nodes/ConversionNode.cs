@@ -16,7 +16,7 @@ public sealed class ConversionNode : ExpressionNode
     {
         this.RenderReference(sw);
         sw.Write(" = CONVERT(");
-        this.Inputs[1]!.RenderReference(sw);
+        this.Inputs[InputOffset]!.RenderReference(sw);
         sw.Write(", ");
         sw.Write(this.SourceDataType);
         sw.Write(", ");

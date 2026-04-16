@@ -13,7 +13,7 @@ public class CondNode : ExpressionNode
     {
         this.RenderReference(sw);
         sw.Write(" = cond(");
-        this.Inputs[1]!.RenderReference(sw);
+        this.Inputs[InputOffset]!.RenderReference(sw);
         sw.Write(')');
     }
 }

@@ -317,7 +317,7 @@ public class NodeRepresentationBuilder
     {
         var left = binExp.Left.Accept(this);
         var right = binExp.Right.Accept(this);
-        return factory.Bin(binExp.DataType, binExp.Operator, cfNode, left, right);
+        return factory.Bin(binExp.DataType, binExp.Operator, null, left, right);
     }
 
     public Node VisitCast(Cast cast)
@@ -335,7 +335,7 @@ public class NodeRepresentationBuilder
     public Node VisitConditionOf(ConditionOf cof)
     {
         var input = cof.Expression.Accept(this);
-        return factory.Cond(cof.DataType, cfNode, input);
+        return factory.Cond(cof.DataType, null, input);
     }
 
     public Node VisitConstant(Constant c)
@@ -346,7 +346,7 @@ public class NodeRepresentationBuilder
     public Node VisitConversion(Conversion conversion)
     {
         var input = conversion.Expression.Accept(this);
-        return factory.Convert(cfNode, conversion.DataType, conversion.SourceDataType, input);
+        return factory.Convert(null, conversion.DataType, conversion.SourceDataType, input);
     }
 
     public Node VisitDereference(Dereference deref)
@@ -557,7 +557,7 @@ public class NodeRepresentationBuilder
             if (!candidateStorage.Covers(storage))
                 continue;
 
-            var andNode = factory.Bin(storage.DataType, Operator.And, cfNode, candidateNode, factory.Word32((uint) requestedMask));
+            var andNode = factory.Bin(storage.DataType, Operator.And, null, candidateNode, factory.Word32((uint) requestedMask));
             andNode.Name = GenerateName(storage, andNode);
             WriteStorage(state, storage, andNode);
             return andNode;
@@ -656,7 +656,7 @@ public class NodeRepresentationBuilder
     public Node VisitSlice(Slice slice)
     {
         var input = slice.Expression.Accept(this);
-        return factory.Slice(cfNode, slice.DataType, input, slice.Offset);
+        return factory.Slice(null, slice.DataType, input, slice.Offset);
     }
 
     public Node VisitStringConstant(StringConstant str)
@@ -668,19 +668,17 @@ public class NodeRepresentationBuilder
     public Node VisitTestCondition(TestCondition tc)
     {
         var input = tc.Expression.Accept(this);
-        return factory.Test(tc.DataType, tc.ConditionCode, cfNode, input);
+        return factory.Test(tc.DataType, tc.ConditionCode, null, input);
     }
 
     public Node VisitUnaryExpression(UnaryExpression unary)
     {
         var operand = unary.Expression.Accept(this);
-        return factory.Unary(unary.DataType, unary.Operator, cfNode, operand);
+        return factory.Unary(unary.DataType, unary.Operator, null, operand);
     }
 
     private string? GenerateName(Storage storage, Node value)
     {
         return $"{storage.Name}_{value.Number}";
     }
-
-
 }
