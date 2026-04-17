@@ -1,5 +1,6 @@
 using System.ComponentModel.Design;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using Reko.Core;
 using Reko.Core.Analysis;
 using Reko.Core.Assemblers;
@@ -26,6 +27,7 @@ public class FakeArchitecture : IProcessorArchitecture
     {
         this.Services = services;
         this.StackRegister = RegisterStorage.Reg32("sp", 31);
+        this.Status = RegisterStorage.Reg32("status", 0x10);
     }
 
     public string Name => "fake-arch";
@@ -61,6 +63,8 @@ public class FakeArchitecture : IProcessorArchitecture
     public RegisterStorage StackRegister { get; set;}
 
     public PrimitiveType WordWidth => throw new NotImplementedException();
+
+    public RegisterStorage Status { get; }
 
     public IAssembler CreateAssembler(string? asmDialect)
     {
@@ -164,7 +168,10 @@ public class FakeArchitecture : IProcessorArchitecture
 
     public FlagGroupStorage? GetFlagGroup(RegisterStorage flagRegister, uint grf)
     {
-        throw new NotImplementedException();
+        var sb = new StringBuilder();
+        if ((grf & 1) != 0) sb.Append('C');
+        if ((grf & 2) != 0) sb.Append('Z');
+        return new FlagGroupStorage(flagRegister, grf, sb.ToString());
     }
 
     public FlagGroupStorage? GetFlagGroup(string name)

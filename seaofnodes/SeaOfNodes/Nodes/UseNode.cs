@@ -18,6 +18,7 @@ public sealed class UseNode : Node
 
     public override void Render(TextWriter sw)
     {
+        sw.Write("use ");
         sw.Write(this.Storage);
         sw.Write(':');
         var input = this.Inputs[1];

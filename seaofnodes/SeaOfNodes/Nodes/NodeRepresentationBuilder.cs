@@ -19,7 +19,6 @@ public class NodeRepresentationBuilder
     private readonly ProgramDataFlow programFlow;
     private readonly Dictionary<Block, BlockState> blocks;
     private readonly HashSet<Procedure> sccProcs;
-    private bool procedureHadTranslationError;
     private Node? cfNode;
     private Block? currentBlock;
     private Block? entryBlock;
@@ -76,7 +75,6 @@ public class NodeRepresentationBuilder
     /// </returns>
     public StartNode Transform(Procedure proc)
     {
-        procedureHadTranslationError = false;
         StartNode start = factory.Start(proc);
         EndNode end = factory.End(start);
         entryBlock = proc.EntryBlock;
@@ -92,7 +90,66 @@ public class NodeRepresentationBuilder
             var state = blocks[block];
             state = TranslateBlock(block, state);
         }
+
+        PopulateExitUses(proc.ExitBlock, proc.Architecture);
         return start;
+    }
+
+    /// <summary>
+    /// Creates <see cref="UseNode"/>s in the exit block for the union of all
+    /// register storages that reach the exit. When multiple definitions reach
+    /// the exit for a storage, <see cref="ReadStorage"/> will create a phi in
+    /// the exit block and return that phi as the input value.
+    /// </summary>
+    private void PopulateExitUses(Block exitBlock, IProcessorArchitecture arch)
+    {
+        var exitState = blocks[exitBlock];
+
+        var reachingRegisters = exitBlock.Pred
+            .SelectMany(pred => blocks[pred].RegisterDefs.Keys)
+            .Distinct()
+            .OrderBy(reg => reg.Name)
+            .ThenBy(reg => reg.Number)
+            .ToArray();
+
+        foreach (var reg in reachingRegisters)
+        {
+            var value = ReadStorage(exitBlock, reg, reg.DataType);
+            if (!ShouldEmitExitUse(value))
+                continue;
+            var use = factory.Use(exitState.Node, reg, default);
+            Node.AddEdge(value, use);
+        }
+
+        var reachingFlagGroups = exitBlock.Pred
+            .SelectMany(pred => blocks[pred].FlagGroupDefs.Values)
+            .SelectMany(defs => defs.Select(entry => entry.Item1))
+            .GroupBy(flag => flag.FlagRegister)
+            .Select(g => arch.GetFlagGroup(
+                g.Key, 
+                g.Select(f => f.FlagGroupBits)
+                 .Aggregate((a, b) => a | b))!)
+            .OrderBy(flag => flag.FlagRegister.Number)
+            .ToArray();
+
+        foreach (var flagGroup in reachingFlagGroups)
+        {
+            Debug.Assert(flagGroup is not null);
+            var value = ReadStorage(exitBlock, flagGroup, flagGroup.DataType);
+            if (!ShouldEmitExitUse(value))
+                continue;
+            var use = factory.Use(exitState.Node, flagGroup, default);
+            Node.AddEdge(value, use);
+        }
+    }
+
+    private static bool ShouldEmitExitUse(Node value)
+    {
+        if (value is DefNode defNode &&
+            (defNode.Inputs.Count != 2 ||
+             defNode.Inputs[1] is not CallNode))
+            return false;
+        return true;
     }
 
     private void LinkBlocks(Procedure proc)
@@ -205,6 +262,7 @@ public class NodeRepresentationBuilder
             {
                 Debug.Assert(this.cfNode is not null);
                 var defNode = factory.Def(this.cfNode, reg, reg.DataType);
+                defNode.Name = GenerateName(reg, defNode);
                 Node.AddEdge(callNode, defNode);
                 WriteStorage(blocks[this.currentBlock!], stgDef, defNode);
             }

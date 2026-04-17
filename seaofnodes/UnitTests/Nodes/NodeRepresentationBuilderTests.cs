@@ -91,7 +91,9 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1:word32
 l1:
-    return r1";
+    return r1
+ProcedureBuilder_exit:
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -112,7 +114,9 @@ ProcedureBuilder_entry:
     def r2:word32
 l1:
     n9 = r1 + r2
-    return n9";
+    return n9
+ProcedureBuilder_exit:
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -134,7 +138,10 @@ ProcedureBuilder_entry:
     def r2:word32
 l1:
     r1_9 = r1 + r2
-    return r1_9";
+    return r1_9
+ProcedureBuilder_exit:
+    use r1:r1_9
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -157,7 +164,9 @@ ProcedureBuilder_entry:
     def r2:word32
 l1:
     Mem9[r1:word32] = r2
-    return";
+    return
+ProcedureBuilder_exit:
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -187,7 +196,10 @@ m1_neg:
     return
 m2_nonneg:
     Mem16[0x123404<32>:word32] = r1_11
-    return";
+    return
+ProcedureBuilder_exit:
+    use r1:r1_11
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -226,7 +238,10 @@ m2_ge:
     r1_15 = r1 - 1<32>
 m3_done:
     r1_18 = PHI(r1_17, r1_15)
-    return r1_18";
+    return r1_18
+ProcedureBuilder_exit:
+    use r1:r1_18
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -269,6 +284,7 @@ m3_done:
     return r1_16
     // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
+    use r1:r1_16
 ";
         #endregion
 
@@ -308,7 +324,10 @@ l1:
     n19 = r1_11 < r2
     if (n19) goto l1
 l2:
-    return r1_11";
+    return r1_11
+ProcedureBuilder_exit:
+    use r1:r1_11
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -336,7 +355,9 @@ l1:
     n9 = SLICE(r2, byte, 0)
     n10 = CONVERT(n9, byte, uint64)
     Mem11[0x123400<32>:uint64] = n10
-    return";
+    return
+ProcedureBuilder_exit:
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -358,7 +379,9 @@ ProcedureBuilder_entry:
 l1:
     n9 = SLICE(r1, byte, 0)
     Mem10[0x123400<32>:byte] = n9
-    return";
+    return
+ProcedureBuilder_exit:
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -399,9 +422,13 @@ ProcedureBuilder_entry:
 l1:
     call procSub
         uses: r1:3<32> r2:4<32>
-        defs: r1:n13
-    Mem15[0x12300<32>:word32] = n13
-    return";
+        defs: r1:r1_13
+    Mem15[0x12300<32>:word32] = r1_13
+    return
+ProcedureBuilder_exit:
+    use r1:r1_13
+    use r2:4<32>
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -447,7 +474,10 @@ l1:
     CZ_10 = cond(n9)
     n12 = TEST(LE, CZ_10)
     Mem13[0x123400<32>:bool] = n12
-    return";
+    return
+ProcedureBuilder_exit:
+    use CZ:CZ_10
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -473,7 +503,10 @@ ProcedureBuilder_entry:
     def r1:word32
 l1:
     r1_9 = abs<word32>(r1)
-    return r1_9";
+    return r1_9
+ProcedureBuilder_exit:
+    use r1:r1_9
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -516,7 +549,10 @@ m4_default:
     Mem43[sp_41:word32] = 0<32>
     foo()
     sp_48 = sp_41 + 4<32>
-    return";
+    return
+ProcedureBuilder_exit:
+    use sp:sp_48
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -568,19 +604,22 @@ l1:
     CZ_10 = cond(n9)
     C_12 = CZ_10 & 1<32>
     n13 = TEST(ULT, C_12)
-    return n13";
+    return n13
+ProcedureBuilder_exit:
+    use CZ:CZ_10
+";
         #endregion
 
         RunTest(sExpected, m =>
         {
-            var status = RegisterStorage.Reg32("status", 0x10);
             var r1 = m.Reg32("r1", 1);
             var r2 = m.Reg32("r2", 2);
-            var _cz = new FlagGroupStorage(status, 3, "CZ");
-            var _c = new FlagGroupStorage(status, 1, "C");
+            var arch = (FakeArchitecture) pb.Program.Architecture;
+            var _cz =  arch.GetFlagGroup(arch.Status, 3)!;
+            var _c = arch.GetFlagGroup(arch.Status, 1)!;
             var CZ = m.Frame.EnsureFlagGroup(_cz);
             var C = m.Frame.EnsureFlagGroup(_c);
-            m.Assign(CZ, m.Cond(status.DataType, m.ISub(r1, r2)));
+            m.Assign(CZ, m.Cond(CZ.DataType, m.ISub(r1, r2)));
             m.Return(m.Test(ConditionCode.ULT, C));
         });
     }

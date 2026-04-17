@@ -24,10 +24,7 @@ public class NodeGraphRenderer
         // when a floating node is consumed in multiple blocks.
         var globalScheduled = new HashSet<Node>();
 
-        if (!defMode || HasRenderableNodes(exitBlock, reachable, globalScheduled))
-        {
-            orderedBlocks.Add(exitBlock);
-        }
+        orderedBlocks.Add(exitBlock);
 
         for (int i = 0; i < orderedBlocks.Count; ++i)
         {
@@ -74,10 +71,7 @@ public class NodeGraphRenderer
                 continue;
             sw.Write("    ");
             node.Render(sw);
-            if (!(suppressFinalNodeNewline && i == blockNodes.Length - 1))
-            {
-                sw.WriteLine();
-            }
+            sw.WriteLine();
         }
 
         if (ShouldRenderGoto(block, nextBlock, blockNodes))

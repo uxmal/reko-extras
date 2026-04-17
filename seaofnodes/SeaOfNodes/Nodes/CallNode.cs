@@ -19,7 +19,18 @@ public class CallNode : CfNode
         {
             sw.Write(" ");
             Debug.Assert(use is not null);
-            use!.Render(sw);
+            if (use is UseNode useNode)
+            {
+                sw.Write(useNode.Storage);
+                sw.Write(':');
+                var input = useNode.Inputs[1];
+                Debug.Assert(input is not null);
+                input.RenderReference(sw);
+            }
+            else
+            {
+                use.Render(sw);
+            }
         }
         sw.WriteLine();
         sw.Write("        defs:");
