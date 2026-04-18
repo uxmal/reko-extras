@@ -6,7 +6,7 @@ using Reko.Extras.SeaOfNodes.Nodes;
 
 namespace Reko.Extras.SeaOfNodes.Analysis;
 
-public class NodeValuePropagator : INodeVisitor<Node?>
+public partial class NodeValuePropagator : INodeVisitor<Node?>
 {
     private readonly NodeFactory m;
 
@@ -116,34 +116,12 @@ public class NodeValuePropagator : INodeVisitor<Node?>
 
     public Node? VisitSwitchNode(SwitchNode n) => null;
 
-    public Node? VisitTestNode(TestNode n)
-    {
-        var ccNode = n.Inputs[1];
-        Debug.Assert(ccNode is not null);
-        var conds = FindReachingDefinitions(ccNode, n => null, n => n as CondNode);
-        foreach (CondNode cond in conds)
-        {
-            if (AsISub(cond.Inputs[1]) is OperationNode sub)
-            {
-                switch (n.ConditionCode)
-                {
-                    case ConditionCode.EQ:
-                        return m.Eq(sub.Inputs[1]!, sub.Inputs[2]!);
-                    default:
-                    throw new NotImplementedException($"Condition code {n.ConditionCode} is not supported.");
-                }
-            }
-            throw new NotImplementedException($"Condition node {cond} is not supported.");  
-        }
-        return null;
-    }
-
-    private HashSet<Node> FindReachingDefinitions(
+    private HashSet<T> FindReachingDefinitions<T>(
         Node start,
         Func<Node, Node?> testBypass,
-        Func<Node, Node?> test)
+        Func<Node, T?> test)
     {
-        var result = new HashSet<Node>();
+        var result = new HashSet<T>();
         var visited = new HashSet<Node>();
         var wl = new WorkList<Node>();
         wl.Add(start);
