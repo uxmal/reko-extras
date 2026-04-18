@@ -46,9 +46,9 @@ public class NodeValuePropagatorTests
 ProcedureBuilder_entry:
     def r1:word32
 l1:
+    r1_11 = r1 + 5<32>
     return
 ProcedureBuilder_exit:
-    r1_11 = r1 + 5<32>
     use r1:r1_11
 ";
         #endregion

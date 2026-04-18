@@ -31,13 +31,13 @@ public class NodeGraphRenderer
             var block = orderedBlocks[i];
             var nextBlock = i + 1 < orderedBlocks.Count ? orderedBlocks[i + 1] : null;
             var suppressFinalNodeNewline = defMode && i == orderedBlocks.Count - 1;
-            RenderBlock(block, nextBlock, reachable, sw, !defMode, suppressFinalNodeNewline, globalScheduled);
+            RenderBlock(block, nextBlock, exitBlock, reachable, sw, !defMode, suppressFinalNodeNewline, globalScheduled);
         }
     }
 
-    private static bool HasRenderableNodes(BlockNode block, HashSet<Node> reachable, HashSet<Node> globalScheduled)
+    private static bool HasRenderableNodes(BlockNode block, BlockNode exitBlock, HashSet<Node> reachable, HashSet<Node> globalScheduled)
     {
-        return GetBlockNodes(block, reachable, globalScheduled).Length > 0;
+        return GetBlockNodes(block, exitBlock, reachable, globalScheduled).Length > 0;
     }
 
     private static HashSet<Node> CollectReachableNodes(StartNode start)
@@ -58,11 +58,11 @@ public class NodeGraphRenderer
         return reachable;
     }
 
-    private static void RenderBlock(BlockNode block, BlockNode? nextBlock, HashSet<Node> reachable, TextWriter sw, bool renderSuccessors, bool suppressFinalNodeNewline, HashSet<Node> globalScheduled)
+    private static void RenderBlock(BlockNode block, BlockNode? nextBlock, BlockNode exitBlock, HashSet<Node> reachable, TextWriter sw, bool renderSuccessors, bool suppressFinalNodeNewline, HashSet<Node> globalScheduled)
     {
         sw.WriteLine($"{block.Block}:");
 
-        var blockNodes = GetBlockNodes(block, reachable, globalScheduled);
+        var blockNodes = GetBlockNodes(block, exitBlock, reachable, globalScheduled);
 
         for (int i = 0; i < blockNodes.Length; ++i)
         {
@@ -86,7 +86,7 @@ public class NodeGraphRenderer
         }
     }
 
-    private static Node[] GetBlockNodes(BlockNode block, HashSet<Node> reachable, HashSet<Node> globalScheduled)
+    private static Node[] GetBlockNodes(BlockNode block, BlockNode exitBlock, HashSet<Node> reachable, HashSet<Node> globalScheduled)
     {
         // Step 1: Collect CF-anchored nodes (first input is a CF predecessor in this block's chain).
         var cfAnchoredSet = new HashSet<Node>();
@@ -127,7 +127,7 @@ public class NodeGraphRenderer
 
         foreach (var node in orderedAnchored)
         {
-            if (node is not PhiNode)
+            if (node is not PhiNode && !(ReferenceEquals(block, exitBlock) && node is UseNode))
                 ScheduleFloatingInputs(node, scheduled, result, reachable);
             result.Add(node);
         }
@@ -149,6 +149,24 @@ public class NodeGraphRenderer
                 ScheduleFloatingInputs(phiValue, scheduled, result, reachable);
                 if (scheduled.Add(phiValue))
                     result.Add(phiValue);
+            }
+
+            if (!ReferenceEquals(succBlockNode, exitBlock) || succBlockNode.Block.Pred.Count != 1)
+                continue;
+
+            foreach (var use in succBlockNode.Outputs.OfType<UseNode>())
+            {
+                if (!reachable.Contains(use) || use.Inputs.Count < 2)
+                    continue;
+                var useValue = use.Inputs[1];
+                if (useValue is null || !IsFloating(useValue))
+                    continue;
+                if (!ShouldHoistExitUseInput(useValue))
+                    continue;
+                if (!CanHoistExitUseInput(useValue, exitBlock, []))
+                    continue;
+                if (TryInsertFloatingNodeBeforeTerminator(useValue, scheduled, result, reachable))
+                    globalScheduled.Add(useValue);
             }
         }
 
@@ -185,18 +203,7 @@ public class NodeGraphRenderer
                 ScheduleFloatingInputs(output, scheduled, result, reachable);
                 if (scheduled.Add(output))
                 {
-                    // Insert before the CF terminator (ReturnNode / IfNode / SwitchNode)
-                    // so the node appears "as late as possible" while still before the
-                    // block-ending control transfer.
-                    int insertPos = result.Count;
-                    for (int i = result.Count - 1; i >= 0; i--)
-                    {
-                        if (result[i] is ReturnNode or IfNode or SwitchNode)
-                            insertPos = i;
-                        else
-                            break;
-                    }
-                    result.Insert(insertPos, output);
+                    result.Insert(FindTerminatorInsertPos(result), output);
                     globalScheduled.Add(output);
                     forwardQueue.Enqueue(output);
                 }
@@ -230,6 +237,69 @@ public class NodeGraphRenderer
             if (scheduled.Add(input))
                 result.Add(input);
         }
+    }
+
+    private static bool TryInsertFloatingNodeBeforeTerminator(
+        Node node,
+        HashSet<Node> scheduled,
+        List<Node> result,
+        HashSet<Node> reachable)
+    {
+        if (!IsFloating(node) || scheduled.Contains(node))
+            return false;
+
+        var toInsert = new List<Node>();
+        ScheduleFloatingInputs(node, scheduled, toInsert, reachable);
+        if (scheduled.Add(node))
+            toInsert.Add(node);
+        if (toInsert.Count == 0)
+            return false;
+
+        result.InsertRange(FindTerminatorInsertPos(result), toInsert);
+        return true;
+    }
+
+    private static bool CanHoistExitUseInput(Node node, BlockNode exitBlock, HashSet<Node> visited)
+    {
+        if (!visited.Add(node))
+            return true;
+
+        foreach (var input in node.Inputs)
+        {
+            if (input is null or StartNode or EndNode or BlockNode)
+                continue;
+            if (input.IsFloating)
+            {
+                if (!CanHoistExitUseInput(input, exitBlock, visited))
+                    return false;
+                continue;
+            }
+
+            if (ReferenceEquals(input.Inputs.FirstOrDefault(), exitBlock))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool ShouldHoistExitUseInput(Node node)
+    {
+        return node is not ConstantNode
+            and not AddressNode
+            and not StringNode
+            and not ProcedureConstantNode;
+    }
+
+    private static int FindTerminatorInsertPos(List<Node> result)
+    {
+        int insertPos = result.Count;
+        for (int i = result.Count - 1; i >= 0; i--)
+        {
+            if (result[i] is ReturnNode or IfNode or SwitchNode)
+                insertPos = i;
+            else
+                break;
+        }
+        return insertPos;
     }
 
     /// <summary>
