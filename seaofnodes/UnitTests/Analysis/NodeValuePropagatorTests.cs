@@ -1,4 +1,5 @@
 using Reko.Analysis;
+using Reko.Core.Expressions;
 using Reko.Extras.SeaOfNodes.Analysis;
 using Reko.Extras.SeaOfNodes.Nodes;
 
@@ -21,6 +22,7 @@ public class NodeValuePropagatorTests
         var factory = new NodeFactory();
         var builder = new NodeRepresentationBuilder(factory, programFlow);
         var graph = builder.Transform(m.Procedure);
+
         var nvp = new NodeValuePropagator(factory);
         nvp.Transform(graph);
         var renderer = new NodeGraphRenderer();
@@ -59,6 +61,41 @@ ProcedureBuilder_exit:
 
             m.Assign(r1, m.IAdd(r1, m.Word32(2)));
             m.Assign(r1, m.IAdd(r1, m.Word32(3)));
+            m.Return();
+        });
+    }
+
+    [Test]
+    public void Nvp_ConditionCodeElimination()
+    {
+            string sExpected =
+            #region Expected
+                @"
+ProcedureBuilder_entry:
+    def r:word32
+l1:
+    n13 = r == 3<32>
+    if (n13) goto m_skip
+l2:
+    return
+m_skip:
+    return
+ProcedureBuilder_exit:
+";
+            #endregion
+        
+        RunTest(sExpected, m =>
+        {
+			var r = m.Reg32("r", 1);
+			var z = m.Flags("Z");  // is a condition code.
+            var y = m.Flags("C");  // is a condition code.
+
+            m.Assign(z, m.Cond(z.DataType, m.ISub(r, 3)));
+            m.Assign(y, z);
+
+			m.BranchIf(m.Test(ConditionCode.EQ, y), "m_skip");
+            m.Return();
+            m.Label("m_skip");
             m.Return();
         });
     }

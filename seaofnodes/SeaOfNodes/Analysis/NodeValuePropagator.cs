@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Reko.Core.Collections;
+using Reko.Core.Expressions;
 using Reko.Core.Operators;
 using Reko.Extras.SeaOfNodes.Nodes;
 
@@ -114,7 +116,65 @@ public class NodeValuePropagator : INodeVisitor<Node?>
 
     public Node? VisitSwitchNode(SwitchNode n) => null;
 
-    public Node? VisitTestNode(TestNode n) => null;
+    public Node? VisitTestNode(TestNode n)
+    {
+        var ccNode = n.Inputs[1];
+        Debug.Assert(ccNode is not null);
+        var conds = FindReachingDefinitions(ccNode, n => null, n => n as CondNode);
+        foreach (CondNode cond in conds)
+        {
+            if (AsISub(cond.Inputs[1]) is OperationNode sub)
+            {
+                switch (n.ConditionCode)
+                {
+                    case ConditionCode.EQ:
+                        return m.Eq(sub.Inputs[1]!, sub.Inputs[2]!);
+                    default:
+                    throw new NotImplementedException($"Condition code {n.ConditionCode} is not supported.");
+                }
+            }
+            throw new NotImplementedException($"Condition node {cond} is not supported.");  
+        }
+        return null;
+    }
+
+    private HashSet<Node> FindReachingDefinitions(
+        Node start,
+        Func<Node, Node?> testBypass,
+        Func<Node, Node?> test)
+    {
+        var result = new HashSet<Node>();
+        var visited = new HashSet<Node>();
+        var wl = new WorkList<Node>();
+        wl.Add(start);
+        while (wl.TryGetWorkItem(out var node))
+        {
+            if (!visited.Add(node))
+                continue;
+            var bypass = testBypass(node);
+            if (bypass is not null)
+            {
+                wl.Add(bypass);
+                continue;
+            }
+            var val = test(node);
+            if (val is not null)
+                result.Add(val);
+            foreach (var input in node.Inputs)
+            {
+                if (input is not null)
+                    wl.Add(input);
+            }
+        }
+        return result;
+    }
 
     public Node? VisitUseNode(UseNode n) => null;
+
+    private static OperationNode? AsISub(Node? node)
+    {
+        if (node is OperationNode op && op.Operator.Type == OperatorType.ISub)
+            return op;
+        return null;
+    }
 }

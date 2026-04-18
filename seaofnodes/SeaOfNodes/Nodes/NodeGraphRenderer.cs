@@ -11,7 +11,7 @@ public class NodeGraphRenderer
         var defMode = reachable.OfType<DefNode>().Any();
         var blocks = reachable.OfType<BlockNode>().ToArray();
         var entryBlock = node.Outputs.OfType<BlockNode>().First();
-        var endNode = reachable.OfType<EndNode>().First();
+        var endNode = node.EndNode;
         var exitBlock = endNode.Inputs.OfType<BlockNode>().First();
         var orderedBlocks = blocks
             .Where(block => block != entryBlock && block != exitBlock)

@@ -77,6 +77,7 @@ public class NodeRepresentationBuilder
     {
         StartNode start = factory.Start(proc);
         EndNode end = factory.End(start);
+        start.EndNode = end;
         entryBlock = proc.EntryBlock;
         CreateEmptyBlocks(proc);
         LinkBlocks(proc);

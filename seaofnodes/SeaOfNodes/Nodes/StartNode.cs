@@ -2,9 +2,13 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public class StartNode : Node
 {
+
     public StartNode(int number, params Node?[] inputs) : base(number, inputs)
     {
+        this.EndNode = null!;
     }
+    
+    public EndNode EndNode { get; internal set; }
 
     public override void Render(TextWriter sw)
     {

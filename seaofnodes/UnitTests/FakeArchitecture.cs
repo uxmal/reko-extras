@@ -176,6 +176,11 @@ public class FakeArchitecture : IProcessorArchitecture
 
     public FlagGroupStorage? GetFlagGroup(string name)
     {
+        if (name == "C")
+            return GetFlagGroup(this.Status, 1);
+        if (name == "Z")
+            return GetFlagGroup(this.Status, 2);
+
         throw new NotImplementedException();
     }
 

@@ -66,6 +66,11 @@ public class NodeFactory
         return node;
     }
 
+    public OperationNode? Eq(Node left, Node right)
+    {
+        return Bin(PrimitiveType.Bool, Operator.Eq, null, left, right);
+    }
+
     public Node? IAdd(ExpressionNode left, ExpressionNode right)
     {
         return Bin(left.DataType, Operator.IAdd, null, left, right);
