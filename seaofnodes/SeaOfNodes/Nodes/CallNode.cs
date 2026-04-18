@@ -43,4 +43,10 @@ public class CallNode : CfNode
             def.RenderReference(sw);
         }
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitCallNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitCallNode(this, context);
 }

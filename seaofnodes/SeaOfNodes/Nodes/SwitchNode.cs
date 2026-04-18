@@ -19,4 +19,10 @@ public sealed class SwitchNode : CfNode
         sw.Write(") goto ");
         sw.Write(string.Join(", ", targets));
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitSwitchNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitSwitchNode(this, context);
 }

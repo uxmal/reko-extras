@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using Reko.Core;
+
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public abstract class Node
@@ -12,6 +15,8 @@ public abstract class Node
         {
             if (input is not null)
                 AddEdge(input, this);
+            else
+                this.Inputs.Add(null);
         }
     }
 
@@ -21,11 +26,14 @@ public abstract class Node
         this.Inputs = [];
         this.Outputs = [];
 
-        AddEdge(cfNode, this);
+        if (cfNode is not null)
+            AddEdge(cfNode, this);
+        else
+            this.Inputs.Add(null);
         foreach (var input in inputs)
         {
-            if (input is not null)
-                AddEdge(input, this);
+            Debug.Assert(input is not null);
+            AddEdge(input, this);
         }
     }
 
@@ -35,7 +43,11 @@ public abstract class Node
         this.Inputs = [];
         this.Outputs = [];
 
-        AddEdge(cfNode, this);
+        if (cfNode is not null)
+            AddEdge(cfNode, this);
+        else
+            this.Inputs.Add(null);
+        Debug.Assert(n is not null);
         AddEdge(n, this);
         foreach (var input in inputs)
         {
@@ -44,7 +56,7 @@ public abstract class Node
     }
 
     public int Number { get; internal set; }
-    public string? Name { get; set; }
+    public Storage? Storage { get; set; }
     public List<Node?> Inputs { get; set; }
     public List<Node> Outputs { get; set; }
 
@@ -79,9 +91,9 @@ public abstract class Node
                 if (ReferenceEquals(consumer.Inputs[i], original))
                 {
                     consumer.Inputs[i] = substitute;
-                    substitute.Outputs.Add(consumer);
                 }
             }
+            substitute.Outputs.Add(consumer);
         }
 
         foreach (var producer in original.Inputs)
@@ -93,11 +105,15 @@ public abstract class Node
 
     public virtual void RenderReference(TextWriter sw)
     {
-        if (this.Name is not null)
-            sw.Write(this.Name);
+        if (this.Storage is not null)
+            sw.Write($"{this.Storage.Name}_{this.Number}");
         else
             sw.Write($"n{this.Number}");
     }
+
+    public abstract T Accept<T>(INodeVisitor<T> visitor);
+
+    public abstract T Accept<T, C>(INodeVisitor<T, C> visitor, C context);
 
     public abstract void Render(TextWriter sw);
 }

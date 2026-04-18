@@ -3,16 +3,13 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class DefNode : Node
+public sealed class DefNode : ExpressionNode
 {
-    public DefNode(int number, Storage storage, DataType dt, params Node?[] inputs) : base(number, inputs)
+    public DefNode(int number, Storage storage, DataType dt, params Node?[] inputs) : base(number, dt, inputs)
     {
         this.Storage = storage;
-        this.DataType = dt;
     }
 
-    public DataType DataType { get; }
-    public Storage Storage { get; }
 
     public override void Render(TextWriter sw)
     {
@@ -24,11 +21,18 @@ public sealed class DefNode : Node
 
     public override void RenderReference(TextWriter sw)
     {
-        if (Name is not null)
+        if (Storage is not null && 
+            (Inputs.Count < 2 || Inputs[1] is not CallNode))
         {
-            sw.Write(Name);
+            sw.Write(Storage.Name);
             return;
         }
         base.RenderReference(sw);
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitDefNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitDefNode(this, context);
 }

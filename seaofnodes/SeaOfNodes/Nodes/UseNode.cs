@@ -12,8 +12,6 @@ public sealed class UseNode : Node
         this.BitRange = bitRange;
     }
 
-    public new string Name => Storage.Name;
-    public Storage Storage { get; }
     public BitRange BitRange { get; }
 
     public override void Render(TextWriter sw)
@@ -25,4 +23,10 @@ public sealed class UseNode : Node
         Debug.Assert(input is not null);
         input.RenderReference(sw);
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitUseNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitUseNode(this, context);
 }

@@ -20,4 +20,10 @@ public sealed class ConstantNode : ExpressionNode
     {
         sw.Write(Value.ToString());
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitConstantNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitConstantNode(this, context);
 }

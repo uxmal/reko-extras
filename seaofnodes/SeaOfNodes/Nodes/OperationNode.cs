@@ -69,26 +69,32 @@ public sealed class OperationNode : ExpressionNode
         this.RenderReference(sw);
         sw.Write(" = ");
         string opName = operatorName[this.Operator.Type];
-        int offset = InputOffset;
-        if (Inputs.Count == offset + 1)
+        if (Inputs.Count == 2)
         {
             // Unary prefix operator
             sw.Write(opName);
-            var input = Inputs[offset];
+            var input = Inputs[1];
             Debug.Assert(input is not null);
             input.RenderReference(sw);
         }
         else
         {
-            for (int i = offset; i < Inputs.Count; i++)
+            for (int i = 1; i < Inputs.Count; i++)
             {
-                if (i > offset)
-                    sw.Write(opName);
                 var input = Inputs[i];
+    
+                if (i > 1)
+                    sw.Write(opName);
                 Debug.Assert(input is not null);
                 input.RenderReference(sw);
             }
         }
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitOperationNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitOperationNode(this, context);
 
 }

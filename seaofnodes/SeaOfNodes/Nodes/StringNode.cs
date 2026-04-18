@@ -20,4 +20,10 @@ public class StringNode : ExpressionNode
     {
         this.RenderReference(sw);
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitStringNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitStringNode(this, context);
 }

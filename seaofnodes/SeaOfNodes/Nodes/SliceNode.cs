@@ -18,11 +18,17 @@ public sealed class SliceNode : ExpressionNode
     {
         this.RenderReference(sw);
         sw.Write(" = SLICE(");
-        this.Inputs[InputOffset]!.RenderReference(sw);
+        this.Inputs[1]!.RenderReference(sw);
         sw.Write(", ");
         sw.Write(this.DataType);
         sw.Write(", ");
         sw.Write(this.Offset);
         sw.Write(')');
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitSliceNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitSliceNode(this, context);
 }

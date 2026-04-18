@@ -28,7 +28,8 @@ public class NodeRepresentationBuilderTests
 
         testCodeBuilder(m);
 
-        var builder = new NodeRepresentationBuilder(this.programFlow);
+        var factory = new NodeFactory();
+        var builder = new NodeRepresentationBuilder(factory, this.programFlow);
         var graph = builder.Transform(m.Procedure);
         var renderer = new NodeGraphRenderer();
         var sw = new StringWriter();
@@ -524,27 +525,27 @@ ProcedureBuilder_exit:
         #region Expected
         @"
 ProcedureBuilder_entry:
-    def sp_11:ptr32
+    def sp:ptr32
 l1:
-    n13 = sp_11 + 4<32>
+    n13 = sp + 4<32>
     r1_14 = Mem14[n13:word32]
     n16 = r1_14 >u 5<32>
     if (n16) goto m4_default
 m1:
     switch (r1_14) goto m2, m2, m3, m3, m2, m3
 m2:
-    sp_21 = sp_11 - 4<32>
+    sp_21 = sp - 4<32>
     Mem23[sp_21:word32] = 0x42<32>
     foo()
     sp_28 = sp_21 + 4<32>
 m3:
-    sp_29 = PHI(sp_11, sp_11, sp_11, sp_28)
+    sp_29 = PHI(sp, sp, sp, sp_28)
     sp_31 = sp_29 - 4<32>
     Mem33[sp_31:word32] = 0x2A<32>
     foo()
     sp_38 = sp_31 + 4<32>
 m4_default:
-    sp_39 = PHI(sp_11, sp_38)
+    sp_39 = PHI(sp, sp_38)
     sp_41 = sp_39 - 4<32>
     Mem43[sp_41:word32] = 0<32>
     foo()

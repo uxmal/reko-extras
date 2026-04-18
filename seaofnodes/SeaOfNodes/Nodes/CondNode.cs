@@ -13,7 +13,13 @@ public class CondNode : ExpressionNode
     {
         this.RenderReference(sw);
         sw.Write(" = cond(");
-        this.Inputs[InputOffset]!.RenderReference(sw);
+        this.Inputs[1]!.RenderReference(sw);
         sw.Write(')');
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitCondNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitCondNode(this, context);
 }

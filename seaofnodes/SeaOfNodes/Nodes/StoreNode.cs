@@ -31,4 +31,10 @@ public sealed class StoreNode : MemoryNode
            Debug.Assert(value is not null);
            value.RenderReference(sw);
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitStoreNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitStoreNode(this, context);
 }

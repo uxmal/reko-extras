@@ -19,7 +19,13 @@ public sealed class TestNode : ExpressionNode
         sw.Write(" = TEST(");
         sw.Write(this.ConditionCode);
         sw.Write(", ");
-        this.Inputs[InputOffset]!.RenderReference(sw);
+        this.Inputs[1]!.RenderReference(sw);
         sw.Write(')');
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitTestNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitTestNode(this, context);
 }

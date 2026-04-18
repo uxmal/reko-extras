@@ -36,4 +36,10 @@ public sealed class ProcedureConstantNode : Node
             InnerFormatter.Write('>');
         }
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitProcedureConstantNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitProcedureConstantNode(this, context);
 }

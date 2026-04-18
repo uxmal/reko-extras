@@ -34,7 +34,8 @@ foreach (Reko.Core.Program program in decompiler.Project.Programs)
 	{
 		Console.WriteLine($"== {proc.Name} ======");
 
-		var builder = new NodeRepresentationBuilder(programFlow);
+		var factory = new NodeFactory();
+		var builder = new NodeRepresentationBuilder(factory, programFlow);
 		var hadError = false;
 		try
 		{

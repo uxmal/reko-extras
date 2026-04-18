@@ -16,11 +16,17 @@ public sealed class ConversionNode : ExpressionNode
     {
         this.RenderReference(sw);
         sw.Write(" = CONVERT(");
-        this.Inputs[InputOffset]!.RenderReference(sw);
+        this.Inputs[1]!.RenderReference(sw);
         sw.Write(", ");
         sw.Write(this.SourceDataType);
         sw.Write(", ");
         sw.Write(this.DataType);
         sw.Write(')');
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitConversionNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitConversionNode(this, context);
 }

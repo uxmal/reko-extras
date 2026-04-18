@@ -23,4 +23,10 @@ public sealed class SeqNode : ExpressionNode
         }
         sw.Write(')');
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitSeqNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitSeqNode(this, context);
 }

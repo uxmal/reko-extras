@@ -15,4 +15,10 @@ public class BlockNode : CfNode
     {
         sw.Write("block");
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitBlockNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitBlockNode(this, context);
 }

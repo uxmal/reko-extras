@@ -25,10 +25,10 @@ public class NodeRepresentationBuilder
     private MemoryNode? memNode;
 
 
-    public NodeRepresentationBuilder(ProgramDataFlow programFlow)
+    public NodeRepresentationBuilder(NodeFactory factory, ProgramDataFlow programFlow)
     {
         this.programFlow = programFlow;
-        this.factory = new NodeFactory();
+        this.factory = factory;
         this.applicationBuilder = new NodeApplicationBuilder(this.factory);
         this.blocks = [];
         this.sccProcs = [];
@@ -191,7 +191,7 @@ public class NodeRepresentationBuilder
         var idDst = ass.Dst;
 
         var value = ass.Src.Accept(this);
-        value.Name = GenerateName(idDst.Storage, value);
+        value.Storage = idDst.Storage;
         WriteStorage(blocks[currentBlock], idDst.Storage, value);
         return value;
     }
@@ -262,7 +262,6 @@ public class NodeRepresentationBuilder
             {
                 Debug.Assert(this.cfNode is not null);
                 var defNode = factory.Def(this.cfNode, reg, reg.DataType);
-                defNode.Name = GenerateName(reg, defNode);
                 Node.AddEdge(callNode, defNode);
                 WriteStorage(blocks[this.currentBlock!], stgDef, defNode);
             }
@@ -491,7 +490,7 @@ public class NodeRepresentationBuilder
                 }
 
                 var phi = factory.Phi(state.Node);
-                phi.Name = GenerateName(storage, phi);
+                phi.Storage = storage;
                 WriteStorage(state, storage, phi);
 
                 work.Push(new(ReadStoragePhase.AfterPhiPredecessor, frame.Block, phi, 0));
@@ -544,7 +543,6 @@ public class NodeRepresentationBuilder
     private Node? CreateDefNode(BlockState state, Storage storage, DataType dt)
     {
         var defNode = factory.Def(state.Node, storage, dt);
-        defNode.Name = storage.Name;
         WriteStorage(state, storage, defNode);
         return defNode;
     }
@@ -616,7 +614,7 @@ public class NodeRepresentationBuilder
                 continue;
 
             var andNode = factory.Bin(storage.DataType, Operator.And, null, candidateNode, factory.Word32((uint) requestedMask));
-            andNode.Name = GenerateName(storage, andNode);
+            andNode.Storage = storage;
             WriteStorage(state, storage, andNode);
             return andNode;
         }
@@ -733,10 +731,5 @@ public class NodeRepresentationBuilder
     {
         var operand = unary.Expression.Accept(this);
         return factory.Unary(unary.DataType, unary.Operator, null, operand);
-    }
-
-    private string? GenerateName(Storage storage, Node value)
-    {
-        return $"{storage.Name}_{value.Number}";
     }
 }

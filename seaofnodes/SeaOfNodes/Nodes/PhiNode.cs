@@ -24,4 +24,10 @@ public sealed class PhiNode : Node
         }
         sw.Write(")");
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitPhiNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitPhiNode(this, context);
 }

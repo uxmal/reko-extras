@@ -38,4 +38,10 @@ public sealed class ApplicationNode : ExpressionNode
         }
         sw.Write(')');
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitApplicationNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitApplicationNode(this, context);
 }

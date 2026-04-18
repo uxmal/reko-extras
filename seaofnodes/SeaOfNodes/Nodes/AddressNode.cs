@@ -20,4 +20,10 @@ public sealed class AddressNode : ExpressionNode
     {
         sw.Write(Value.ToString());
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitAddressNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitAddressNode(this, context);
 }

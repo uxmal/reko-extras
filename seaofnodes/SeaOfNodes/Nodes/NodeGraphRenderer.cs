@@ -181,7 +181,7 @@ public class NodeGraphRenderer
             {
                 if (!output.IsFloating) continue;
                 if (scheduled.Contains(output)) continue;
-                if (output.Name is null) continue; // only rendering named assignments
+                if (output.Storage is null) continue; // only rendering named assignments
                 ScheduleFloatingInputs(output, scheduled, result, reachable);
                 if (scheduled.Add(output))
                 {

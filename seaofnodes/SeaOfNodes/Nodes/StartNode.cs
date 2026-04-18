@@ -10,4 +10,10 @@ public class StartNode : Node
     {
         sw.Write($"start{base.Number}");
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitStartNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitStartNode(this, context);
 }

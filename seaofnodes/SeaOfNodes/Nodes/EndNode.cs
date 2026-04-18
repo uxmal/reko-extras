@@ -10,4 +10,10 @@ public sealed class EndNode : Node
     {
         sw.Write($"end{base.Number}");
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitEndNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitEndNode(this, context);
 }   

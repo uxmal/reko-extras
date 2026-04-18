@@ -66,6 +66,12 @@ public class NodeFactory
         return node;
     }
 
+    public Node? IAdd(ExpressionNode left, ExpressionNode right)
+    {
+        return Bin(left.DataType, Operator.IAdd, null, left, right);
+    }
+
+
     public MemoryNode Mem(Node cfNode)
     {
         return new MemoryNode(NextId(), cfNode);
@@ -151,4 +157,5 @@ public class NodeFactory
     public ConstantNode Word32(uint value) => new ConstantNode(
         NextId(),
         Constant.Word32(value));
+
 }

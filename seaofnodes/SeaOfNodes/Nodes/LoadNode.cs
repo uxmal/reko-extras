@@ -28,4 +28,10 @@ public sealed class LoadNode : Node
         ea.RenderReference(sw);
         sw.Write($":{DataType}]");
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitLoadNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitLoadNode(this, context);
 }

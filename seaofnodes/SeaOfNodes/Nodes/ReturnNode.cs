@@ -16,4 +16,10 @@ public class ReturnNode : CfNode
             exp.RenderReference(sw);
         }
     }
+
+    public override T Accept<T>(INodeVisitor<T> visitor)
+        => visitor.VisitReturnNode(this);
+
+    public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
+        => visitor.VisitReturnNode(this, context);
 }
