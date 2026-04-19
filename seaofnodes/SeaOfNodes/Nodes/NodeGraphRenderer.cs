@@ -35,11 +35,6 @@ public class NodeGraphRenderer
         }
     }
 
-    private static bool HasRenderableNodes(BlockNode block, BlockNode exitBlock, HashSet<Node> reachable, HashSet<Node> globalScheduled)
-    {
-        return GetBlockNodes(block, exitBlock, reachable, globalScheduled).Length > 0;
-    }
-
     private static HashSet<Node> CollectReachableNodes(StartNode start)
     {
         var reachable = new HashSet<Node>();
