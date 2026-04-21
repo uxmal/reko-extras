@@ -57,7 +57,10 @@ public class NodeGraphRenderer
     {
         sw.WriteLine($"{block.Block}:");
 
-        var blockNodes = GetBlockNodes(block, exitBlock, reachable, globalScheduled);
+        var blockNodes = GetBlockNodes(block, exitBlock, reachable, globalScheduled)
+            .DistinctBy(node => node.Number)
+            .OrderBy(node => IsBlockTerminator(node) ? 1 : 0)
+            .ToArray();
 
         for (int i = 0; i < blockNodes.Length; ++i)
         {
@@ -109,6 +112,7 @@ public class NodeGraphRenderer
         // Step 2: Order CF-anchored nodes.
         var orderedAnchored = cfAnchoredSet
             .OrderBy(node => node is PhiNode ? 0 : 1)
+            .ThenBy(node => IsBlockTerminator(node) ? 1 : 0)
             .ThenBy(node => node.Number)
             .ToList();
 
@@ -289,12 +293,17 @@ public class NodeGraphRenderer
         int insertPos = result.Count;
         for (int i = result.Count - 1; i >= 0; i--)
         {
-            if (result[i] is ReturnNode or IfNode or SwitchNode)
+            if (IsBlockTerminator(result[i]))
                 insertPos = i;
             else
                 break;
         }
         return insertPos;
+    }
+
+    private static bool IsBlockTerminator(Node node)
+    {
+        return node is ReturnNode or IfNode or SwitchNode;
     }
 
     /// <summary>

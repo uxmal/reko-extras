@@ -12,23 +12,31 @@ public sealed class DefNode : ExpressionNode
 
     public override string Label => "Def";
 
-    public override void Render(TextWriter sw)
+    public override void Render(TextWriter w)
     {
-        sw.Write("def ");
-        this.RenderReference(sw);
-        sw.Write(':');
-        sw.Write(DataType);
+        w.Write("def ");
+        this.RenderReference(w);
+        w.Write(':');
+        w.Write(DataType);
     }
 
-    public override void RenderReference(TextWriter sw)
+    public override void RenderReference(TextWriter w)
     {
         if (Storage is not null && 
             (Inputs.Count < 2 || Inputs[1] is not CallNode))
         {
-            sw.Write(Storage.Name);
+            if (Storage is SequenceStorage seq)
+            {
+                var seqId = string.Join("_", seq.Elements.Select(e => e.Name));
+                w.Write(seqId);
+            }
+            else
+            {
+                w.Write(Storage.Name);
+            }
             return;
         }
-        base.RenderReference(sw);
+        base.RenderReference(w);
     }
 
     public override T Accept<T>(INodeVisitor<T> visitor)

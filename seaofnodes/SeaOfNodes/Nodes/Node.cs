@@ -107,7 +107,12 @@ public abstract class Node
 
     public virtual void RenderReference(TextWriter sw)
     {
-        if (this.Storage is not null)
+        if (this.Storage is SequenceStorage seq)
+        {
+            var seqId = string.Join("_", seq.Elements.Select(e => e.Name));
+            sw.Write($"{seqId}_{this.Number}");
+        }
+        else if (this.Storage is not null)
             sw.Write($"{this.Storage.Name}_{this.Number}");
         else
             sw.Write($"n{this.Number}");

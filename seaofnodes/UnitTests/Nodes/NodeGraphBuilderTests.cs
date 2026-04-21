@@ -687,13 +687,13 @@ l1:
     r1_10 = Mem10[0x123404<32>:word32]
     r4_12 = Mem12[0x123408<32>:word32]
     r3_14 = Mem14[0x12340C<32>:word32]
-    r1:r2_15 = SEQ(r1_10, r2_8)
-    r3:r4_16 = SEQ(r3_14, r4_12)
-    r1:r2_17 = r1:r2_15 + r3:r4_16
-    r1_19 = SLICE(r1:r2_17, word32, 32)
-    r2_21 = SLICE(r1:r2_17, word32, 0)
-    r3_23 = SLICE(r3:r4_16, word32, 32)
-    r4_25 = SLICE(r3:r4_16, word32, 0)
+    r1_r2_15 = SEQ(r1_10, r2_8)
+    r3_r4_16 = SEQ(r3_14, r4_12)
+    r1_r2_17 = r1_r2_15 + r3_r4_16
+    r1_19 = SLICE(r1_r2_17, word32, 32)
+    r2_21 = SLICE(r1_r2_17, word32, 0)
+    r3_23 = SLICE(r3_r4_16, word32, 32)
+    r4_25 = SLICE(r3_r4_16, word32, 0)
     return
     // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
@@ -723,6 +723,52 @@ ProcedureBuilder_exit:
             m.Assign(r1_r2, m.Seq(r1, r2));
             m.Assign(r3_r4, m.Seq(r3, r4));
             m.Assign(r1_r2, m.IAdd(r1_r2, r3_r4));
+            m.Return();
+        });
+    }
+
+  [Test]
+    public void Npb_Sequence_Def()
+    {
+        string sExpected =
+        #region Expected
+        @"
+ProcedureBuilder_entry:
+    def r1_r2:word64
+l1:
+    r1_9 = SLICE(r1_r2, word32, 32)
+    n11 = r1_9 >= 0<32>
+    r2_17 = SLICE(r1_r2, word32, 0)
+    if (n11) goto m2_done
+m1_negative:
+    r1_r2_20 = -r1_r2
+    r1_23 = SLICE(r1_r2_20, word32, 32)
+    r2_26 = SLICE(r1_r2_20, word32, 0)
+m2_done:
+    r1_22 = PHI(r1_9, r1_23)
+    r2_25 = PHI(r2_17, r2_26)
+    return
+ProcedureBuilder_exit:
+    use r1:r1_22
+    use r2:r2_25
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            var r3 = m.Reg32("r3", 2);
+
+            var r1_r2 = m.Frame.EnsureSequence(
+                PrimitiveType.Word64, r1.Storage, r2.Storage);
+
+            m.BranchIf(m.Ge0(r1), "m2_done");
+
+            m.Label("m1_negative");
+            m.Assign(r1_r2, m.Neg(r1_r2));
+
+            m.Label("m2_done");
             m.Return();
         });
     }

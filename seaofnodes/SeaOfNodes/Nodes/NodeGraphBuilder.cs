@@ -116,8 +116,8 @@ public partial class NodeGraphBuilder
 
         var emittedStorages = new HashSet<Storage>();
 
-        var reachingSequences = exitBlock.Pred
-            .SelectMany(pred => blocks[pred].SequenceDefs.Keys)
+        var reachingSequences = blocks.Values
+            .SelectMany(state => state.SequenceDefs.Keys)
             .Distinct()
             .OrderBy(seq => seq.Name)
             .ToArray();
@@ -556,6 +556,42 @@ public partial class NodeGraphBuilder
         }
     }
 
+    private void ReplaceCoveredDefsWithSlices(BlockState state, SequenceStorage sequence, ExpressionNode value)
+    {
+        foreach (var element in sequence.Elements)
+        {
+            var offset = sequence.OffsetOf(element);
+            Debug.Assert(offset >= 0);
+
+            if (element is RegisterStorage reg)
+            {
+                var slice = factory.Slice(reg.DataType, value, offset);
+                slice.Storage = reg;
+                if (state.RegisterDefs.TryGetValue(reg, out var existingRegDefs))
+                {
+                    foreach (var (_, existingRegDef) in existingRegDefs)
+                    {
+                        ReplaceNode(existingRegDef, slice);
+                    }
+                }
+                state.RegisterDefs[reg] = [(reg.GetBitRange(), slice)];
+            }
+            else if (element is SequenceStorage)
+            {
+                Debug.Fail("Can't have a nestedSequenceStorage.");
+            }
+        }
+    }
+
+    private void TrackSequenceCoveredDefs(BlockState state, SequenceStorage sequence, ExpressionNode value)
+    {
+        var seqBitRange = sequence.GetBitRange();
+        foreach (var reg in EnumerateSequenceRegisters(sequence))
+        {
+            state.RegisterDefs[reg] = [(seqBitRange, value)];
+        }
+    }
+
     private static IEnumerable<RegisterStorage> EnumerateSequenceRegisters(SequenceStorage sequence)
     {
         foreach (var element in EnumerateSequenceLeafStorages(sequence))
@@ -590,6 +626,7 @@ public partial class NodeGraphBuilder
                         {
                             var slice = factory.Slice(regUse.DataType, regValue, offset);
                             slice.Storage = regUse;
+                            state.RegisterDefs[regUse] = [(regUse.GetBitRange(), slice)];
                             return slice;
                         }
                     }
@@ -695,12 +732,13 @@ public partial class NodeGraphBuilder
             break;
         case SequenceStorage seq:
             state.SequenceDefs[seq] = value;
-            var seqBitRange = seq.GetBitRange();
-            foreach (var reg in EnumerateSequenceRegisters(seq))
+            if (value is DefNode)
             {
-                var rdefs = state.RegisterDefs[reg];
-                rdefs.Clear();
-                rdefs.Add((seqBitRange, value));
+                ReplaceCoveredDefsWithSlices(state, seq, value);
+            }
+            else
+            {
+                TrackSequenceCoveredDefs(state, seq, value);
             }
             break;
         case TemporaryStorage tmp:
