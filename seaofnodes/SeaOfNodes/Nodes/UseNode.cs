@@ -14,6 +14,8 @@ public sealed class UseNode : Node
 
     public BitRange BitRange { get; }
 
+    public override string Label => "Use";
+
     public override void Render(TextWriter sw)
     {
         sw.Write("use ");

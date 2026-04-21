@@ -3,19 +3,18 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class LoadNode : Node
+public sealed class LoadNode : ExpressionNode
 {
     public LoadNode(
         int number,
         Node ctrlNode,
         Node memNode,
         DataType dt,
-        Node ea) : base(number, ctrlNode, memNode, ea)
+        Node ea) : base(number, dt, ctrlNode, memNode, ea)
     {
-        this.DataType = dt;
     }
 
-    public DataType DataType { get; }
+    public override string Label => "Load";
 
     public override void Render(TextWriter sw)
     {

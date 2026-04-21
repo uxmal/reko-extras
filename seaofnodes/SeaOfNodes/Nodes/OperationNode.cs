@@ -62,6 +62,8 @@ public sealed class OperationNode : ExpressionNode
         this.Operator = op;
     }
 
+    public override string Label => operatorName[this.Operator.Type].Trim();
+
     public Operator Operator { get; }
 
     public override void Render(TextWriter sw)

@@ -20,7 +20,7 @@ public class NodeValuePropagatorTests
         var m = new ProcedureBuilder();
         build(m);
         var factory = new NodeFactory();
-        var builder = new NodeRepresentationBuilder(factory, programFlow);
+        var builder = new NodeGraphBuilder(factory, programFlow, m.Architecture);
         var graph = builder.Transform(m.Procedure);
 
         var nvp = new NodeValuePropagator(factory);

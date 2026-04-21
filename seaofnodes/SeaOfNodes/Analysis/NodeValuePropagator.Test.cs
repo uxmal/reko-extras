@@ -68,7 +68,7 @@ public partial class NodeValuePropagator
                     }
 
                     frame.Phi = phi;
-                    frame.PushedPhi = m.Phi(cfNode);
+                    frame.PushedPhi = m.Phi(PrimitiveType.Bool, cfNode);
                     frame.ChildIndex = 1;
                     frame.Stage = RewriteStage.ProcessPhi;
                     break;

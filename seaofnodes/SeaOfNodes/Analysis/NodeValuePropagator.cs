@@ -96,6 +96,12 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
         return null;
     }
 
+
+    public Node? VisitOutArgumentNode(OutArgumentNode outArgumentNode)
+    {
+        return null;
+    }
+
     public Node? VisitPhiNode(PhiNode n) => null;
 
     public Node? VisitProcedureConstantNode(ProcedureConstantNode n) => null;

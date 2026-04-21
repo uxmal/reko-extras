@@ -10,6 +10,7 @@ public sealed class DefNode : ExpressionNode
         this.Storage = storage;
     }
 
+    public override string Label => "Def";
 
     public override void Render(TextWriter sw)
     {

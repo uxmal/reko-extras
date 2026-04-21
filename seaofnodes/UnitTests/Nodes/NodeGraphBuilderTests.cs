@@ -1,5 +1,6 @@
 using Reko.Analysis;
 using Reko.Core;
+using Reko.Core.Collections;
 using Reko.Core.Expressions;
 using Reko.Core.Operators;
 using Reko.Core.Types;
@@ -29,17 +30,65 @@ public class NodeRepresentationBuilderTests
         testCodeBuilder(m);
 
         var factory = new NodeFactory();
-        var builder = new NodeRepresentationBuilder(factory, this.programFlow);
+        var builder = new NodeGraphBuilder(factory, this.programFlow, m.Architecture);
         var graph = builder.Transform(m.Procedure);
         var renderer = new NodeGraphRenderer();
         var sw = new StringWriter();
         sw.WriteLine();
         renderer.Render(graph, sw);
+        // RenderGraph(renderer, graph, sw);
         var sActual = sw.ToString();
         if (sActual != sExpected)
         {
             Console.WriteLine(sActual);
             Assert.That(sActual, Is.EqualTo(sExpected));
+        }
+    }
+
+    private void RenderGraph(NodeGraphRenderer renderer, StartNode graph, StringWriter sw)
+    {
+        try
+        {
+            renderer.Render(graph, sw);
+        }
+        catch
+        {
+            List<Node> nodes = [];
+            HashSet<Node> visited = [];
+            WorkList<Node> wl = new();
+            wl.Add(graph);
+            while (wl.TryGetWorkItem(out var node))
+            {
+                if (node is null || !visited.Add(node))
+                    continue;
+                nodes.Add(node);
+                wl.AddRange(node.Inputs.Where(n => n is not null)!);
+                wl.AddRange(node.Outputs);
+            }
+            foreach (var node in nodes.OrderBy(n => n.Number))
+            {
+                node.RenderReference(sw);
+                sw.WriteLine($":{node.Label}");
+                sw.Write($"    in: ");
+                foreach (var input in node.Inputs)
+                {
+                    sw.Write(' ');
+                    if (input is not null)
+                        input.RenderReference(sw);
+                    else
+                        sw.Write("##");
+                }
+                sw.WriteLine();
+
+                sw.Write($"    out:");
+                foreach (var output in node.Outputs)
+                {
+                    sw.Write(' ');
+                    output.RenderReference(sw);
+                }
+                sw.WriteLine();
+            }
+
         }
     }
 
@@ -526,6 +575,7 @@ ProcedureBuilder_exit:
         @"
 ProcedureBuilder_entry:
     def sp:ptr32
+    def stack:int32
 l1:
     n13 = sp + 4<32>
     r1_14 = Mem14[n13:word32]
@@ -536,23 +586,23 @@ m1:
 m2:
     sp_21 = sp - 4<32>
     Mem23[sp_21:word32] = 0x42<32>
-    foo()
-    sp_28 = sp_21 + 4<32>
+    foo(stack)
+    sp_30 = sp_21 + 4<32>
 m3:
-    sp_29 = PHI(sp, sp, sp, sp_28)
-    sp_31 = sp_29 - 4<32>
-    Mem33[sp_31:word32] = 0x2A<32>
-    foo()
-    sp_38 = sp_31 + 4<32>
+    sp_31 = PHI(sp, sp, sp, sp_30)
+    sp_33 = sp_31 - 4<32>
+    Mem35[sp_33:word32] = 0x2A<32>
+    foo(stack)
+    sp_41 = sp_33 + 4<32>
 m4_default:
-    sp_39 = PHI(sp, sp_38)
-    sp_41 = sp_39 - 4<32>
-    Mem43[sp_41:word32] = 0<32>
-    foo()
-    sp_48 = sp_41 + 4<32>
+    sp_42 = PHI(sp, sp_41)
+    sp_44 = sp_42 - 4<32>
+    Mem46[sp_44:word32] = 0<32>
+    foo(stack)
+    sp_52 = sp_44 + 4<32>
     return
 ProcedureBuilder_exit:
-    use sp:sp_48
+    use sp:sp_52
 ";
         #endregion
 

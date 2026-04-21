@@ -48,7 +48,7 @@ public class FakeArchitecture : IProcessorArchitecture
 
     public int CodeMemoryGranularity => throw new NotImplementedException();
 
-    public int MemoryGranularity => throw new NotImplementedException();
+    public int MemoryGranularity => 8;
 
     public MemoryMap_v1? MemoryMap { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 

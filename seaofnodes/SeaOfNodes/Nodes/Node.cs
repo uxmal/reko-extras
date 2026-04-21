@@ -67,6 +67,8 @@ public abstract class Node
     /// </summary>
     public virtual bool IsFloating => false;
 
+    public abstract string Label { get; }
+
     public static void AddEdge(Node? def, Node use)
     {
         if (def is null)
@@ -82,8 +84,6 @@ public abstract class Node
     /// </summary>
     public static void Replace(Node original, Node substitute)
     {
-        substitute.Number = Math.Min(original.Number, substitute.Number);
-
         foreach (var consumer in original.Outputs.ToList())
         {
             for (int i = 0; i < consumer.Inputs.Count; i++)
@@ -101,6 +101,8 @@ public abstract class Node
 
         original.Inputs.Clear();
         original.Outputs.Clear();
+
+        substitute.Number = Math.Min(original.Number, substitute.Number);
     }
 
     public virtual void RenderReference(TextWriter sw)
@@ -116,4 +118,12 @@ public abstract class Node
     public abstract T Accept<T, C>(INodeVisitor<T, C> visitor, C context);
 
     public abstract void Render(TextWriter sw);
+
+    public override string ToString()
+    {
+        StringWriter sw = new();
+        this.RenderReference(sw);
+        sw.Write($":{Label}");
+        return sw.ToString();
+    }
 }

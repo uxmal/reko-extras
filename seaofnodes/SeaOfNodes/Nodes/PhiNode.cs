@@ -1,12 +1,15 @@
+using Reko.Core.Types;
 using System.Diagnostics;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class PhiNode : Node
+public sealed class PhiNode : ExpressionNode
 {
-    public PhiNode(int number, params Node?[] inputs) : base(number, inputs)
+    public PhiNode(int number, DataType dt, params Node?[] inputs) : base(number, dt, inputs)
     {
     }
+
+    public override string Label => "Phi";
 
     public override void Render(TextWriter sw)
     {

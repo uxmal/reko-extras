@@ -82,9 +82,9 @@ public class NodeFactory
         return new MemoryNode(NextId(), cfNode);
     }
 
-    public PhiNode Phi(Node cfNode)
+    public PhiNode Phi(DataType dt, Node? cfNode)
     {
-        return new PhiNode(NextId(), cfNode);
+        return new PhiNode(NextId(), dt, cfNode);
     }
 
     public IfNode If(Node? cfNode, Node predicate)
@@ -97,6 +97,10 @@ public class NodeFactory
         return new LoadNode(NextId(), cfNode, memNode, dt, ea);
     }
 
+    public ExpressionNode OutArg(DataType dt)
+    {
+        return new OutArgumentNode(NextId(), dt);
+    }
 
     public ProcedureConstantNode ProcedureConstant(ProcedureBase procedure)
     {
@@ -125,8 +129,8 @@ public class NodeFactory
         return new SideEffectNode(NextId(), cfNode, expNode);
     }
 
-    public SliceNode Slice(Node? cfNode, DataType dt, Node input, int offset)
-        => new SliceNode(NextId(), dt, cfNode, input, offset);
+    public SliceNode Slice(DataType dt, Node input, int offset)
+        => new SliceNode(NextId(), dt, null, input, offset);
 
     public StartNode Start(Procedure proc)
     {
@@ -162,5 +166,4 @@ public class NodeFactory
     public ConstantNode Word32(uint value) => new ConstantNode(
         NextId(),
         Constant.Word32(value));
-
 }

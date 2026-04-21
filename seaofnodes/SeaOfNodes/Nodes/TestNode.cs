@@ -13,6 +13,9 @@ public sealed class TestNode : ExpressionNode
 
     public ConditionCode ConditionCode { get; }
 
+    public override string Label => "Test";
+
+
     public override void Render(TextWriter sw)
     {
         this.RenderReference(sw);

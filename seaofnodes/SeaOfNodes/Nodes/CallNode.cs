@@ -9,6 +9,8 @@ public class CallNode : CfNode
     {
     }
 
+    public override string Label => "Call";
+
     public override void Render(TextWriter sw)
     {
         sw.Write($"call ");

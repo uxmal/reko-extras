@@ -9,6 +9,8 @@ public class CondNode : ExpressionNode
     {
     }
 
+    public override string Label => "Cond";
+
     public override void Render(TextWriter sw)
     {
         this.RenderReference(sw);

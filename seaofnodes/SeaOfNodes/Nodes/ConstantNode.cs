@@ -9,6 +9,8 @@ public sealed class ConstantNode : ExpressionNode
         this.Value = value;
     }
 
+    public override string Label => $"Const:{Value}";
+
     public Constant Value { get; }
 
     public override void RenderReference(TextWriter sw)

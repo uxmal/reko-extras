@@ -20,5 +20,5 @@ public abstract class ExpressionNode : Node
     public DataType DataType { get; }
 
     /// <inheritdoc />
-    public override bool IsFloating => Inputs[0] is null;
+    public override bool IsFloating => Inputs.Count < 1 || Inputs[0] is null;
 }

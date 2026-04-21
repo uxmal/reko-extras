@@ -11,6 +11,8 @@ public sealed class ProcedureConstantNode : Node
         this.Procedure = procedure;
     }
 
+    public override string Label => Procedure.Name;
+
     public ProcedureBase Procedure { get; }
 
     public override void Render(TextWriter sw)

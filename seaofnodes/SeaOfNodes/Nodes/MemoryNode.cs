@@ -8,6 +8,8 @@ public class MemoryNode : Node
     {
     }
 
+    public override string Label => "Mem";
+
     public override void Render(TextWriter sw)
     {
         sw.Write($"Mem{Number}");

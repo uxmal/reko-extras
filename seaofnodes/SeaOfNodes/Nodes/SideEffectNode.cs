@@ -7,6 +7,8 @@ public sealed class SideEffectNode : Node
     {
     }
 
+    public override string Label => "SideEffect";
+
     public override void Render(TextWriter sw)
     {
         this.Inputs[1]!.Render(sw);

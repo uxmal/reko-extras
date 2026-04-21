@@ -9,6 +9,8 @@ public sealed class AddressNode : ExpressionNode
         this.Value = addr;
     }
 
+    public override string Label => $"Addr:{Value}";
+
     public Address Value { get; }
 
     public override void RenderReference(TextWriter sw)

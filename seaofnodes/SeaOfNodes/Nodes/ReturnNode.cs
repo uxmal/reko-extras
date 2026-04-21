@@ -6,6 +6,8 @@ public class ReturnNode : CfNode
     {
     }
 
+    public override string Label => "Return";
+
     public override void Render(TextWriter sw)
     {
         sw.Write($"return");

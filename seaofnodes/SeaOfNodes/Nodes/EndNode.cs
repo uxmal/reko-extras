@@ -6,6 +6,8 @@ public sealed class EndNode : Node
     {
     }
 
+    public override string Label => "End";
+
     public override void Render(TextWriter sw)
     {
         sw.Write($"end{base.Number}");

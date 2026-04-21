@@ -9,6 +9,8 @@ public sealed class SeqNode : ExpressionNode
     {
     }
 
+    public override string Label => "Seq";
+
     public override void Render(TextWriter sw)
     {
         this.RenderReference(sw);

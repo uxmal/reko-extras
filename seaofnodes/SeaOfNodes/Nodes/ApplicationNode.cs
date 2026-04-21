@@ -14,6 +14,8 @@ public sealed class ApplicationNode : ExpressionNode
     {
     }
 
+    public override string Label => "Apply";
+
     public override void Render(TextWriter sw)
     {
         Debug.Assert(Inputs.Count >= 2);

@@ -11,6 +11,8 @@ public class BlockNode : CfNode
 
     public Block Block { get; }
 
+    public override string Label => "Block";
+
     public override void Render(TextWriter sw)
     {
         sw.Write("block");

@@ -10,6 +10,8 @@ public class StartNode : Node
     
     public EndNode EndNode { get; internal set; }
 
+    public override string Label => "Start";
+
     public override void Render(TextWriter sw)
     {
         sw.Write($"start{base.Number}");

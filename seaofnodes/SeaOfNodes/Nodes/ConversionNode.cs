@@ -10,6 +10,8 @@ public sealed class ConversionNode : ExpressionNode
         this.SourceDataType = srcType;
     }
 
+    public override string Label => "Convert";
+
     public DataType SourceDataType { get; }
 
     public override void Render(TextWriter sw)

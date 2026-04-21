@@ -9,6 +9,8 @@ public class StringNode : ExpressionNode
         this.Value = c;
     }
 
+    public override string Label => $"Str:{Value}";
+
     public StringConstant Value { get; }
 
     public override void RenderReference(TextWriter sw)

@@ -6,6 +6,8 @@ public sealed class IfNode : CfNode
     {
     }
 
+    public override string Label => "If";
+
     public Node Predicate => this.Inputs[1]!;
     public override void Render(TextWriter sw)
     {

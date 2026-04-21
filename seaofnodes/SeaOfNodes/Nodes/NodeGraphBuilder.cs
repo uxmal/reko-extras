@@ -1,6 +1,7 @@
 using Reko.Analysis;
 using Reko.Core;
 using Reko.Core.Code;
+using Reko.Core.Collections;
 using Reko.Core.Expressions;
 using Reko.Core.Graphs;
 using Reko.Core.Lib;
@@ -10,28 +11,31 @@ using System.Diagnostics;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public class NodeRepresentationBuilder
+public partial class NodeGraphBuilder
     : InstructionVisitor<Node>
     , ExpressionVisitor<Node>
 {
     private readonly NodeFactory factory;
     private readonly NodeApplicationBuilder applicationBuilder;
     private readonly ProgramDataFlow programFlow;
+    private readonly IProcessorArchitecture arch;
     private readonly Dictionary<Block, BlockState> blocks;
     private readonly HashSet<Procedure> sccProcs;
+    private readonly Dictionary<Node, Node> replacements;
     private Node? cfNode;
     private Block? currentBlock;
     private Block? entryBlock;
     private MemoryNode? memNode;
 
-
-    public NodeRepresentationBuilder(NodeFactory factory, ProgramDataFlow programFlow)
+    public NodeGraphBuilder(NodeFactory factory, ProgramDataFlow programFlow, IProcessorArchitecture arch)
     {
         this.programFlow = programFlow;
         this.factory = factory;
+        this.arch = arch;
         this.applicationBuilder = new NodeApplicationBuilder(this.factory);
         this.blocks = [];
         this.sccProcs = [];
+        this.replacements = [];
     }
 
     /// <summary>
@@ -49,13 +53,15 @@ public class NodeRepresentationBuilder
             this.RegisterDefs = [];
             this.FlagGroupDefs = [];
             this.TemporaryDefs = [];
+            this.StackDefs = [];
         }
 
         public BlockNode Node { get; }
 
-        public Dictionary<RegisterStorage, List<(BitRange, Node)>> RegisterDefs { get; }
-        public Dictionary<RegisterStorage, List<(FlagGroupStorage, Node)>> FlagGroupDefs { get; }
-        public Dictionary<TemporaryStorage, Node> TemporaryDefs { get; }
+        public Dictionary<RegisterStorage, List<(BitRange, ExpressionNode)>> RegisterDefs { get; }
+        public Dictionary<RegisterStorage, List<(FlagGroupStorage, ExpressionNode)>> FlagGroupDefs { get; }
+        public Dictionary<TemporaryStorage, ExpressionNode> TemporaryDefs { get; }
+        public IntervalTree<int, ExpressionNode> StackDefs { get; }
     }
 
     private enum ReadStoragePhase
@@ -193,7 +199,7 @@ public class NodeRepresentationBuilder
 
         var value = ass.Src.Accept(this);
         value.Storage = idDst.Storage;
-        WriteStorage(blocks[currentBlock], idDst.Storage, value);
+        WriteStorage(blocks[currentBlock], idDst.Storage, (ExpressionNode) value);
         return value;
     }
 
@@ -208,73 +214,6 @@ public class NodeRepresentationBuilder
         Node.AddEdge(ifNode, trueBranch);
         this.cfNode = ifNode;
         return ifNode;
-    }
-
-    public Node VisitCallInstruction(CallInstruction call)
-    {
-        var callee = call.Callee.Accept(this);
-        var pc = call.Callee as ProcedureConstant;
-        if (pc is not null && pc.Signature.ParametersValid)
-        {
-            return GenerateApplicationFromCall(pc, callee);
-        }
-        if (pc?.Procedure is Procedure proc &&
-            programFlow.ProcedureFlows.TryGetValue(proc, out var calleeFlow) &&
-            !sccProcs.Contains(proc))
-        {
-            // If the callee is a procedure constant and it's not part of the
-            // current recursion group, we should know what storages are live
-            // in and trashed.
-            return GenerateUseDefsForKnownCallee(call, callee, proc, calleeFlow);
-        }
-        else
-        {
-            return GenerateUseDefsForUnknownCallee(call);
-        }
-    }
-
-    private Node GenerateApplicationFromCall(ProcedureConstant callee, Node calleeNode)
-    {
-        Node a = factory.Apply(VoidType.Instance, this.cfNode, calleeNode);
-        Node s = factory.SideEffect(this.cfNode!, a);
-        cfNode = s;
-        return s;
-    }
-
-    private CallNode GenerateUseDefsForKnownCallee(CallInstruction call, Node callee, Procedure proc, ProcedureFlow calleeFlow)
-    {
-        var callNode = factory.Call(this.cfNode, callee);
-        foreach (var (stgUse, bitRange) in calleeFlow.BitsUsed)
-        {
-            var value = ReadStorage(this.currentBlock!, stgUse, stgUse.DataType);
-            if (stgUse is RegisterStorage reg)
-            {
-                Debug.Assert(this.cfNode is not null);
-                var useNode = factory.Use(this.cfNode, reg, bitRange);
-                Node.AddEdge(value, useNode);
-                Node.AddEdge(useNode, callNode);
-            }
-            else 
-                throw new NotImplementedException();
-        }
-        foreach (var stgDef in calleeFlow.Trashed)
-        {
-            if (stgDef is RegisterStorage reg)
-            {
-                Debug.Assert(this.cfNode is not null);
-                var defNode = factory.Def(this.cfNode, reg, reg.DataType);
-                Node.AddEdge(callNode, defNode);
-                WriteStorage(blocks[this.currentBlock!], stgDef, defNode);
-            }
-            else
-                throw new NotImplementedException();
-        }
-        return callNode;
-    }
-
-    private Node GenerateUseDefsForUnknownCallee(CallInstruction call)
-    {
-        throw new NotImplementedException();
     }
 
     public Node VisitComment(CodeComment code)
@@ -425,6 +364,29 @@ public class NodeRepresentationBuilder
         return ReadStorage(currentBlock, id.Storage, id.DataType);
     }
 
+    private ExpressionNode ResolveCanonical(ExpressionNode node)
+    {
+        ExpressionNode canonical = node;
+        while (replacements.TryGetValue(canonical, out var replacement))
+        {
+            Debug.Assert(replacement is ExpressionNode);
+            canonical = (ExpressionNode) replacement;
+        }
+
+        if (!ReferenceEquals(canonical, node))
+        {
+            replacements[node] = canonical;
+        }
+        return canonical;
+    }
+
+    private void ReplaceNode(ExpressionNode original, ExpressionNode substitute)
+    {
+        var canonicalSubstitute = ResolveCanonical(substitute);
+        replacements[original] = canonicalSubstitute;
+        Node.Replace(original, canonicalSubstitute);
+    }
+
 
     /// <summary>
     /// To avoid recursion and exhausting the return stack, we reify the
@@ -454,12 +416,12 @@ public class NodeRepresentationBuilder
     /// <param name="dt"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    private Node ReadStorage(Block block, Storage storage, DataType dt)
+    private ExpressionNode ReadStorage(Block block, Storage storage, DataType dt)
     {
         var work = new Stack<ReadStorageFrame>();
         work.Push(new ReadStorageFrame(ReadStoragePhase.Resolve, block, null, 0));
 
-        Node? lastResult = null;
+        ExpressionNode? lastResult = null;
         while (work.TryPop(out var frame))
         {
             switch (frame.Phase)
@@ -490,7 +452,7 @@ public class NodeRepresentationBuilder
                     break;
                 }
 
-                var phi = factory.Phi(state.Node);
+                var phi = factory.Phi(dt, state.Node);
                 phi.Storage = storage;
                 WriteStorage(state, storage, phi);
 
@@ -508,6 +470,7 @@ public class NodeRepresentationBuilder
             {
                 Debug.Assert(frame.Phi is not null);
                 Debug.Assert(lastResult is not null);
+                lastResult = ResolveCanonical(lastResult);
                 Node.AddEdge(lastResult, frame.Phi);
 
                 var nextPredIndex = frame.PredecessorIndex + 1;
@@ -522,8 +485,8 @@ public class NodeRepresentationBuilder
                 if (sameNode is not null)
                 {
                     WriteStorage(blocks[frame.Block], storage, sameNode);
-                    Node.Replace(frame.Phi, sameNode);
-                    lastResult = sameNode;
+                    ReplaceNode(frame.Phi, sameNode);
+                    lastResult = ResolveCanonical(sameNode);
                 }
                 else
                 {
@@ -541,14 +504,14 @@ public class NodeRepresentationBuilder
         return lastResult;
     }
 
-    private Node? CreateDefNode(BlockState state, Storage storage, DataType dt)
+    private ExpressionNode CreateDefNode(BlockState state, Storage storage, DataType dt)
     {
         var defNode = factory.Def(state.Node, storage, dt);
         WriteStorage(state, storage, defNode);
         return defNode;
     }
 
-    private Node? ReadLocalStorage(Storage storage, BlockState state, in ReadStorageFrame frame)
+    private ExpressionNode? ReadLocalStorage(Storage storage, BlockState state, in ReadStorageFrame frame)
     {
         switch (storage)
         {
@@ -562,25 +525,32 @@ public class NodeRepresentationBuilder
         case RegisterStorage regUse:
             if (state.RegisterDefs.TryGetValue(regUse, out var defs) && defs.Count > 0)
             {
-                return defs[^1].Item2;
+                return ResolveCanonical(defs[^1].Item2);
             }
             break;
         case TemporaryStorage temp:
             if (state.TemporaryDefs.TryGetValue(temp, out var tempNode))
             {
-                return tempNode;
+                return ResolveCanonical(tempNode);
             }
             break;
+        case StackStorage stk:
+            var interval = CreateBitInterval(stk.StackOffset, storage.DataType);
+            if (state.StackDefs.TryGetInterval(interval, out var stackNode))
+            {
+                return ResolveCanonical(stackNode);
+            }
+            return null;
         default: throw new NotImplementedException(storage.GetType().Name);
         }
         return null;
 
     }
 
-    private static Node? GetTrivialPhiReplacement(PhiNode phi)
+    private static ExpressionNode? GetTrivialPhiReplacement(PhiNode phi)
     {
-        Node? candidate = null;
-        foreach (var input in phi.Inputs.Skip(1))
+        ExpressionNode? candidate = null;
+        foreach (var input in phi.Inputs.Skip(1).Cast<ExpressionNode>())
         {
             if (input is null || ReferenceEquals(input, phi))
                 continue;
@@ -598,7 +568,7 @@ public class NodeRepresentationBuilder
         return candidate;
     }
 
-    private Node? TryReadFlagGroupStorage(Block block, FlagGroupStorage storage)
+    private ExpressionNode? TryReadFlagGroupStorage(Block block, FlagGroupStorage storage)
     {
         var state = blocks[block];
         if (!state.FlagGroupDefs.TryGetValue(storage.FlagRegister, out var defs) || defs.Count == 0)
@@ -609,11 +579,12 @@ public class NodeRepresentationBuilder
         {
             var (candidateStorage, candidateNode) = defs[i];
             if (candidateStorage.FlagGroupBits == requestedMask)
-                return candidateNode;
+                return ResolveCanonical(candidateNode);
 
             if (!candidateStorage.Covers(storage))
                 continue;
 
+            candidateNode = ResolveCanonical(candidateNode);
             var andNode = factory.Bin(storage.DataType, Operator.And, null, candidateNode, factory.Word32((uint) requestedMask));
             andNode.Storage = storage;
             WriteStorage(state, storage, andNode);
@@ -622,8 +593,9 @@ public class NodeRepresentationBuilder
         return null;
     }
 
-    private void WriteStorage(BlockState state, Storage stgDst, Node value)
+    private void WriteStorage(BlockState state, Storage stgDst, ExpressionNode value)
     {
+        value = ResolveCanonical(value);
         switch (stgDst)
         {
         case RegisterStorage regDst:
@@ -649,11 +621,23 @@ public class NodeRepresentationBuilder
         case TemporaryStorage tmp:
             state.TemporaryDefs[tmp] = value;
             break;
+        case StackStorage stk:
+            state.StackDefs.Add(CreateBitInterval(stk.StackOffset, value.DataType), value);
+            break;
         default:  
             throw new NotImplementedException(stgDst.GetType().Name);
         }
     }
 
+    internal Interval<int> CreateBitInterval(int unitStackOffset, DataType dt)
+    {
+        var bitsPerUnit = arch.MemoryGranularity;
+        var bitOffset = unitStackOffset * bitsPerUnit;
+        return Interval.Create(
+            bitOffset,
+            bitOffset +
+                dt.MeasureBitSize(arch.MemoryGranularity));
+    }
 
     public Node VisitMemberPointerSelector(MemberPointerSelector mps)
     {
@@ -713,7 +697,7 @@ public class NodeRepresentationBuilder
     public Node VisitSlice(Slice slice)
     {
         var input = slice.Expression.Accept(this);
-        return factory.Slice(null, slice.DataType, input, slice.Offset);
+        return factory.Slice(slice.DataType, input, slice.Offset);
     }
 
     public Node VisitStringConstant(StringConstant str)

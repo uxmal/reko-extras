@@ -15,6 +15,7 @@ public interface INodeVisitor<T>
     T VisitLoadNode(LoadNode node);
     T VisitMemoryNode(MemoryNode node);
     T VisitOperationNode(OperationNode node);
+    T VisitOutArgumentNode(OutArgumentNode outArgumentNode);
     T VisitPhiNode(PhiNode node);
     T VisitProcedureConstantNode(ProcedureConstantNode node);
     T VisitReturnNode(ReturnNode node);
@@ -44,6 +45,7 @@ public interface INodeVisitor<T, C>
     T VisitLoadNode(LoadNode node, C context);
     T VisitMemoryNode(MemoryNode node, C context);
     T VisitOperationNode(OperationNode node, C context);
+    T VisitOutArgumentNode(OutArgumentNode outArgumentNode, C? context);
     T VisitPhiNode(PhiNode node, C context);
     T VisitProcedureConstantNode(ProcedureConstantNode node, C context);
     T VisitReturnNode(ReturnNode node, C context);

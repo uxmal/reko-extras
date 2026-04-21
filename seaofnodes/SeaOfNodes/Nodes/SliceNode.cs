@@ -12,6 +12,8 @@ public sealed class SliceNode : ExpressionNode
         this.Offset = offset;
     }
 
+    public override string Label => "Slice";
+
     public int Offset { get; }
 
     public override void Render(TextWriter sw)

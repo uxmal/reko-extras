@@ -10,6 +10,8 @@ public sealed class SwitchNode : CfNode
         this.targets = targets;
     }
 
+    public override string Label => "Switch";
+
     public Node Selector => this.Inputs[1]!;
 
     public override void Render(TextWriter sw)
