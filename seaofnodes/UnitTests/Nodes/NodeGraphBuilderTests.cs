@@ -674,4 +674,56 @@ ProcedureBuilder_exit:
             m.Return(m.Test(ConditionCode.ULT, C));
         });
     }
+
+    [Test]
+    public void Npb_Sequence()
+    {
+        string sExpected =
+        #region Expected
+        @"
+ProcedureBuilder_entry:
+l1:
+    r2_8 = Mem8[0x123400<32>:word32]
+    r1_10 = Mem10[0x123404<32>:word32]
+    r4_12 = Mem12[0x123408<32>:word32]
+    r3_14 = Mem14[0x12340C<32>:word32]
+    r1:r2_15 = SEQ(r1_10, r2_8)
+    r3:r4_16 = SEQ(r3_14, r4_12)
+    r1:r2_17 = r1:r2_15 + r3:r4_16
+    r1_19 = SLICE(r1:r2_17, word32, 32)
+    r2_21 = SLICE(r1:r2_17, word32, 0)
+    r3_23 = SLICE(r3:r4_16, word32, 32)
+    r4_25 = SLICE(r3:r4_16, word32, 0)
+    return
+    // succ: ProcedureBuilder_exit
+ProcedureBuilder_exit:
+    use r1:r1_19
+    use r2:r2_21
+    use r3:r3_23
+    use r4:r4_25
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+            var r3 = m.Reg32("r3", 3);
+            var r4 = m.Reg32("r4", 4);
+
+            var r1_r2 = m.Frame.EnsureSequence(
+                PrimitiveType.Word64, r1.Storage, r2.Storage);
+            var r3_r4 = m.Frame.EnsureSequence(
+                PrimitiveType.Word64, r3.Storage, r4.Storage);
+            
+            m.Assign(r2, m.Mem32(m.Word32(0x123400)));
+            m.Assign(r1, m.Mem32(m.Word32(0x123404)));
+            m.Assign(r4, m.Mem32(m.Word32(0x123408)));
+            m.Assign(r3, m.Mem32(m.Word32(0x12340C)));
+            m.Assign(r1_r2, m.Seq(r1, r2));
+            m.Assign(r3_r4, m.Seq(r3, r4));
+            m.Assign(r1_r2, m.IAdd(r1_r2, r3_r4));
+            m.Return();
+        });
+    }
 }

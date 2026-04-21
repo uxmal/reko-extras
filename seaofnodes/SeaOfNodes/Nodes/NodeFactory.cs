@@ -129,6 +129,11 @@ public class NodeFactory
         return new SideEffectNode(NextId(), cfNode, expNode);
     }
 
+    public SeqNode Seq(DataType dt, params Node[] inputs)
+    {
+        return new SeqNode(NextId(), dt, inputs);
+    }
+
     public SliceNode Slice(DataType dt, Node input, int offset)
         => new SliceNode(NextId(), dt, null, input, offset);
 

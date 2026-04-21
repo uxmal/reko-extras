@@ -16,7 +16,7 @@ public sealed class SeqNode : ExpressionNode
         this.RenderReference(sw);
         sw.Write(" = SEQ(");
         string sep = "";
-        foreach (var input in this.Inputs.Skip(1))
+        foreach (var input in this.Inputs)
         {
             sw.Write(sep);
             sep = ", ";

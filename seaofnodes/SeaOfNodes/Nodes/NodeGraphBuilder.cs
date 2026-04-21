@@ -52,6 +52,7 @@ public partial class NodeGraphBuilder
             this.Node = node;
             this.RegisterDefs = [];
             this.FlagGroupDefs = [];
+            this.SequenceDefs = [];
             this.TemporaryDefs = [];
             this.StackDefs = [];
         }
@@ -60,6 +61,7 @@ public partial class NodeGraphBuilder
 
         public Dictionary<RegisterStorage, List<(BitRange, ExpressionNode)>> RegisterDefs { get; }
         public Dictionary<RegisterStorage, List<(FlagGroupStorage, ExpressionNode)>> FlagGroupDefs { get; }
+        public Dictionary<SequenceStorage, ExpressionNode> SequenceDefs { get; }
         public Dictionary<TemporaryStorage, ExpressionNode> TemporaryDefs { get; }
         public IntervalTree<int, ExpressionNode> StackDefs { get; }
     }
@@ -112,6 +114,29 @@ public partial class NodeGraphBuilder
     {
         var exitState = blocks[exitBlock];
 
+        var emittedStorages = new HashSet<Storage>();
+
+        var reachingSequences = exitBlock.Pred
+            .SelectMany(pred => blocks[pred].SequenceDefs.Keys)
+            .Distinct()
+            .OrderBy(seq => seq.Name)
+            .ToArray();
+
+        foreach (var sequence in reachingSequences)
+        {
+            foreach (var storage in EnumerateSequenceLeafStorages(sequence))
+            {
+                if (!emittedStorages.Add(storage))
+                    continue;
+
+                var value = ReadStorage(exitBlock, storage, storage.DataType);
+                if (!ShouldEmitExitUse(value))
+                    continue;
+                var use = factory.Use(exitState.Node, storage, default);
+                Node.AddEdge(value, use);
+            }
+        }
+
         var reachingRegisters = exitBlock.Pred
             .SelectMany(pred => blocks[pred].RegisterDefs.Keys)
             .Distinct()
@@ -121,6 +146,8 @@ public partial class NodeGraphBuilder
 
         foreach (var reg in reachingRegisters)
         {
+            if (!emittedStorages.Add(reg))
+                continue;
             var value = ReadStorage(exitBlock, reg, reg.DataType);
             if (!ShouldEmitExitUse(value))
                 continue;
@@ -511,6 +538,33 @@ public partial class NodeGraphBuilder
         return defNode;
     }
 
+    private static IEnumerable<Storage> EnumerateSequenceLeafStorages(SequenceStorage sequence)
+    {
+        foreach (var element in sequence.Elements)
+        {
+            if (element is SequenceStorage nested)
+            {
+                foreach (var nestedElement in EnumerateSequenceLeafStorages(nested))
+                {
+                    yield return nestedElement;
+                }
+            }
+            else
+            {
+                yield return element;
+            }
+        }
+    }
+
+    private static IEnumerable<RegisterStorage> EnumerateSequenceRegisters(SequenceStorage sequence)
+    {
+        foreach (var element in EnumerateSequenceLeafStorages(sequence))
+        {
+            if (element is RegisterStorage reg)
+                yield return reg;
+        }
+    }
+
     private ExpressionNode? ReadLocalStorage(Storage storage, BlockState state, in ReadStorageFrame frame)
     {
         switch (storage)
@@ -525,7 +579,28 @@ public partial class NodeGraphBuilder
         case RegisterStorage regUse:
             if (state.RegisterDefs.TryGetValue(regUse, out var defs) && defs.Count > 0)
             {
-                return ResolveCanonical(defs[^1].Item2);
+                var (bitRange, regValue) = defs[^1];
+                regValue = ResolveCanonical(regValue);
+                if (!bitRange.IsEmpty && bitRange.Extent > regUse.GetBitRange().Extent)
+                {
+                    if (regValue.Storage is SequenceStorage seqStorage)
+                    {
+                        var offset = seqStorage.OffsetOf(regUse);
+                        if (offset >= 0)
+                        {
+                            var slice = factory.Slice(regUse.DataType, regValue, offset);
+                            slice.Storage = regUse;
+                            return slice;
+                        }
+                    }
+                }
+                return regValue;
+            }
+            break;
+        case SequenceStorage seq:
+            if (state.SequenceDefs.TryGetValue(seq, out var seqNode))
+            {
+                return ResolveCanonical(seqNode);
             }
             break;
         case TemporaryStorage temp:
@@ -604,7 +679,7 @@ public partial class NodeGraphBuilder
                 defs = [];
                 state.RegisterDefs[regDst] = defs;
             }
-            defs.Add((default, value));
+            defs.Add((regDst.GetBitRange(), value));
             state.RegisterDefs[regDst] = defs;
             break;
         case FlagGroupStorage flagGroup:
@@ -617,6 +692,16 @@ public partial class NodeGraphBuilder
 
             flagDefs.RemoveAll(entry => flagGroup.Covers(entry.Item1));
             flagDefs.Add((flagGroup, value));
+            break;
+        case SequenceStorage seq:
+            state.SequenceDefs[seq] = value;
+            var seqBitRange = seq.GetBitRange();
+            foreach (var reg in EnumerateSequenceRegisters(seq))
+            {
+                var rdefs = state.RegisterDefs[reg];
+                rdefs.Clear();
+                rdefs.Add((seqBitRange, value));
+            }
             break;
         case TemporaryStorage tmp:
             state.TemporaryDefs[tmp] = value;
@@ -655,8 +740,10 @@ public partial class NodeGraphBuilder
 
     public Node VisitMkSequence(MkSequence seq)
     {
-        Console.Out.WriteLine("NYI: {0}", seq.GetType());
-        throw new NotImplementedException();
+        var inputs = seq.Expressions
+            .Select(expr => expr.Accept(this))
+            .ToArray();
+        return factory.Seq(seq.DataType, inputs);
     }
 
     public Node VisitOutArgument(OutArgument outArgument)
