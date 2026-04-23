@@ -32,7 +32,7 @@ public class FakeArchitecture : IProcessorArchitecture
 
     public string Name => "fake-arch";
 
-    public FlagGroupStorage? CarryFlag => throw new NotImplementedException();
+    public FlagGroupStorage? CarryFlag => GetFlagGroup("C");
 
     public int DefaultBase => throw new NotImplementedException();
 
@@ -180,6 +180,11 @@ public class FakeArchitecture : IProcessorArchitecture
             return GetFlagGroup(this.Status, 1);
         if (name == "Z")
             return GetFlagGroup(this.Status, 2);
+
+        if (name == "SCZ")
+            return GetFlagGroup(this.Status, 7); // 0x07 = 0b0111
+        if (name == "CF")
+            return GetFlagGroup(this.Status, 1);
 
         throw new NotImplementedException();
     }
