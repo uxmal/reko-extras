@@ -67,7 +67,8 @@ public partial class NodeGraphBuilder
             var value = ReadStorage(this.currentBlock!, stgUse, stgUse.DataType);
             if (stgUse is RegisterStorage reg)
             {
-                Debug.Assert(this.cfNode is not null);
+                if (this.cfNode is null)
+                    throw new InvalidOperationException();
                 var useNode = factory.Use(this.cfNode, reg, bitRange);
                 Node.AddEdge(value, useNode);
                 Node.AddEdge(useNode, callNode);
@@ -79,7 +80,8 @@ public partial class NodeGraphBuilder
         {
             if (stgDef is RegisterStorage reg)
             {
-                Debug.Assert(this.cfNode is not null);
+                if (this.cfNode is null)
+                    throw new InvalidOperationException();
                 var defNode = factory.Def(this.cfNode, reg, reg.DataType);
                 Node.AddEdge(callNode, defNode);
                 WriteStorage(blocks[this.currentBlock!], stgDef, defNode);

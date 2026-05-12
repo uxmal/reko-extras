@@ -97,12 +97,14 @@ public class LongAddRewriterTests
         foreach (var proc in program.Procedures.Values)
         {
             var factory = new NodeFactory();
+            var peep = new PeepholeOptimizer(factory);
             var npb = new NodeGraphBuilder(factory, programFlow, program.Architecture);
             var graph = npb.Transform(m.Procedure);
             var vp = new NodeValuePropagator(factory);
             graph = vp.Transform(graph);
 
-            var larw = new LongAddRewriter(factory);
+
+            var larw = new LongAddRewriter(peep);
             StartNode graphNew = larw.Transform(graph);
 
             new NodeGraphRenderer().Render(graphNew, writer);
@@ -121,7 +123,8 @@ public class LongAddRewriterTests
             program.Architecture);
         var graph = sst.Transform(m.Procedure);
 
-        rw = new LongAddRewriter(factory);
+        var peep = new PeepholeOptimizer(factory);
+        rw = new LongAddRewriter(peep);
     }
 
     private void RunTest(
@@ -135,7 +138,8 @@ public class LongAddRewriterTests
         var ngb = new NodeGraphBuilder(factory, programFlow, program.Architecture);
         var graph = ngb.Transform(m.Procedure);
 
-        rw = new LongAddRewriter(factory);
+        var peep = new PeepholeOptimizer(factory);
+        rw = new LongAddRewriter(peep);
 
         var graphNew = rw.Transform(graph);
 
@@ -154,6 +158,96 @@ public class LongAddRewriterTests
         }
     }
 
+    [Test]
+    public void Larw_add()
+    {
+        var sExp =
+@"ProcedureBuilder_entry:
+    def ax:word16
+    def cx:word16
+    def dx:word16
+    def bx:word16
+l1:
+    n22 = SEQ(dx, ax)
+    n23 = SEQ(bx, cx)
+    n24 = n22 + n23
+    n9 = SLICE(n24, word16, 0)
+    n16 = SLICE(n24, word16, 16)
+    CZ_17 = cond(n16)
+    CZ_10 = cond(n9)
+    C_14 = CZ_10 & 1<32>
+    return
+ProcedureBuilder_exit:
+    use ax:n9
+    use dx:n16
+    use CZ:CZ_17
+";
+        RunTest(sExp, m =>
+        {
+            m.Assign(ax, m.IAdd(ax, cx));
+            m.Assign(SCZ, m.Cond(SCZ.DataType, ax));
+            m.Assign(dx, m.IAdd(dx, m.IAdd(bx, CF)));
+            m.Assign(SCZ, m.Cond(SCZ.DataType, dx));
+            m.Return();
+        });        
+    }
+
+    [Test]
+    public void Larw_AddChain()
+    {
+        var sExp =
+@"    ProcedureBuilder_entry:
+    def ax:word16
+    def dx:word16
+    def bx:word16
+    def cx:word16
+l1:
+    n9 = Mem9[0x1234<32>:word16]
+    n14 = Mem14[0x1236<32>:word16]
+    n22 = Mem22[0x1238<32>:word16]
+    n30 = Mem30[0x123A<32>:word16]
+    n42 = SEQ(dx, ax)
+    n43 = SEQ(n14, n9)
+    n44 = n42 + n43
+    n10 = SLICE(n44, word16, 0)
+    n53 = SEQ(cx, bx, dx, ax)
+    n54 = SEQ(n30, n22, n14, n9)
+    n55 = n53 + n54
+    n26 = SLICE(n55, cuiposr48, 0)
+    n34 = SLICE(n55, word16, 48)
+    n48 = SEQ(bx, dx, ax)
+    n49 = SEQ(n22, n14, n9)
+    n50 = n48 + n49
+    n18 = SLICE(n50, uipr32, 0)
+    CZ_35 = cond(n34)
+    CZ_11 = cond(n10)
+    CZ_27 = cond(n26)
+    CZ_19 = cond(n18)
+    C_16 = CZ_11 & 1<32>
+    C_32 = CZ_27 & 1<32>
+    C_24 = CZ_19 & 1<32>
+    return
+ProcedureBuilder_exit:
+    use ax:n10
+    use bx:n26
+    use cx:n34
+    use dx:n18
+    use CZ:CZ_35
+"
+;
+        RunTest(sExp, m =>
+        {
+            m.Assign(ax, m.IAdd(ax, m.Mem16(m.Word32(0x001234))));
+            m.Assign(SCZ, m.Cond(SCZ.DataType, ax));
+            m.Assign(dx, m.IAdd(dx, m.IAdd(m.Mem16(m.Word32(0x001236)), CF)));
+            m.Assign(SCZ, m.Cond(SCZ.DataType, dx));
+            m.Assign(bx, m.IAdd(bx, m.IAdd(m.Mem16(m.Word32(0x001238)), CF)));
+            m.Assign(SCZ, m.Cond(SCZ.DataType, bx));
+            m.Assign(cx, m.IAdd(cx, m.IAdd(m.Mem16(m.Word32(0x00123A)), CF)));
+            m.Assign(SCZ, m.Cond(SCZ.DataType, cx));
+            m.Return();
+        });
+    }
 
 
     [Test]
@@ -227,9 +321,11 @@ public class LongAddRewriterTests
     public void Larw_Avoid()
     {
 
-        var sExp = @"l1:
-	SCZ_2 = cond(cx - 0x30<16>)
-	C_3 = SCZ_2 & 4<32> (alias)
+        var sExp = @"ProcedureBuilder_entry:
+    def cx:word16
+l1:
+    SCZ_2 = cond(cx - 0x30<16>)
+    C_3 = SCZ_2 & 4<32> (alias)
 	ax_4 = 0<16> + C_3
 	SCZ_5 = cond(ax_4)
 	SCZ_6 = cond(cx - 0x3A<16>)
@@ -373,7 +469,11 @@ public class LongAddRewriterTests
     {
         var sExp =
         #region Expected
-@"l1:
+@"ProcedureBuilder_entry:
+    def ax:word16
+    def bx:word16
+    def dx:word16
+l1:
 	dx_ax_17 = SEQ(dx, ax)
 	dx_ax_18 = dx_ax_17 + SEQ(0<16>, Mem0[bx + 2<16>:word16])
 	ax_4 = SLICE(dx_ax_18, word16, 0) (alias)
@@ -416,6 +516,12 @@ public class LongAddRewriterTests
         var sExp =
         #region Expected
 @"l1:
+ProcedureBuilder_entry:
+    def ax:word16
+    def bx:word16
+    def cx:word16
+    def dx:word16
+l1:
 	dx_ax_11 = SEQ(dx, ax)
 	bx_cx_12 = SEQ(bx, cx)
 	dx_ax_13 = dx_ax_11 + bx_cx_12
@@ -512,14 +618,16 @@ public class LongAddRewriterTests
     {
         var sExp =
         #region Expected
-@"l1:
-	dx_2 = -dx
-	C_3 = cond(dx_2 != 0<16>)
-	dx_ax_8 = SEQ(dx, ax)
-	dx_ax_9 = -dx_ax_8
-	ax_5 = SLICE(dx_ax_9, word16, 0)
-	C_6 = cond(ax_5 != 0<16>)
-	dx_7 = SLICE(dx_ax_9, word16, 16)
+@"ProcedureBuilder_entry:
+    def dx_ax:word32
+l1:
+    n12 = -dx_ax
+    dx_15 = SLICE(n12, word16, 16)
+    ax_13 = SLICE(n12, word16, 0)
+    return
+ProcedureBuilder_exit:
+    use dx:dx_15
+    use ax:ax_13
 ";
         #endregion
 
@@ -543,18 +651,20 @@ public class LongAddRewriterTests
     {
         var sExp =
         #region Expected
-@"l1:
-	C_2 = dx != 0<16>
-	dx_3 = -dx
-	C_5 = ax != 0<16>
-    dx_ax_18 = -n16
-    ax_19 = SLICE(dx_ax_18, word16, 0)
-    dx_20 = SLICE(dx_ax_18, word16, 16)
+@"ProcedureBuilder_entry:
+    def dx:word16
+    def ax:word16
+l1:
+    ax_14 = -ax
+    dx_10 = -dx
+    n16 = dx_10 - 0<16>
+    C_13 = ax != 0<16>
+    dx_17 = n16 - C_13
     return
-	dx_ax_8 = SEQ(dx, ax)
-	dx_ax_9 = -dx_ax_8
-	ax_6 = SLICE(dx_ax_9, word16, 0)
-	dx_7 = SLICE(dx_ax_9, word16, 16)
+ProcedureBuilder_exit:
+    use ax:ax_14
+    use dx:dx_17
+    use C:C_13
 ";
         #endregion
 
@@ -578,17 +688,17 @@ public class LongAddRewriterTests
     {
         var sExp =
         #region Expected
-@"l1:
-	dx_1 = 0<16>
-    C_2 = dx_1 != 0<16>
-    dx_3 = -dx_1
-    C_5 = ax != 0<16>
-	C_2 = dx_1 != 0<16>
-	dx_3 = -dx_1
-	C_5 = ax != 0<16>
-	dx_ax_8 = -CONVERT(ax, word16, uint32)
-	ax_6 = SLICE(dx_ax_8, word16, 0)
-	dx_7 = SLICE(dx_ax_8, word16, 16)
+@"ProcedureBuilder_entry:
+    def ax:word16
+l1:
+    ax_14 = -ax
+    C_13 = ax != 0<16>
+    dx_17 = n16 - C_13
+    return
+ProcedureBuilder_exit:
+    use ax:ax_14
+    use dx:dx_17
+    use C:C_13
 ";
         #endregion
 

@@ -6,7 +6,8 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public sealed class ApplicationNode : ExpressionNode
 {
-    public ApplicationNode(int number, DataType dt, Node? cfNode, Node fn, params Node?[] inputs) : base(number, dt, cfNode, fn, inputs)
+    public ApplicationNode(int number, DataType dt, Node? cfNode, Node fn, params Node?[] inputs) :
+        base(number, dt, cfNode, new Node?[] { fn }.Concat(inputs).ToArray())
     {
     }
 
@@ -26,14 +27,16 @@ public sealed class ApplicationNode : ExpressionNode
             this.RenderReference(sw);
             sw.Write(" = ");
         }
-        Debug.Assert(callee is not null);
+        if (callee is null)
+            throw new InvalidOperationException();
         callee.RenderReference(sw);
         sw.Write('(');
         string sep = "";
         for (int i = 2; i < Inputs.Count; i++)
         {
             var arg = Inputs[i];
-            Debug.Assert(arg is not null);
+            if (arg is null)
+                throw new InvalidOperationException();
             sw.Write(sep);
             arg.RenderReference(sw);
             sep = ", ";

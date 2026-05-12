@@ -63,7 +63,8 @@ public sealed class NodeApplicationBuilder
         ExpressionNode appl = factory.Apply(dtOut, cfNode, callee, arguments.ToArray());
         if (idReturn is null || dtOut is VoidType)
         {
-            Debug.Assert(cfNode is not null);
+            if (cfNode is null)
+                throw new InvalidOperationException();
             return factory.SideEffect(cfNode, appl);
         }
         else

@@ -8,52 +8,52 @@ public sealed class OperationNode : ExpressionNode
 {
     private static readonly Dictionary<OperatorType, string> operatorName = new()
     {
-        { OperatorType.IAdd, " + " },
-        { OperatorType.ISub, " - " },
-        { OperatorType.USub, " -u " },
-        { OperatorType.IMul, " * " },
-        { OperatorType.SMul, " *s " },
-        { OperatorType.UMul, " *u " },
-        { OperatorType.SDiv, " /s " },
-        { OperatorType.UDiv, " /u " },
+        { OperatorType.IAdd, " +" },
+        { OperatorType.ISub, " -" },
+        { OperatorType.USub, " -u" },
+        { OperatorType.IMul, " *" },
+        { OperatorType.SMul, " *s" },
+        { OperatorType.UMul, " *u" },
+        { OperatorType.SDiv, " /s" },
+        { OperatorType.UDiv, " /u" },
         { OperatorType.IMod, " %" },
-        { OperatorType.SMod, " %s " },
-        { OperatorType.UMod, " %u " },
-        { OperatorType.FAdd, " +f " },
-        { OperatorType.FSub, " -f " },
-        { OperatorType.FMul, " *f " },
-        { OperatorType.FDiv, " /f " },
-        { OperatorType.FMod, " %f " },
+        { OperatorType.SMod, " %s" },
+        { OperatorType.UMod, " %u" },
+        { OperatorType.FAdd, " +f" },
+        { OperatorType.FSub, " -f" },
+        { OperatorType.FMul, " *f" },
+        { OperatorType.FDiv, " /f" },
+        { OperatorType.FMod, " %f" },
         { OperatorType.FNeg, "-" },
-        { OperatorType.And, " & " },
-        { OperatorType.Or, " | " },
-        { OperatorType.Xor, " ^ " },
-        { OperatorType.Shr, " >>u " },
-        { OperatorType.Sar, " >> " },
-        { OperatorType.Shl, " << " },
-        { OperatorType.Cand, " && " },
-        { OperatorType.Cor, " || " },
-        { OperatorType.Lt, " < " },
-        { OperatorType.Gt, " > " },
-        { OperatorType.Le, " <= " },
-        { OperatorType.Ge, " >= " },
-        { OperatorType.Feq, " ==f " },
-        { OperatorType.Fne, " !=f " },
-        { OperatorType.Flt, " <f " },
-        { OperatorType.Fgt, " >f " },
-        { OperatorType.Fle, " <=f " },
-        { OperatorType.Fge, " >=f " },
-        { OperatorType.Ult, " <u " },
-        { OperatorType.Ugt, " >u " },
-        { OperatorType.Ule, " <=u " },
-        { OperatorType.Uge, " >=u " },
-        { OperatorType.Eq, " == " },
-        { OperatorType.Ne, " != " },
-        { OperatorType.Not, " ! " },
+        { OperatorType.And, " &" },
+        { OperatorType.Or, " |" },
+        { OperatorType.Xor, " ^" },
+        { OperatorType.Shr, " >>u" },
+        { OperatorType.Sar, " >>" },
+        { OperatorType.Shl, " <<" },
+        { OperatorType.Cand, " &&" },
+        { OperatorType.Cor, " ||" },
+        { OperatorType.Lt, " <" },
+        { OperatorType.Gt, " >" },
+        { OperatorType.Le, " <=" },
+        { OperatorType.Ge, " >=" },
+        { OperatorType.Feq, " ==f" },
+        { OperatorType.Fne, " !=f" },
+        { OperatorType.Flt, " <f" },
+        { OperatorType.Fgt, " >f" },
+        { OperatorType.Fle, " <=f" },
+        { OperatorType.Fge, " >=f" },
+        { OperatorType.Ult, " <u" },
+        { OperatorType.Ugt, " >u" },
+        { OperatorType.Ule, " <=u" },
+        { OperatorType.Uge, " >=u" },
+        { OperatorType.Eq, " ==" },
+        { OperatorType.Ne, " !=" },
+        { OperatorType.Not, " !" },
         { OperatorType.Neg, "-" },
         { OperatorType.Comp, "~" },
         { OperatorType.AddrOf, "&" },
-        { OperatorType.Comma, ", " }
+        { OperatorType.Comma, "," }
     };
 
     public OperationNode(int number, DataType dt, Operator op, params Node?[] inputs)
@@ -76,7 +76,8 @@ public sealed class OperationNode : ExpressionNode
             // Unary prefix operator
             sw.Write(opName);
             var input = Inputs[1];
-            Debug.Assert(input is not null);
+            if (input is null)
+                throw new InvalidOperationException();
             input.RenderReference(sw);
         }
         else
@@ -84,13 +85,25 @@ public sealed class OperationNode : ExpressionNode
             for (int i = 1; i < Inputs.Count; i++)
             {
                 var input = Inputs[i];
-    
+                if (input is null)
+                    throw new InvalidOperationException();
+
                 if (i > 1)
-                    sw.Write(opName);
-                Debug.Assert(input is not null);
+                {
+                    WriteOperator(opName, input, sw);
+                }
                 input.RenderReference(sw);
             }
         }
+    }
+
+    private void WriteOperator(string opName, Node input, TextWriter sw)
+    {
+        sw.Write(opName);
+        var dtResult = this.DataType;
+        if (dtResult.BitSize != ((ExpressionNode)input).DataType.BitSize)
+            sw.Write(dtResult.BitSize);
+        sw.Write(' ');
     }
 
     public override T Accept<T>(INodeVisitor<T> visitor)

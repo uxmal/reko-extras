@@ -32,7 +32,8 @@ public abstract class Node
             this.Inputs.Add(null);
         foreach (var input in inputs)
         {
-            Debug.Assert(input is not null);
+            if (input is null)
+                throw new InvalidOperationException();
             AddEdge(input, this);
         }
     }
@@ -47,7 +48,8 @@ public abstract class Node
             AddEdge(cfNode, this);
         else
             this.Inputs.Add(null);
-        Debug.Assert(n is not null);
+        if (n is null)
+            throw new InvalidOperationException();
         AddEdge(n, this);
         foreach (var input in inputs)
         {

@@ -20,7 +20,8 @@ public sealed class PhiNode : ExpressionNode
         for (int i = 1; i < Inputs.Count; i++)
         {
             var input = Inputs[i];
-            Debug.Assert(input is not null);
+            if (input is null)
+                throw new InvalidOperationException();
             sw.Write(sep);
             input.RenderReference(sw);
             sep = ", ";

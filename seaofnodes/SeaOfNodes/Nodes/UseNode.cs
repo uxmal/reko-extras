@@ -22,7 +22,8 @@ public sealed class UseNode : Node
         sw.Write(this.Storage);
         sw.Write(':');
         var input = this.Inputs[1];
-        Debug.Assert(input is not null);
+        if (input is null)
+            throw new InvalidOperationException();
         input.RenderReference(sw);
     }
 

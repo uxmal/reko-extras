@@ -27,7 +27,8 @@ public partial class NodeValuePropagator
     public Node? VisitTestNode(TestNode n)
     {
         var ccNode = n.Inputs[1];
-        Debug.Assert(ccNode is not null);
+        if (ccNode is null)
+            throw new InvalidOperationException();
         return RewriteTestFromCcNode(n, ccNode);
     }
 
@@ -89,7 +90,8 @@ public partial class NodeValuePropagator
                 break;
 
             case RewriteStage.ProcessPhi:
-                Debug.Assert(frame.Phi is not null);
+                if (frame.Phi is null)
+                    throw new InvalidOperationException();
                 if (frame.ChildIndex >= frame.Phi.Inputs.Count)
                 {
                     frame.Result = frame.PushedPhi;
@@ -117,7 +119,8 @@ public partial class NodeValuePropagator
                     break;
                 }
 
-                Debug.Assert(frame.PushedPhi is not null);
+                if (frame.PushedPhi is null)
+                    throw new InvalidOperationException();
                 Node.AddEdge(lastResult, frame.PushedPhi);
                 ++frame.ChildIndex;
                 frame.Stage = RewriteStage.ProcessPhi;

@@ -11,8 +11,7 @@ public class NodeFactory
 {
     private int number;
 
-    public NodeFactory()
-    {
+    public NodeFactory() {
         this.number = 0;
     }
 
@@ -131,7 +130,7 @@ public class NodeFactory
 
     public SeqNode Seq(DataType dt, params Node[] inputs)
     {
-        return new SeqNode(NextId(), dt, inputs);
+        return new SeqNode(NextId(), dt, null, inputs);
     }
 
     public SliceNode Slice(DataType dt, Node input, int offset)

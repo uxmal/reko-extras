@@ -20,13 +20,15 @@ public class CallNode : CfNode
         foreach (var use in this.Inputs.Skip(2))
         {
             sw.Write(" ");
-            Debug.Assert(use is not null);
+            if (use is null)
+                throw new InvalidOperationException();
             if (use is UseNode useNode)
             {
                 sw.Write(useNode.Storage);
                 sw.Write(':');
                 var input = useNode.Inputs[1];
-                Debug.Assert(input is not null);
+                if (input is null)
+                    throw new InvalidOperationException();
                 input.RenderReference(sw);
             }
             else
@@ -39,7 +41,8 @@ public class CallNode : CfNode
         foreach (DefNode def in this.Outputs)
         {
             sw.Write(" ");
-            Debug.Assert(def is not null);
+            if (def is null)
+                throw new InvalidOperationException();
             sw.Write(def.Storage);
             sw.Write(':');
             def.RenderReference(sw);

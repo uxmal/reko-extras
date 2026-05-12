@@ -23,7 +23,8 @@ public sealed class LoadNode : ExpressionNode
         Debug.Assert(Inputs.Count == 3);
         sw.Write($"Mem{base.Number}[");
         var ea = Inputs[2];
-        Debug.Assert(ea is not null);
+        if (ea is null)
+            throw new InvalidOperationException();
         ea.RenderReference(sw);
         sw.Write($":{DataType}]");
     }

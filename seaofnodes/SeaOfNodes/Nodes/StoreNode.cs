@@ -22,13 +22,16 @@ public sealed class StoreNode : MemoryNode
     {
         sw.Write($"Mem{base.Number}[");
         var mem = Inputs[1];
-        Debug.Assert(mem is not null);
+        if (mem is null)
+            throw new InvalidOperationException();
         var ea = Inputs[2];
-        Debug.Assert(ea is not null);
+        if (ea is null)
+            throw new InvalidOperationException();
         ea.RenderReference(sw);
            sw.Write($":{DataType}] = ");
            var value = Inputs[3];
-           Debug.Assert(value is not null);
+           if (value is null)
+               throw new InvalidOperationException();
            value.RenderReference(sw);
     }
 

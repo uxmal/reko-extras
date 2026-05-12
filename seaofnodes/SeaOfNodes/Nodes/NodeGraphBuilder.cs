@@ -269,7 +269,8 @@ public partial class NodeGraphBuilder
 
     public Node VisitReturnInstruction(ReturnInstruction ret)
     {
-        Debug.Assert(cfNode is not null);
+        if (cfNode is null)
+            throw new InvalidOperationException();
         if (ret.Expression is null)
             return factory.Return(cfNode);
 
@@ -280,14 +281,17 @@ public partial class NodeGraphBuilder
     public Node VisitSideEffect(SideEffect side)
     {
         var expNode = side.Expression.Accept(this);
-        Debug.Assert(cfNode is not null);
+        if (cfNode is null)
+            throw new InvalidOperationException();
         return factory.SideEffect(cfNode, expNode);
     }
 
     public Node VisitStore(Store store)
     {
-        Debug.Assert(cfNode is not null);
-        Debug.Assert(memNode is not null);
+        if (cfNode is null)
+            throw new InvalidOperationException();
+        if (memNode is null)
+            throw new InvalidOperationException();
         if (store.Dst is not MemoryAccess access)
             throw new NotImplementedException();
         var ea = access.EffectiveAddress.Accept(this);
@@ -396,7 +400,8 @@ public partial class NodeGraphBuilder
         ExpressionNode canonical = node;
         while (replacements.TryGetValue(canonical, out var replacement))
         {
-            Debug.Assert(replacement is ExpressionNode);
+            if (replacement is null)
+                throw new InvalidOperationException();
             canonical = (ExpressionNode) replacement;
         }
 
@@ -489,14 +494,17 @@ public partial class NodeGraphBuilder
             }
 
             case ReadStoragePhase.AfterSinglePredecessor:
-                Debug.Assert(lastResult is not null);
+                if (lastResult is null)
+                    throw new InvalidOperationException();
                 WriteStorage(blocks[frame.Block], storage, lastResult);
                 break;
 
             case ReadStoragePhase.AfterPhiPredecessor:
             {
-                Debug.Assert(frame.Phi is not null);
-                Debug.Assert(lastResult is not null);
+                if (frame.Phi is null)
+                    throw new InvalidOperationException();
+                if (lastResult is null)
+                    throw new InvalidOperationException();
                 lastResult = ResolveCanonical(lastResult);
                 Node.AddEdge(lastResult, frame.Phi);
 
@@ -527,7 +535,8 @@ public partial class NodeGraphBuilder
             }
         }
 
-        Debug.Assert(lastResult is not null);
+        if (lastResult is null)
+            throw new InvalidOperationException();
         return lastResult;
     }
 
@@ -770,8 +779,10 @@ public partial class NodeGraphBuilder
 
     public Node VisitMemoryAccess(MemoryAccess access)
     {
-        Debug.Assert(cfNode is not null);
-        Debug.Assert(memNode is not null);
+        if (cfNode is null)
+            throw new InvalidOperationException();
+        if (memNode is null)
+            throw new InvalidOperationException();
         var ea = access.EffectiveAddress.Accept(this);
         return factory.Load(cfNode, memNode, access.DataType, ea);
     }
