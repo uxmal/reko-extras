@@ -225,7 +225,8 @@ public partial class NodeGraphBuilder
         var idDst = ass.Dst;
 
         var value = ass.Src.Accept(this);
-        value.Storage = idDst.Storage;
+        if (value.Storage is null)
+            value.Storage = idDst.Storage;
         WriteStorage(blocks[currentBlock], idDst.Storage, (ExpressionNode) value);
         return value;
     }

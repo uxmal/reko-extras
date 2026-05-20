@@ -130,6 +130,7 @@ public class LongAddRewriterTests
     private void RunTest(
         string sExp,
         Action<ProcedureBuilder> builder,
+        bool includeOutputRefs = false,
         [CallerMemberName] string testName = "")
     {
         builder(m);
@@ -144,7 +145,7 @@ public class LongAddRewriterTests
         var graphNew = rw.Transform(graph);
 
         var writer = new StringWriter();
-        new NodeGraphRenderer().Render(graphNew, writer);
+        new NodeGraphRenderer().Render(graphNew, writer, includeOutputRefs);
         var sActual = writer.ToString();
         if (sExp != sActual)
         {
@@ -173,9 +174,9 @@ l1:
     n24 = n22 + n23
     n9 = SLICE(n24, word16, 0)
     n16 = SLICE(n24, word16, 16)
-    CZ_17 = cond(n16)
+    CZ_17 = cond(n24)
     CZ_10 = cond(n9)
-    C_14 = CZ_10 & 1<32>
+    C_15 = CZ_10 & 1<32>
     return
 ProcedureBuilder_exit:
     use ax:n9
@@ -186,7 +187,7 @@ ProcedureBuilder_exit:
         {
             m.Assign(ax, m.IAdd(ax, cx));
             m.Assign(SCZ, m.Cond(SCZ.DataType, ax));
-            m.Assign(dx, m.IAdd(dx, m.IAdd(bx, CF)));
+            m.Assign(dx, m.IAdd(m.IAdd(dx, bx), CF));
             m.Assign(SCZ, m.Cond(SCZ.DataType, dx));
             m.Return();
         });        
@@ -196,57 +197,52 @@ ProcedureBuilder_exit:
     public void Larw_AddChain()
     {
         var sExp =
-@"    ProcedureBuilder_entry:
-    def ax:word16
-    def dx:word16
-    def bx:word16
-    def cx:word16
+@"ProcedureBuilder_entry:
+    def ax:word16 # [ n42, n47, n52 ]
+    def dx:word16 # [ n15, n42, n47, n52 ]
+    def bx:word16 # [ n23, n47, n52 ]
+    def cx:word16 # [ n31, n52 ]
 l1:
-    n9 = Mem9[0x1234<32>:word16]
-    n14 = Mem14[0x1236<32>:word16]
-    n22 = Mem22[0x1238<32>:word16]
-    n30 = Mem30[0x123A<32>:word16]
-    n42 = SEQ(dx, ax)
-    n43 = SEQ(n14, n9)
-    n44 = n42 + n43
-    n10 = SLICE(n44, word16, 0)
-    n53 = SEQ(cx, bx, dx, ax)
-    n54 = SEQ(n30, n22, n14, n9)
-    n55 = n53 + n54
-    n26 = SLICE(n55, cuiposr48, 0)
-    n34 = SLICE(n55, word16, 48)
-    n48 = SEQ(bx, dx, ax)
-    n49 = SEQ(n22, n14, n9)
-    n50 = n48 + n49
-    n18 = SLICE(n50, uipr32, 0)
-    CZ_35 = cond(n34)
-    CZ_11 = cond(n10)
-    CZ_27 = cond(n26)
-    CZ_19 = cond(n18)
-    C_16 = CZ_11 & 1<32>
-    C_32 = CZ_27 & 1<32>
-    C_24 = CZ_19 & 1<32>
-    return
+    n9 = Mem9[0x1234<32>:word16] # [ n43, n48, n53 ]
+    n14 = Mem14[0x1236<32>:word16] # [ n15, n43, n48, n53 ]
+    n22 = Mem22[0x1238<32>:word16] # [ n23, n48, n53 ]
+    n30 = Mem30[0x123A<32>:word16] # [ n31, n53 ]
+    n52 = SEQ(cx, bx, dx, ax) # [ n54 ]
+    n53 = SEQ(n30, n22, n14, n9) # [ n54 ]
+    n54 = n52 + n53 # [ n49, n34, CZ_35 ]
+    n49 = SLICE(n54, cuiposr48, 0) # [ n44, n26, CZ_27 ]
+    n44 = SLICE(n49, uipr32, 0) # [ n10, n18, CZ_19 ]
+    n10 = SLICE(n44, word16, 0) # [ CZ_11, ax_37 ]
+    n26 = SLICE(n49, word16, 32) # [ bx_38 ]
+    n34 = SLICE(n54, word16, 48) # [ cx_39 ]
+    n18 = SLICE(n44, word16, 16) # [ dx_40 ]
+    CZ_35 = cond(n54) # [ CZ_41 ]
+    CZ_27 = cond(n49) # [ C_33 ]
+    CZ_19 = cond(n44) # [ C_25 ]
+    CZ_11 = cond(n10) # [ C_17 ]
+    C_33 = CZ_27 & 1<32> # [  ]
+    C_25 = CZ_19 & 1<32> # [  ]
+    C_17 = CZ_11 & 1<32> # [  ]
+    return # [  ]
 ProcedureBuilder_exit:
-    use ax:n10
-    use bx:n26
-    use cx:n34
-    use dx:n18
-    use CZ:CZ_35
-"
-;
+    use ax:n10 # [  ]
+    use bx:n26 # [  ]
+    use cx:n34 # [  ]
+    use dx:n18 # [  ]
+    use CZ:CZ_35 # [  ]
+";
         RunTest(sExp, m =>
         {
             m.Assign(ax, m.IAdd(ax, m.Mem16(m.Word32(0x001234))));
             m.Assign(SCZ, m.Cond(SCZ.DataType, ax));
-            m.Assign(dx, m.IAdd(dx, m.IAdd(m.Mem16(m.Word32(0x001236)), CF)));
+            m.Assign(dx, m.IAdd(m.IAdd(dx, m.Mem16(m.Word32(0x001236))), CF));
             m.Assign(SCZ, m.Cond(SCZ.DataType, dx));
-            m.Assign(bx, m.IAdd(bx, m.IAdd(m.Mem16(m.Word32(0x001238)), CF)));
+            m.Assign(bx, m.IAdd(m.IAdd(bx, m.Mem16(m.Word32(0x001238))), CF));
             m.Assign(SCZ, m.Cond(SCZ.DataType, bx));
-            m.Assign(cx, m.IAdd(cx, m.IAdd(m.Mem16(m.Word32(0x00123A)), CF)));
+            m.Assign(cx, m.IAdd(m.IAdd(cx, m.Mem16(m.Word32(0x00123A))), CF));
             m.Assign(SCZ, m.Cond(SCZ.DataType, cx));
             m.Return();
-        });
+        }, includeOutputRefs: true);
     }
 
 
@@ -254,13 +250,19 @@ ProcedureBuilder_exit:
     public void Larw_Match_AddRecConst()
     {
         var sExp =
-@"l1:
-	dx_ax_6 = SEQ(dx, ax)
-	dx_ax_7 = dx_ax_6 + 0x12345678<32>
-	ax_2 = SLICE(dx_ax_7, word16, 0) (alias)
-	dx_5 = SLICE(dx_ax_7, word16, 16) (alias)
-	C_3 = cond(ax_2)
-	return
+@"ProcedureBuilder_entry:
+    def ax:word16
+    def dx:word16
+l1:
+    ax_9 = ax + 0x5678<16>
+    n13 = dx + 0x1234<16>
+    C_10 = cond(ax_9)
+    dx_14 = n13 +16 C_10
+    return
+ProcedureBuilder_exit:
+    use ax:ax_9
+    use dx:dx_14
+    use C:C_10
 ";
         RunTest(sExp, m =>
         {
@@ -292,20 +294,31 @@ ProcedureBuilder_exit:
         });
     }
 
-
-
     [Test]
     public void Larw_Replace_AddReg()
     {
         var sExp =
-@"l1:
-	dx_ax_9 = SEQ(dx, ax)
-	dx_ax_10 = dx_ax_9 + Mem0[bx + 0x300<16>:ui32]
-	ax_4 = SLICE(dx_ax_10, word16, 0) (alias)
-	dx_7 = SLICE(dx_ax_10, word16, 16) (alias)
-	C_5 = cond(ax_4)
-	C_8 = cond(dx_7)
-	return
+@"ProcedureBuilder_entry:
+    def ax:word16
+    def bx:word16
+    def dx:word16
+l1:
+    n10 = bx + 0x300<16>
+    n11 = Mem11[n10:word16]
+    n16 = bx + 0x302<16>
+    n17 = Mem17[n16:word16]
+    n25 = SEQ(dx, ax)
+    n26 = SEQ(n17, n11)
+    n27 = n25 + n26
+    n12 = SLICE(n27, word16, 0)
+    n19 = SLICE(n27, word16, 16)
+    C_20 = cond(n27)
+    C_13 = cond(n12)
+    return
+ProcedureBuilder_exit:
+    use ax:n12
+    use dx:n19
+    use C:C_20
 ";
         RunTest(sExp, m =>
         {
@@ -321,22 +334,26 @@ ProcedureBuilder_exit:
     public void Larw_Avoid()
     {
 
-        var sExp = @"ProcedureBuilder_entry:
+        var sExp = 
+@"ProcedureBuilder_entry:
     def cx:word16
 l1:
-    SCZ_2 = cond(cx - 0x30<16>)
-    C_3 = SCZ_2 & 4<32> (alias)
-	ax_4 = 0<16> + C_3
-	SCZ_5 = cond(ax_4)
-	SCZ_6 = cond(cx - 0x3A<16>)
-	C_7 = SCZ_6 & 4<32> (alias)
-	C_8 = !C_7
-	ax_9 = ax_4 + ax_4 + C_8
-	SCZ_10 = cond(ax_9)
-	C_11 = SCZ_10 & 4<32> (alias)
-	S_12 = SCZ_10 & 1<32> (alias)
-	Z_13 = SCZ_10 & 2<32> (alias)
-	return
+    n9 = cx - 0x30<16>
+    CZ_10 = cond(n9)
+    C_13 = CZ_10 & 1<32>
+    ax_14 = 0<16> +16 C_13
+    n22 = ax_14 + ax_14
+    n17 = cx - 0x3A<16>
+    CZ_18 = cond(n17)
+    C_20 = CZ_18 & 1<32>
+    C_21 =  !C_20
+    ax_23 = n22 +16 C_21
+    CZ_24 = cond(ax_23)
+    CZ_15 = cond(ax_14)
+    return
+ProcedureBuilder_exit:
+    use ax:ax_23
+    use CZ:CZ_24
 ";
         RunTest(sExp, m =>
         {
@@ -355,23 +372,30 @@ l1:
     public void Larw_InterleavedMemoryAccesses()
     {
         var sExp =
-@"l1:
-	ax_2 = Mem0[0x0210<p16>:word16]
-	dx_3 = Mem0[0x0212<p16>:word16]
-	es_cx_4 = Mem0[0x0214<p16>:word32]
-	es_5 = SLICE(es_cx_4, word16, 16) (alias)
-	cx_7 = SLICE(es_cx_4, word16, 0) (alias)
-	bx_6 = es_5
-	dx_ax_14 = SEQ(dx_3, ax_2)
-	bx_cx_15 = SEQ(bx_6, cx_7)
-	dx_ax_16 = dx_ax_14 - bx_cx_15
-	ax_8 = SLICE(dx_ax_16, word16, 0) (alias)
-	dx_12 = SLICE(dx_ax_16, word16, 16) (alias)
-	SCZ_9 = cond(ax_8)
-	C_11 = SCZ_9 & 4<32> (alias)
-	Mem10[0x0218<p16>:word16] = ax_8
-	Mem13[0x021A<p16>:word16] = dx_12
+@"ProcedureBuilder_entry:
+l1:
+    ax_8 = Mem8[0210:word16]
+    dx_10 = Mem10[0212:word16]
+    es_cx_12 = Mem12[0214:word32]
+    n32 = SEQ(dx_10, ax_8)
+    n33 = n32 - es_cx_12
+    n15 = SLICE(n33, word16, 0)
+    Mem18[0218:word16] = n15
+    n22 = SLICE(n33, word16, 16)
+    Mem24[021A:word16] = n22
+    bx_13 = SLICE(es_cx_12, word16, 16)
+    cx_14 = SLICE(es_cx_12, word16, 0)
+    CZ_16 = cond(n15)
+    C_21 = CZ_16 & 1<32>
     return
+    // succ: ProcedureBuilder_exit
+ProcedureBuilder_exit:
+    use es:bx_13
+    use cx:cx_14
+    use ax:n15
+    use bx:bx_13
+    use dx:n22
+    use CZ:CZ_16
 ";
         RunTest(sExp, m =>
         {
@@ -474,23 +498,27 @@ l1:
     def bx:word16
     def dx:word16
 l1:
-	dx_ax_17 = SEQ(dx, ax)
-	dx_ax_18 = dx_ax_17 + SEQ(0<16>, Mem0[bx + 2<16>:word16])
-	ax_4 = SLICE(dx_ax_18, word16, 0) (alias)
-	dx_8 = SLICE(dx_ax_18, word16, 16) (alias)
-	SCZ_5 = cond(ax_4)
-	C_7 = SCZ_5 & 4<32> (alias)
-	dx_ax_19 = SEQ(dx_8, ax_4)
-	dx_ax_20 = dx_ax_19 + Mem0[bx + 6<16>:ui32]
-	ax_9 = SLICE(dx_ax_20, word16, 0) (alias)
-	dx_12 = SLICE(dx_ax_20, word16, 16) (alias)
-	SCZ_10 = cond(ax_9)
-	C_11 = SCZ_10 & 4<32> (alias)
-	SCZ_13 = cond(dx_12)
-	C_14 = SCZ_13 & 4<32> (alias)
-	S_15 = SCZ_13 & 1<32> (alias)
-	Z_16 = SCZ_13 & 2<32> (alias)
-	return
+    n10 = bx + 2<16>
+    n11 = Mem11[n10:word16]
+    n19 = bx + 6<16>
+    n20 = Mem20[n19:word16]
+    n24 = bx + 8<16>
+    n25 = Mem25[n24:word16]
+    n36 = SEQ(dx, ax)
+    n37 = SEQ(0<16>, n11)
+    n38 = n36 + n37
+    n41 = SEQ(n25, n20)
+    n42 = n38 + n41
+    n21 = SLICE(n42, word16, 0)
+    n29 = SLICE(n42, word16, 16)
+    CZ_30 = cond(n42)
+    CZ_22 = cond(n21)
+    C_28 = CZ_22 & 1<32>
+    return
+ProcedureBuilder_exit:
+    use ax:n21
+    use dx:n29
+    use CZ:CZ_30
 ";
         #endregion
 
@@ -549,11 +577,20 @@ l1:
     {
         var sExp =
         #region Expected
-@"l1:
-	ax_2 = ax + ax
-	SCZ_3 = cond(ax_2)
-	C_4 = SLICE(SCZ_3, bool, 1)
-	rdx_6 = rdx - 3<64> - C_4
+@"ProcedureBuilder_entry:
+    def ax:word16
+    def rdx:word64
+l1:
+    ax_8 = ax + ax
+    n13 = rdx - 3<64>
+    CZ_9 = cond(ax_8)
+    C_10 = SLICE(CZ_9, bool, 1)
+    rdx_14 = n13 -64 C_10
+    return
+ProcedureBuilder_exit:
+    use ax:ax_8
+    use rdx:rdx_14
+    use CZ:CZ_9
 ";
         #endregion
         RunTest(sExp, m =>
@@ -572,7 +609,27 @@ l1:
     {
         var sExp =
         #region Expected
-@"l1:
+@"ProcedureBuilder_entry:
+    def a:byte
+l1:
+    b_a_9 = a *u16 6<8>
+    b_21 = SLICE(b_a_9, byte, 8)
+    n27 = SLICE(b_a_9, byte, 0)
+    n28 = SEQ(0<8>, n27)
+    n30 = n28 + n29
+    n19 = SLICE(n30, byte, 8)
+    n12 = SLICE(n30, byte, 0)
+    CZ_13 = cond(n12)
+    a_10 = SLICE(b_a_9, byte, 0)
+    C_18 = CZ_13 & 1<32>
+    return
+ProcedureBuilder_exit:
+    use b:b_21
+    use a:n19
+    use DPH:n19
+    use DPL:n12
+    use CZ:CZ_13
+"; string old =@"l1:
 	a_2 = r7
 	b_3 = 6<8>
 	b_a_4 = a_2 *u16 b_3

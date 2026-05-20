@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using Reko.Core;
+using System.Diagnostics;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
@@ -57,9 +57,33 @@ public abstract class Node
         }
     }
 
+    /// <summary>
+    /// Unique identifier for this node.
+    /// </summary>
     public int Number { get; internal set; }
+
+    /// <summary>
+    /// Optional <see cref="Storage"/> describing where this node
+    /// came from. Node transformations are encouraged to maintain
+    /// this as accurately as possible.
+    /// </summary>
     public Storage? Storage { get; set; }
+
+    /// <summary>
+    /// The inputs consumed by this node.
+    /// Think of these as the reaching definitions of this node.
+    /// </summary>
+    /// <remarks>
+    /// By convention, the first (index 0) node is either a 
+    /// control flow node, or null. In the latter case the
+    /// node has no control flow dependencies.
+    /// </remarks>
     public List<Node?> Inputs { get; set; }
+
+    /// <summary>
+    /// The nodes consuming the output of this node. Think of these as the
+    /// live uses of this node.
+    /// </summary>
     public List<Node> Outputs { get; set; }
 
     /// <summary>
@@ -67,7 +91,8 @@ public abstract class Node
     /// control-flow dependency (cfNode was null), so it can be scheduled anywhere
     /// between its inputs and its consumers.
     /// </summary>
-    public virtual bool IsFloating => false;
+    /// <inheritdoc />
+    public bool IsFloating => Inputs.Count < 1 || Inputs[0] is null;
 
     public abstract string Label { get; }
 
@@ -77,6 +102,34 @@ public abstract class Node
             return;
         def.Outputs.Add(use);
         use.Inputs.Add(def);
+    }
+
+    /// <summary>
+    /// Removes <paramref name="nodeToRemove"/> from all of its inputs,
+    /// potentially making those inputs "dead" (if they don't have side effects).
+    /// </summary>
+    public static void RemoveFromInputs(Node nodeToRemove)
+    {
+        foreach (var input in nodeToRemove.Inputs)
+        {
+            input?.RemoveOutput(nodeToRemove);
+        }
+        nodeToRemove.Inputs.Clear();
+    }
+
+    public void RemoveOutput(Node nodeToRemove)
+    {
+        int count = this.Outputs.Count;
+        for (int i = 0; i < count; ++i)
+        {
+            if (this.Outputs[i] == nodeToRemove)
+            {
+                if (i < count - 1)
+                    this.Outputs[i] = this.Outputs[count - 1];
+                this.Outputs.RemoveAt(count - 1);
+                break;
+            }
+        }
     }
 
     /// <summary>
@@ -105,6 +158,15 @@ public abstract class Node
         original.Outputs.Clear();
 
         substitute.Number = Math.Min(original.Number, substitute.Number);
+    }
+
+    public void ReplaceInput(int iInput, Node replacement)
+    {
+        var oldInput = this.Inputs[iInput];
+        Debug.Assert(oldInput is not null);
+        oldInput.RemoveOutput(this);
+        this.Inputs[iInput] = replacement;
+        replacement.Outputs.Add(this);
     }
 
     public virtual void RenderReference(TextWriter sw)

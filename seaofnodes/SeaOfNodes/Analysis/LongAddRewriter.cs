@@ -31,6 +31,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
     public StartNode Transform(StartNode graph)
     {
+        Dump(graph);
+
         // Collect all reachable nodes
         var reachable = CollectReachable(graph);
 
@@ -68,8 +70,6 @@ public class LongAddRewriter : INodeVisitor<Node?>
         wl.AddRange(opNodes);
         while (wl.TryGetWorkItem(out var node))
         {
-            if (node.Number == 49)
-                _ = this; //$DEBUG
             if (node is OperationNode opNode)
             {
                 if (IsAddOrSub(opNode))
@@ -100,58 +100,76 @@ public class LongAddRewriter : INodeVisitor<Node?>
         Debug.WriteLine(sw.ToString());
     }
 
-    private ExpressionNode? TryFuseAddSub(OperationNode addSubNode)
+    private ExpressionNode? TryFuseAddSub(OperationNode addcSubc)
     {
-        if (addSubNode.Inputs.Count != 3)
+        if (addcSubc.Inputs.Count != 3)
             return null;
-        if (addSubNode.Number == 49)
+        // Try detecting an addc/subc pattern.
+        var hiAddSub = addcSubc.Inputs[1]!;
+        var cyRight = addcSubc.Inputs[2]!;
+        if (IsAnd(cyRight, out var andLeft, out var andRight) &&
+            andRight is ConstantNode)
         {
-            _ = this; //$DEBUG
+            cyRight = andLeft;
         }
-        var hiLeft = addSubNode.Inputs[1];
-        if (hiLeft is null)
-            throw new InvalidOperationException();
-        var hiRight = addSubNode.Inputs[2];
-        if (hiRight is OperationNode opRight &&
-            opRight.Operator == addSubNode.Operator)
-        {
-            var cyLeft = opRight.Inputs[1]!;
-            var cyRight = opRight.Inputs[2]!;
-            if (IsAnd(cyRight, out var andLeft, out var andRight) &&
-                andRight is ConstantNode)
-            {
-                cyRight = andLeft;
-            }
-            if (cyRight is CondNode cond)
-            {
-                var maybeAdd = cond.Inputs[1]!;
-                if (maybeAdd is SliceNode slice)
-                {
-                    maybeAdd = slice.Inputs[1]!;
-                }
-                if (IsBinary(maybeAdd, out var op, out var loLeft, out var loRight)
-                    &&
-                    op == addSubNode.Operator.Type)
-                {
-                    // Found a candidate.
-                    trace.Verbose("Larw: found candidate high={0}+{1}, low={2}+{3}",
-                        hiLeft, cyLeft, loLeft, loRight);
 
-                    var dtLo = ((ExpressionNode)loLeft).DataType;
-                    var dtHi = ((ExpressionNode)hiLeft).DataType;
-                    var dt = CombineTypes(dtLo, dtHi);
-                    var seqLeft = m.Seq(dt, hiLeft, loLeft);
-                    var seqRight = m.Seq(dt, cyLeft, loRight);
-                    var wideSum = m.Bin(dt, addSubNode.Operator, null, seqLeft, seqRight);
-                    var sumLo = m.Slice(dtLo, wideSum, 0);
-                    var sumHi = m.Slice(dtHi, wideSum, dtLo.BitSize);
-                    Node.Replace(addSubNode, sumHi);
-                    Node.Replace(cond.Inputs[1]!, sumLo);
-                    return wideSum;
-                }
+        if (hiAddSub is null)
+            throw new InvalidOperationException();
+        if (cyRight is not CondNode cond)
+            return null;
+
+        // We've established that addcSubc is indeed an ADDC/SUBC
+
+        var loAddSub = cond.Inputs[1];
+        if (loAddSub is SliceNode slice)
+            loAddSub = slice.Inputs[1];
+
+        if (IsAddSub(loAddSub, out var opLo, out var loLeft, out var loRight)
+            && opLo == addcSubc.Operator.Type)
+        {
+            // We have a carry-generating low add/sub, now verify that the
+            // high add/sub matches and consumes the carry.
+            if (!IsAddSub(hiAddSub, out var opHi, out var hiLeft, out var hiRight))
+            {
+                // The addc is done directly on the high part without a separate add/sub node.
+                // Done on PDP-11, for instance:
+                //    add r2,[r1]  ; low part
+                //    adc r3       ; high part   
+                hiLeft = (ExpressionNode) hiAddSub;
+                hiRight = m.Const(Constant.Create(hiLeft.DataType, 0));
             }
+
+            // Found a candidate.
+            trace.Verbose("Larw: found candidate high={0}+{1}, low={2}+{3}",
+                hiLeft, hiRight, loLeft, loRight);
+
+            var dtLo = loLeft.DataType;
+            var dtHi = hiLeft.DataType;
+            var dt = CombineTypes(dtLo, dtHi);
+            var seqLeft = m.Seq(dt, hiLeft, loLeft);
+            var seqRight = m.Seq(dt, hiRight, loRight);
+            var wideSum = m.Bin(dt, addcSubc.Operator, null, seqLeft, seqRight);
+            var sumLo = m.Slice(dtLo, wideSum, 0);
+            var sumHi = m.Slice(dtHi, wideSum, dtLo.BitSize);
+            ReplaceCondOfs(addcSubc, wideSum);
+            Node.Replace(addcSubc, sumHi);
+            Node.Replace(loAddSub!, sumLo);
+            Node.RemoveFromInputs(addcSubc);
+            Node.RemoveFromInputs(loAddSub!);
+            return wideSum;
         }
         return null;
+    }
+
+    private void ReplaceCondOfs(OperationNode addcSubc, ExpressionNode wideSum)
+    {
+        foreach (var use in addcSubc.Outputs.ToList())
+        {
+            if (use is CondNode cond)
+            {
+                cond.ReplaceInput(1, wideSum);
+            }
+        }
     }
 
     private static bool IsAnd(
@@ -170,11 +188,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return true;
     }
 
-    private static bool IsBinary(
-        Node node,
+    private static bool IsAddSub(
+        Node? node,
         [MaybeNullWhen(false)] out OperatorType opType,
-        [MaybeNullWhen(false)] out Node left,
-        [MaybeNullWhen(false)] out Node right)
+        [MaybeNullWhen(false)] out ExpressionNode left,
+        [MaybeNullWhen(false)] out ExpressionNode right)
     {
         opType = default;
         left = null;
@@ -186,8 +204,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (op.Inputs[1] is null || op.Inputs[2] is null)
             return false;
         opType = op.Operator.Type;
-        left = op.Inputs[1]!;
-        right = op.Inputs[2]!;
+        left = (ExpressionNode) op.Inputs[1]!;
+        right = (ExpressionNode) op.Inputs[2]!;
         return true;
     }
 

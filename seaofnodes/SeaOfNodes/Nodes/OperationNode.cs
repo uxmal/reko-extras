@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Reko.Core.Operators;
 using Reko.Core.Types;
 
@@ -49,7 +48,7 @@ public sealed class OperationNode : ExpressionNode
         { OperatorType.Uge, " >=u" },
         { OperatorType.Eq, " ==" },
         { OperatorType.Ne, " !=" },
-        { OperatorType.Not, " !" },
+        { OperatorType.Not, "!" },
         { OperatorType.Neg, "-" },
         { OperatorType.Comp, "~" },
         { OperatorType.AddrOf, "&" },
@@ -101,8 +100,11 @@ public sealed class OperationNode : ExpressionNode
     {
         sw.Write(opName);
         var dtResult = this.DataType;
-        if (dtResult.BitSize != ((ExpressionNode)input).DataType.BitSize)
+        if (this.Operator is not ConditionalOperator &&
+            dtResult.BitSize != ((ExpressionNode)input).DataType.BitSize)
+        {
             sw.Write(dtResult.BitSize);
+        }
         sw.Write(' ');
     }
 

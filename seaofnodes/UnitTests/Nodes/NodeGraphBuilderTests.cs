@@ -577,25 +577,25 @@ ProcedureBuilder_entry:
     def sp:ptr32
     def stack:int32
 l1:
-    n13 = sp + 4<32>
+    n13 = fp + 4<32>
     r1_14 = Mem14[n13:word32]
     n16 = r1_14 >u 5<32>
     if (n16) goto m4_default
 m1:
     switch (r1_14) goto m2, m2, m3, m3, m2, m3
 m2:
-    sp_21 = sp - 4<32>
+    sp_21 = fp - 4<32>
     Mem23[sp_21:word32] = 0x42<32>
     foo(stack)
     sp_30 = sp_21 + 4<32>
 m3:
-    sp_31 = PHI(sp, sp, sp, sp_30)
+    sp_31 = PHI(fp, fp, fp, sp_30)
     sp_33 = sp_31 - 4<32>
     Mem35[sp_33:word32] = 0x2A<32>
     foo(stack)
     sp_41 = sp_33 + 4<32>
 m4_default:
-    sp_42 = PHI(sp, sp_41)
+    sp_42 = PHI(fp, sp_41)
     sp_44 = sp_42 - 4<32>
     Mem46[sp_44:word32] = 0<32>
     foo(stack)

@@ -4,13 +4,14 @@ using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Reko.Extras.SeaOfNodes.Analysis;
 
-public class PeepholeOptimizer
+public partial class PeepholeOptimizer
 {
     private readonly NodeFactory m;
 
@@ -35,34 +36,14 @@ public class PeepholeOptimizer
         return m.Bin(dt, op, cfNode, left, right);
     }
 
-    public SeqNode Seq(DataType dt, params Node[] inputs)
-    {
-        List<Node?> nodes = [ ];
-        foreach (var n in inputs)
-        {
-            if (n is SeqNode seq)
-            {
-                nodes.AddRange(seq.Inputs.Skip(1)!);
-            }
-            else
-            {
-                nodes.Add(n);
-            }
-        }
-        return m.Seq(dt, inputs.ToArray());
-    }
 
-    public SliceNode Slice(DataType dt, Node input, int offset)
-    {
-        return m.Slice(dt, input, offset);
-    }
 
-    internal Node? Cond(DataType dataType, Node? value, Node exp)
+    internal CondNode Cond(DataType dataType, Node? value, Node exp)
     {
         return m.Cond(dataType, value, exp);
     }
 
-    internal Node? Const(Constant constant)
+    internal ConstantNode Const(Constant constant)
     {
         return m.Const(constant);
     }

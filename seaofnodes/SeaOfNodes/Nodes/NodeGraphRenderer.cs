@@ -5,7 +5,7 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public class NodeGraphRenderer
 {
-    public void Render(StartNode node, TextWriter sw)
+    public void Render(StartNode node, TextWriter sw, bool includeOutputRefs = false)
     {
         var reachable = CollectReachableNodes(node);
         var defMode = reachable.OfType<DefNode>().Any();
@@ -31,7 +31,7 @@ public class NodeGraphRenderer
             var block = orderedBlocks[i];
             var nextBlock = i + 1 < orderedBlocks.Count ? orderedBlocks[i + 1] : null;
             var suppressFinalNodeNewline = defMode && i == orderedBlocks.Count - 1;
-            RenderBlock(block, nextBlock, exitBlock, reachable, sw, !defMode, suppressFinalNodeNewline, globalScheduled);
+            RenderBlock(block, nextBlock, exitBlock, reachable, sw, !defMode, suppressFinalNodeNewline, globalScheduled, includeOutputRefs);
         }
     }
 
@@ -53,7 +53,7 @@ public class NodeGraphRenderer
         return reachable;
     }
 
-    private static void RenderBlock(BlockNode block, BlockNode? nextBlock, BlockNode exitBlock, HashSet<Node> reachable, TextWriter sw, bool renderSuccessors, bool suppressFinalNodeNewline, HashSet<Node> globalScheduled)
+    private static void RenderBlock(BlockNode block, BlockNode? nextBlock, BlockNode exitBlock, HashSet<Node> reachable, TextWriter sw, bool renderSuccessors, bool suppressFinalNodeNewline, HashSet<Node> globalScheduled, bool includeOutputRefs)
     {
         sw.WriteLine($"{block.Block}:");
 
@@ -69,6 +69,12 @@ public class NodeGraphRenderer
                 continue;
             sw.Write("    ");
             node.Render(sw);
+            if (includeOutputRefs)
+            {
+                sw.Write(" # [ ");
+                sw.Write(string.Join(", ", node.Outputs.Select(FormatOutputReference)));
+                sw.Write(" ]");
+            }
             sw.WriteLine();
         }
 
@@ -333,6 +339,13 @@ public class NodeGraphRenderer
             return true;
 
         return false;
+    }
+
+    private static string FormatOutputReference(Node node)
+    {
+        var sw = new StringWriter();
+        node.RenderReference(sw);
+        return sw.ToString();
     }
 
     private static bool ShouldRenderGoto(BlockNode block, BlockNode? nextBlock, Node[] blockNodes)

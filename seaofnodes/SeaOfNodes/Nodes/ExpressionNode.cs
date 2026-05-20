@@ -1,4 +1,6 @@
+using Reko.Core;
 using Reko.Core.Types;
+using System.Text;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
@@ -20,6 +22,10 @@ public abstract class ExpressionNode : Node
 
     public DataType DataType { get; }
 
-    /// <inheritdoc />
-    public override bool IsFloating => Inputs.Count < 1 || Inputs[0] is null;
+    public override string ToString()
+    {
+        var sw = new StringWriter();
+        this.Render(sw);
+        return sw.ToString();
+    }
 }
