@@ -65,16 +65,35 @@ public class NodeFactory
         return node;
     }
 
-    public OperationNode? Eq(Node left, Node right)
+    public OperationNode Eq(Node left, Node right)
     {
         return Bin(PrimitiveType.Bool, Operator.Eq, null, left, right);
     }
 
-    public Node? IAdd(ExpressionNode left, ExpressionNode right)
+    public OperationNode IAdd(ExpressionNode left, ExpressionNode right)
     {
         return Bin(left.DataType, Operator.IAdd, null, left, right);
     }
 
+    public OperationNode ISub(ExpressionNode left, long right)
+    {
+        return Bin(left.DataType, Operator.ISub, null, left, this.Const(Constant.Create(left.DataType, right)));
+    }
+
+    public OperationNode ISub(ExpressionNode left, ulong right)
+    {
+        return Bin(left.DataType, Operator.ISub, null, left, this.Const(Constant.Create(left.DataType, right)));
+    }
+
+    public OperationNode IAdd(ExpressionNode left, long right)
+    {
+        return Bin(left.DataType, Operator.IAdd, null, left, this.Const(Constant.Create(left.DataType, right)));
+    }
+
+    public OperationNode IAdd(ExpressionNode left, ulong right)
+    {
+        return Bin(left.DataType, Operator.IAdd, null, left, this.Const(Constant.Create(left.DataType, right)));
+    }
 
     public MemoryNode Mem(Node cfNode)
     {

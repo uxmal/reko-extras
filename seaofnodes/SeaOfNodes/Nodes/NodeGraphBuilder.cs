@@ -386,6 +386,14 @@ public partial class NodeGraphBuilder
 
     public Node VisitBinaryExpression(BinaryExpression binExp)
     {
+        if (binExp.Operator.Type == OperatorType.ISub || binExp.Operator.Type == OperatorType.Xor)
+        {
+            if (binExp.Left is Identifier id && binExp.Right == id)
+            {
+                var c = factory.Const(Constant.Zero(id.DataType));
+                return c;
+            }
+        }
         var left = binExp.Left.Accept(this);
         var right = binExp.Right.Accept(this);
         return factory.Bin(binExp.DataType, binExp.Operator, null, left, right);

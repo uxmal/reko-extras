@@ -1,4 +1,5 @@
 ﻿using Reko.Core;
+using Reko.Core.Operators;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Analysis;
 using Reko.Extras.SeaOfNodes.Nodes;
@@ -39,5 +40,70 @@ public class PeepholeOptimizerTests
         var result = peep.Seq(PrimitiveType.Word32, r3_hi, r3_lo);
 
         Assert.That(result.ToString(), Is.EqualTo("def r3:word32"));
+    }
+
+    [Test]
+    public void Peep_Condense_IAddIAdd()
+    {
+        var r3 = m.Def(block, RegisterStorage.Reg32("r3", 3), PrimitiveType.Word32);
+        var add1 = m.IAdd(r3, 4);
+        var add2 = m.IAdd(add1, 5);
+
+        var result = peep.Bin(r3.DataType, Operator.IAdd, null, add1, m.Word32(5));
+
+        Assert.That(result.ToString(), Is.EqualTo("n9 = r3 + 9<32>"));
+    }
+
+    [Test]
+    public void Peep_Condense_IAddISub()
+    {
+        var r3 = m.Def(block, RegisterStorage.Reg32("r3", 3), PrimitiveType.Word32);
+        var sub1 = m.ISub(r3, 4);
+
+        var result = peep.Bin(r3.DataType, Operator.IAdd, null, sub1, m.Word32(5));
+
+        Assert.That(result.ToString(), Is.EqualTo("n7 = r3 + 1<32>"));
+    }
+
+    [Test]
+    public void Peep_Condense_ISubIAdd()
+    {
+        var r3 = m.Def(block, RegisterStorage.Reg32("r3", 3), PrimitiveType.Word32);
+        var sub1 = m.IAdd(r3, 4);
+
+        var result = peep.Bin(r3.DataType, Operator.ISub, null, sub1, m.Word32(5));
+
+        Assert.That(result.ToString(), Is.EqualTo("n7 = r3 - 1<32>"));
+    }
+
+    [Test]
+    public void Peep_Condense_ISubISub()
+    {
+        var r3 = m.Def(block, RegisterStorage.Reg32("r3", 3), PrimitiveType.Word32);
+        var sub1 = m.ISub(r3, 4);
+
+        var result = peep.Bin(r3.DataType, Operator.ISub, null, sub1, m.Word32(5));
+
+        Assert.That(result.ToString(), Is.EqualTo("n7 = r3 - 9<32>"));
+    }
+
+    [Test]
+    public void Peep_Self_Sub()
+    {
+        var r3 = m.Def(block, RegisterStorage.Reg32("r3", 3), PrimitiveType.Word32);
+        
+        var result = peep.ISub(r3, r3);
+
+        Assert.That(result.ToString(), Is.EqualTo("0<32>"));
+    }
+
+    [Test]
+    public void Peep_Self_Xor()
+    {
+        var r3 = m.Def(block, RegisterStorage.Reg32("r3", 3), PrimitiveType.Word32);
+
+        var result = peep.ISub(r3, r3);
+
+        Assert.That(result.ToString(), Is.EqualTo("0<32>"));
     }
 }
