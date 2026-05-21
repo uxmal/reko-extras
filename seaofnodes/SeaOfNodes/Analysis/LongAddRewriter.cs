@@ -131,12 +131,23 @@ public class LongAddRewriter : INodeVisitor<Node?>
             // high add/sub matches and consumes the carry.
             if (!IsAddSub(hiAddSub, out var opHi, out var hiLeft, out var hiRight))
             {
-                // The addc is done directly on the high part without a separate add/sub node.
-                // Done on PDP-11, for instance:
-                //    add r2,[r1]  ; low part
-                //    adc r3       ; high part   
-                hiLeft = (ExpressionNode) hiAddSub;
-                hiRight = m.Const(Constant.Create(hiLeft.DataType, 0));
+                // Maybe addcsubc is the inner expression and we have to "rotate":
+                //   (+ (+ a Cy) b)
+                var newUpperAdd = addcSubc.Outputs.SingleOrDefault(o => o is OperationNode oo && oo.Operator.Type == opLo);
+                if (newUpperAdd is not null)
+                {
+                    hiLeft = (ExpressionNode)addcSubc.Inputs[1]!;
+                    hiRight = (ExpressionNode)newUpperAdd.Inputs[2]!;
+                }
+                else
+                {
+                    // The addc is done directly on the high part without a separate add/sub node.
+                    // Done on PDP-11, for instance:
+                    //    add r2,[r1]  ; low part
+                    //    adc r3       ; high part   
+                    hiLeft = (ExpressionNode)hiAddSub;
+                    hiRight = m.Const(Constant.Create(hiLeft.DataType, 0));
+                }
             }
 
             // Found a candidate.

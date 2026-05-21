@@ -18,11 +18,9 @@ public partial class PeepholeOptimizer
         }
         if (IsSymmetric(op) && cLeft is not null)
         {
-            var t = cLeft;
             left = right;
             cRight = cLeft;
             right = cLeft;
-            cLeft = null;
         }
         switch (op.Type)
         {

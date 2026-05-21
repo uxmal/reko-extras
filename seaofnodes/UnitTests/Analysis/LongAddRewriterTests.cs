@@ -543,22 +543,26 @@ ProcedureBuilder_exit:
     {
         var sExp =
         #region Expected
-@"l1:
-ProcedureBuilder_entry:
+@"ProcedureBuilder_entry:
     def ax:word16
-    def bx:word16
     def cx:word16
     def dx:word16
+    def bx:word16
 l1:
-	dx_ax_11 = SEQ(dx, ax)
-	bx_cx_12 = SEQ(bx, cx)
-	dx_ax_13 = dx_ax_11 + bx_cx_12
-	ax_3 = SLICE(dx_ax_13, word16, 0) (alias)
-	dx_10 = SLICE(dx_ax_13, word16, 16) (alias)
-	SCZ_4 = cond(ax_3)
-	C_6 = SCZ_4 & 4<32> (alias)
-	dx_7 = dx + C_6
-	SCZ_8 = cond(dx_7)
+    n22 = SEQ(dx, ax)
+    n23 = SEQ(bx, cx)
+    n24 = n22 + n23
+    n9 = SLICE(n24, word16, 0)
+    n14 = SLICE(n24, word16, 16)
+    dx_17 = n14 + bx
+    CZ_15 = cond(n24)
+    CZ_10 = cond(n9)
+    C_13 = CZ_10 & 1<32>
+    return
+ProcedureBuilder_exit:
+    use ax:n9
+    use dx:dx_17
+    use CZ:CZ_15
 ";
         #endregion
         RunTest(sExp, m =>
