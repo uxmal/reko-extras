@@ -20,77 +20,9 @@ public partial class PeepholeOptimizer
         this.m = factory;
     }
 
-    public ExpressionNode Bin(DataType dt, Operator op, Node? cfNode, Node left, Node right)
+    public ExpressionNode And(DefNode left, ulong right)
     {
-        var cLeft = left as ConstantNode;
-        var cRight = right as ConstantNode;
-        if (cLeft is not null && cRight is not null)
-        {
-            var c = op.ApplyConstants(dt, cLeft.Value, cRight.Value);
-            return m.Const(c);
-        }
-        if (IsSymmetric(op) && cLeft is not null)
-        {
-            var t = cLeft;
-            left = right;
-            cRight = cLeft;
-            right = cLeft;
-            cLeft = null;
-        }
-        switch (op.Type)
-        {
-        case OperatorType.IAdd:
-            if (cRight is not null)
-            {
-                if (left is OperationNode inner)
-                {
-                    if (inner.Operator.Type.IsAddOrSub())
-                    {
-                        if (inner.Inputs[2] is ConstantNode cInnerRight)
-                        {
-                            cRight = m.Const(inner.Operator.ApplyConstants(dt, cRight.Value, cInnerRight.Value));
-                            right = cRight;
-                            left = inner.Inputs[1]!;
-                        }
-                    }
-                }
-                if (cRight.Value.IsZero)
-                    return (ExpressionNode)left;
-                if (cRight.Value.IsNegative)
-                    cRight = m.Const(cRight.Value);
-                right = cRight;
-            }
-            break;
-        case OperatorType.ISub:
-            if (left == right)
-                return m.Const(Constant.Zero(dt));
-            if (cRight is not null)
-            {
-                if (left is OperationNode inner)
-                {
-                    if (inner.Operator.Type.IsAddOrSub())
-                    {
-                        if (inner.Inputs[2] is ConstantNode cInnerRight)
-                        {
-                            var opInv = inner.Operator.Type == OperatorType.IAdd
-                                ? Operator.ISub
-                                : Operator.IAdd;
-                            cRight = m.Const(opInv.ApplyConstants(dt, cRight.Value, cInnerRight.Value));
-                            right = cRight;
-                            left = inner.Inputs[1]!;
-                        }
-                    }
-                }
-                if (cRight.Value.IsZero)
-                    return (ExpressionNode)left;
-            }
-            break;
-        case OperatorType.Xor:
-            if (left == right)
-                return m.Const(Constant.Zero(dt));
-            break;
-        }
-        return m.Bin(dt, op, cfNode, left, right);
+        return Bin(left.DataType, Operator.And, null, left, m.Const(Constant.Create(left.DataType, right)));
     }
 
     public ExpressionNode ISub(ExpressionNode left, ExpressionNode right)

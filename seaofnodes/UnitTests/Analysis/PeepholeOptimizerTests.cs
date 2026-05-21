@@ -3,18 +3,12 @@ using Reko.Core.Operators;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Analysis;
 using Reko.Extras.SeaOfNodes.Nodes;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Reko.Extras.SeaOfNodes.UnitTests.Analysis;
 
 [TestFixture]
 public class PeepholeOptimizerTests
 {
-
     private NodeFactory m;
     private PeepholeOptimizer peep;
     private BlockNode block=default!;
@@ -105,5 +99,25 @@ public class PeepholeOptimizerTests
         var result = peep.ISub(r3, r3);
 
         Assert.That(result.ToString(), Is.EqualTo("0<32>"));
+    }
+
+    [Test]
+    public void Peep_And_AllOnes()
+    {
+        var r3 = m.Def(block, RegisterStorage.Reg16("r3", 3));
+
+        var result = peep.And(r3, 0xFFFF);
+
+        Assert.That(result.ToString(), Is.EqualTo("def r3:word16"));
+    }
+
+    [Test]
+    public void Peep_And_NotAllOnes()
+    {
+        var r3 = m.Def(block, RegisterStorage.Reg16("r3", 3));
+
+        var result = peep.And(r3, 0xFFFE);
+
+        Assert.That(result.ToString(), Is.EqualTo("n4 = r3 & 0xFFFE<16>"));
     }
 }

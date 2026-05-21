@@ -46,12 +46,26 @@ public class NodeFactory
         return new CallNode(NextId(), cfNode, callee);
     }
 
+    public ConstantNode Const(DataType dt, long value)
+    {
+        var c = Constant.Create(dt, value);
+        return Const(c);
+    }
+
+    public ConstantNode Const(DataType dt, ulong value)
+    {
+        var c = Constant.Create(dt, value);
+        return Const(c);
+    }
+
     public ConstantNode Const(Constant value) => new ConstantNode(
         NextId(),
         value);
 
     public ConversionNode Convert(Node? cfNode, DataType dstType, DataType srcType, Node input)
         => new ConversionNode(NextId(), dstType, srcType, cfNode, input);
+
+    public DefNode Def(Node cfNode, Storage storage) => Def(cfNode, storage, storage.DataType);
 
     public DefNode Def(Node cfNode, Storage storage, DataType dt)
     {
