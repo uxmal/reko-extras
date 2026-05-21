@@ -320,17 +320,17 @@ ProcedureBuilder_exit:
 @"
 ProcedureBuilder_entry:
 l1:
-    r1_11 = Mem11[0x123400<32>:word32]
-    n13 = r1_11 >= 0<32>
+    r2_11 = Mem11[0x123400<32>:word32]
+    n13 = r2_11 >= 0<32>
     if (n13) goto m2_ge
     // succ: m1_lt, m2_ge
 m1_lt:
-    r1_15 = -r1_11
+    r1_15 = -r2_11
     goto m3_done
     // succ: m3_done
 m2_ge:
 m3_done:
-    r1_16 = PHI(r1_15, r1_11)
+    r1_16 = PHI(r1_15, r2_11)
     return r1_16
     // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
@@ -364,19 +364,20 @@ ProcedureBuilder_exit:
         #region Expected
 @"
 ProcedureBuilder_entry:
-    def r1:word32
     def r2:word32
+    def r1:word32
 l1:
-    r1_11 = r1 + 1<32>
-    n14 = r1_11 * 8<32>
-    n15 = 0x123400<32> + n14
-    Mem18[n15:word32] = r2
-    n19 = r1_11 < r2
-    if (n19) goto l1
+    r1_8 = PHI(r1, r1_10)
+    r1_10 = r1_8 + 1<32>
+    n13 = r1_10 * 8<32>
+    n14 = 0x123400<32> + n13
+    Mem16[n14:word32] = r2
+    n17 = r1_10 < r2
+    if (n17) goto l1
 l2:
-    return r1_11
+    return r1_10
 ProcedureBuilder_exit:
-    use r1:r1_11
+    use r1:r1_10
 ";
         #endregion
 
@@ -572,9 +573,9 @@ ProcedureBuilder_exit:
     {
         string sExpected =
         #region Expected
-        @"
+@"
 ProcedureBuilder_entry:
-    def sp:ptr32
+    def fp:ptr32
     def stack:int32
 l1:
     n13 = fp + 4<32>

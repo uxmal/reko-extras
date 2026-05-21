@@ -22,6 +22,7 @@ public partial class NodeGraphBuilder
     private readonly Dictionary<Block, BlockState> blocks;
     private readonly HashSet<Procedure> sccProcs;
     private readonly Dictionary<Node, Node> replacements;
+    private readonly List<PhiNode> incompletePhis;
     private Node? cfNode;
     private Block? currentBlock;
     private Block? entryBlock;
@@ -36,6 +37,7 @@ public partial class NodeGraphBuilder
         this.blocks = [];
         this.sccProcs = [];
         this.replacements = [];
+        this.incompletePhis = [];
     }
 
     /// <summary>
@@ -58,6 +60,8 @@ public partial class NodeGraphBuilder
         }
 
         public BlockNode Node { get; }
+
+        public bool IsVisited { get; set; }
 
         public Dictionary<RegisterStorage, List<(BitRange, ExpressionNode)>> RegisterDefs { get; }
         public Dictionary<RegisterStorage, List<(FlagGroupStorage, ExpressionNode)>> FlagGroupDefs { get; }
@@ -98,10 +102,48 @@ public partial class NodeGraphBuilder
         {
             var state = blocks[block];
             state = TranslateBlock(block, state);
+            state.IsVisited = true;
         }
+        ProcessIncompletePhis();
 
         PopulateExitUses(proc.ExitBlock, proc.Architecture);
         return start;
+    }
+
+    private void ProcessIncompletePhis()
+    {
+        while (incompletePhis.Count > 0)
+        {
+            var work = incompletePhis.ToArray();
+            incompletePhis.Clear();
+            foreach (var phi in work)
+            {
+                AddPhiOperands(phi);
+            }
+        }
+    }
+
+    private void AddPhiOperands(PhiNode phi)
+    {
+        Debug.Assert(phi.Storage is not null, "Incomplete PHI has no storage.");
+        Debug.Assert(phi.Inputs.Count != 0 && phi.Inputs[0] is BlockNode,
+            "Incomplete PHI is not anchored to a block.");
+        if (phi.Inputs.Count > 1)
+            return;
+
+        var block = ((BlockNode)phi.Inputs[0]!).Block;
+        foreach (var pred in block.Pred)
+        {
+            var value = ResolveCanonical(ReadStorage(pred, phi.Storage, phi.DataType));
+            Node.AddEdge(value, phi);
+        }
+
+        var sameNode = GetTrivialPhiReplacement(phi);
+        if (sameNode is null)
+            return;
+
+        WriteStorage(blocks[block], phi.Storage, sameNode);
+        ReplaceNode(phi, sameNode);
     }
 
     /// <summary>
@@ -467,6 +509,16 @@ public partial class NodeGraphBuilder
                 if (lastResult is not null)
                     break;
 
+                if (frame.Block.Pred.Any(b => !blocks[b].IsVisited))
+                {
+                    // Incomplete CFG.
+                    var incompletePhi = factory.Phi(dt, state.Node);
+                    incompletePhi.Storage = storage;
+                    WriteStorage(state, storage, incompletePhi);
+                    this.incompletePhis.Add(incompletePhi);
+                    lastResult = incompletePhi;
+                    break;
+                }
                 // If it's not defined and this is the entry block,
                 // create a new def node.
                 if (frame.Block == entryBlock)
@@ -730,7 +782,6 @@ public partial class NodeGraphBuilder
             state.RegisterDefs[regDst] = defs;
             break;
         case FlagGroupStorage flagGroup:
-
             if (!state.FlagGroupDefs.TryGetValue(flagGroup.FlagRegister, out var flagDefs))
             {
                 flagDefs = [];
