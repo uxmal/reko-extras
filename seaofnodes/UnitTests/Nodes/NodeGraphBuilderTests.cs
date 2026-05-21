@@ -320,7 +320,7 @@ ProcedureBuilder_exit:
 @"
 ProcedureBuilder_entry:
 l1:
-    r2_11 = Mem11[0x123400<32>:word32]
+    r2_11 = Mem9[0x123400<32>:word32]
     n13 = r2_11 >= 0<32>
     if (n13) goto m2_ge
     // succ: m1_lt, m2_ge
@@ -579,7 +579,7 @@ ProcedureBuilder_entry:
     def stack:int32
 l1:
     n13 = fp + 4<32>
-    r1_14 = Mem14[n13:word32]
+    r1_14 = Mem10[n13:word32]
     n16 = r1_14 >u 5<32>
     if (n16) goto m4_default
 m1:
@@ -684,10 +684,10 @@ ProcedureBuilder_exit:
         @"
 ProcedureBuilder_entry:
 l1:
-    r2_8 = Mem8[0x123400<32>:word32]
-    r1_10 = Mem10[0x123404<32>:word32]
-    r4_12 = Mem12[0x123408<32>:word32]
-    r3_14 = Mem14[0x12340C<32>:word32]
+    r2_8 = Mem6[0x123400<32>:word32]
+    r1_10 = Mem6[0x123404<32>:word32]
+    r4_12 = Mem6[0x123408<32>:word32]
+    r3_14 = Mem6[0x12340C<32>:word32]
     r1_r2_15 = SEQ(r1_10, r2_8)
     r3_r4_16 = SEQ(r3_14, r4_12)
     r1_r2_17 = r1_r2_15 + r3_r4_16
@@ -728,7 +728,7 @@ ProcedureBuilder_exit:
         });
     }
 
-  [Test]
+    [Test]
     public void Npb_Sequence_Def()
     {
         string sExpected =
@@ -770,6 +770,64 @@ ProcedureBuilder_exit:
             m.Assign(r1_r2, m.Neg(r1_r2));
 
             m.Label("m2_done");
+            m.Return();
+        });
+    }
+
+    [Test(Description = "Loads shouldn't affect the Memx identifier")]
+    public void Dpb_TwoLoads()
+    {
+        string sExpected =
+        #region Expected
+            @"
+ProcedureBuilder_entry:
+    def r2:word32
+l1:
+    r1_8 = Mem6[00123400:word32]
+    r1_10 = Mem6[00123404:word32]
+    r1_12 = r1_10 + r2
+    return
+ProcedureBuilder_exit:
+    use r1:r1_12
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var r1 = m.Reg32("r1", 1);
+            var r2 = m.Reg32("r2", 2);
+
+            m.Assign(r1, m.Mem32(Address.Ptr32(0x123400)));
+            m.Assign(r1, m.Mem32(Address.Ptr32(0x123404)));
+            m.Assign(r1, m.IAdd(r1, r2));
+            m.Return();
+        });
+    }
+
+    [Test]
+    public void Npb_Overlapping_Registers()
+    {
+        string sExpected =
+        #region Expected    
+            @"
+ProcedureBuilder_entry:";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var al = m.Reg8("al", 0);
+            var ah = m.Reg8("ah", 0, 8);
+            var ax = m.Reg16("ax", 0);
+            var eax = m.Reg32("eax", 0);
+            var rax = m.Reg64("rax", 0);
+            var rbx = m.Reg64("rbx", 3);
+
+            m.Assign(rax, m.Mem64(Address.Ptr32(0x123400)));
+            m.Assign(eax, m.Mem32(Address.Ptr32(0x123408)));
+            m.Assign(ah, m.Mem8(Address.Ptr32(0x0123410)));
+            m.Assign(al, m.Mem8(Address.Ptr32(0x0123411)));
+
+            m.Assign(rbx, rax);
             m.Return();
         });
     }

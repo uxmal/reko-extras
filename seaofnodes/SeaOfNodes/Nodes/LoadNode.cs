@@ -21,7 +21,7 @@ public sealed class LoadNode : ExpressionNode
         this.RenderReference(sw);
         sw.Write(" = ");
         Debug.Assert(Inputs.Count == 3);
-        sw.Write($"Mem{base.Number}[");
+        sw.Write($"Mem{Inputs[1]!.Number}[");
         var ea = Inputs[2];
         if (ea is null)
             throw new InvalidOperationException();

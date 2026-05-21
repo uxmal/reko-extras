@@ -203,10 +203,10 @@ ProcedureBuilder_exit:
     def bx:word16 # [ n23, n47, n52 ]
     def cx:word16 # [ n31, n52 ]
 l1:
-    n9 = Mem9[0x1234<32>:word16] # [ n43, n48, n53 ]
-    n14 = Mem14[0x1236<32>:word16] # [ n15, n43, n48, n53 ]
-    n22 = Mem22[0x1238<32>:word16] # [ n23, n48, n53 ]
-    n30 = Mem30[0x123A<32>:word16] # [ n31, n53 ]
+    n9 = Mem6[0x1234<32>:word16] # [ n43, n48, n53 ]
+    n14 = Mem6[0x1236<32>:word16] # [ n15, n43, n48, n53 ]
+    n22 = Mem6[0x1238<32>:word16] # [ n23, n48, n53 ]
+    n30 = Mem6[0x123A<32>:word16] # [ n31, n53 ]
     n52 = SEQ(cx, bx, dx, ax) # [ n54 ]
     n53 = SEQ(n30, n22, n14, n9) # [ n54 ]
     n54 = n52 + n53 # [ n49, n34, CZ_35 ]
@@ -346,7 +346,7 @@ l1:
     n17 = cx - 0x3A<16>
     CZ_18 = cond(n17)
     C_20 = CZ_18 & 1<32>
-    C_21 =  !C_20
+    C_21 = !C_20
     ax_23 = n22 +16 C_21
     CZ_24 = cond(ax_23)
     CZ_15 = cond(ax_14)
@@ -499,11 +499,11 @@ ProcedureBuilder_exit:
     def dx:word16
 l1:
     n10 = bx + 2<16>
-    n11 = Mem11[n10:word16]
+    n11 = Mem6[n10:word16]
     n19 = bx + 6<16>
-    n20 = Mem20[n19:word16]
+    n20 = Mem6[n19:word16]
     n24 = bx + 8<16>
-    n25 = Mem25[n24:word16]
+    n25 = Mem6[n24:word16]
     n36 = SEQ(dx, ax)
     n37 = SEQ(0<16>, n11)
     n38 = n36 + n37
