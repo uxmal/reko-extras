@@ -313,7 +313,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_redundantPhi()
+    public void Npb_RedundantPhi()
     {
         string sExpected =
         #region Expected
@@ -810,7 +810,21 @@ ProcedureBuilder_exit:
         string sExpected =
         #region Expected    
             @"
-ProcedureBuilder_entry:";
+ProcedureBuilder_entry:
+l1:
+    rax_8 = Mem6[00123400:word64]
+    eax_10 = Mem6[00123408:word32]
+    ah_12 = Mem6[00123410:byte]
+    al_14 = Mem6[00123411:byte]
+    return
+    // succ: ProcedureBuilder_exit
+ProcedureBuilder_exit:
+    use ah:ah_12
+    use al:al_14
+    use eax:eax_10
+    use rax:rax_8
+    use rbx:rax_8
+";
         #endregion
 
         RunTest(sExpected, m =>
@@ -828,6 +842,61 @@ ProcedureBuilder_entry:";
             m.Assign(al, m.Mem8(Address.Ptr32(0x0123411)));
 
             m.Assign(rbx, rax);
+            m.Return();
+        });
+    }
+
+    [Test]
+    public void Dpb_Copy()
+    {
+        string sExpected =
+        #region Expected
+            @"
+ProcedureBuilder_entry:
+    def rcx:word64
+l1:
+    return
+ProcedureBuilder_exit:
+    use rax:rcx
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var rax = m.Reg64("rax", 0);
+            var rcx = m.Reg64("rcx", 1);
+
+            m.Assign(rax, rcx);
+            m.Return();
+        });
+    }
+
+    [Test]
+    public void Dpb_Read_Slice()
+    {
+        string sExpected =
+        #region Expected
+@"
+ProcedureBuilder_entry:
+l1:
+    rax_8 = Mem6[00123400:word64]
+    ah_10 = SLICE(rax_8, byte, 8)
+    Mem11[00123408:byte] = ah_10
+    return
+    // succ: ProcedureBuilder_exit
+ProcedureBuilder_exit:
+    use ah:ah_10
+    use rax:rax_8
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var rax = m.Reg64("rax", 0);
+            var ah = m.Reg8("ah", 0, 8);
+
+            m.Assign(rax, m.Mem64(Address.Ptr32(0x123400)));
+            m.MStore(Address.Ptr32(0x123408), ah);
             m.Return();
         });
     }

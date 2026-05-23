@@ -63,7 +63,18 @@ public partial class NodeGraphBuilder
 
         public bool IsVisited { get; set; }
 
-        public Dictionary<RegisterStorage, List<(BitRange, ExpressionNode)>> RegisterDefs { get; }
+        /// <summary>
+        /// For each <see cref="StorageDomain"/>, stores a list of reaching
+        /// definitions in thie current block. The items in the list are ordered
+        /// from "widest" to "narrowest". E.g on x86-64 you might see: 
+        /// <code>
+        /// rcx, Mem[rax:32]
+        /// ecx, ebx + esi
+        /// cl,  SLICE(cx, 0)
+        /// ch,  SLICE(cx, 1)
+        /// </code>
+        /// </summary>
+        public Dictionary<StorageDomain, List<(RegisterStorage, ExpressionNode)>> RegisterDefs { get; }
         public Dictionary<RegisterStorage, List<(FlagGroupStorage, ExpressionNode)>> FlagGroupDefs { get; }
         public Dictionary<SequenceStorage, ExpressionNode> SequenceDefs { get; }
         public Dictionary<TemporaryStorage, ExpressionNode> TemporaryDefs { get; }
@@ -172,15 +183,17 @@ public partial class NodeGraphBuilder
                     continue;
 
                 var value = ReadStorage(exitBlock, storage, storage.DataType);
-                if (!ShouldEmitExitUse(value))
+                if (!ShouldEmitExitUse(storage, value))
                     continue;
                 var use = factory.Use(exitState.Node, storage, default);
                 Node.AddEdge(value, use);
             }
         }
 
+        //$TODO al, ah then ax; ax should cover al and ah.
         var reachingRegisters = exitBlock.Pred
-            .SelectMany(pred => blocks[pred].RegisterDefs.Keys)
+            .SelectMany(pred => blocks[pred].RegisterDefs.Values)
+            .SelectMany(defs => defs.Select(entry => entry.Item1))
             .Distinct()
             .OrderBy(reg => reg.Name)
             .ThenBy(reg => reg.Number)
@@ -191,7 +204,7 @@ public partial class NodeGraphBuilder
             if (!emittedStorages.Add(reg))
                 continue;
             var value = ReadStorage(exitBlock, reg, reg.DataType);
-            if (!ShouldEmitExitUse(value))
+            if (!ShouldEmitExitUse(reg, value))
                 continue;
             var use = factory.Use(exitState.Node, reg, default);
             Node.AddEdge(value, use);
@@ -212,19 +225,21 @@ public partial class NodeGraphBuilder
         {
             Debug.Assert(flagGroup is not null);
             var value = ReadStorage(exitBlock, flagGroup, flagGroup.DataType);
-            if (!ShouldEmitExitUse(value))
+            if (!ShouldEmitExitUse(flagGroup, value))
                 continue;
             var use = factory.Use(exitState.Node, flagGroup, default);
             Node.AddEdge(value, use);
         }
     }
 
-    private static bool ShouldEmitExitUse(Node value)
+    private static bool ShouldEmitExitUse(Storage stg, Node value)
     {
-        if (value is DefNode defNode &&
+        if (value is DefNode defNode && stg == defNode.Storage &&
             (defNode.Inputs.Count != 2 ||
              defNode.Inputs[1] is not CallNode))
+        {
             return false;
+        }
         return true;
     }
 
@@ -637,14 +652,14 @@ public partial class NodeGraphBuilder
             {
                 var slice = factory.Slice(reg.DataType, value, offset);
                 slice.Storage = reg;
-                if (state.RegisterDefs.TryGetValue(reg, out var existingRegDefs))
+                if (state.RegisterDefs.TryGetValue(reg.Domain, out var existingRegDefs))
                 {
                     foreach (var (_, existingRegDef) in existingRegDefs)
                     {
                         ReplaceNode(existingRegDef, slice);
                     }
                 }
-                state.RegisterDefs[reg] = [(reg.GetBitRange(), slice)];
+                state.RegisterDefs[reg.Domain] = [(reg, slice)];
             }
             else if (element is SequenceStorage)
             {
@@ -658,7 +673,7 @@ public partial class NodeGraphBuilder
         var seqBitRange = sequence.GetBitRange();
         foreach (var reg in EnumerateSequenceRegisters(sequence))
         {
-            state.RegisterDefs[reg] = [(seqBitRange, value)];
+            state.RegisterDefs[reg.Domain] = [(reg, value)];
         }
     }
 
@@ -683,25 +698,42 @@ public partial class NodeGraphBuilder
             }
             break;
         case RegisterStorage regUse:
-            if (state.RegisterDefs.TryGetValue(regUse, out var defs) && defs.Count > 0)
+            if (state.RegisterDefs.TryGetValue(regUse.Domain, out var defs) && defs.Count > 0)
             {
-                var (bitRange, regValue) = defs[^1];
-                regValue = ResolveCanonical(regValue);
-                if (!bitRange.IsEmpty && bitRange.Extent > regUse.GetBitRange().Extent)
+                ExpressionNode regValue;
+                for (int i = defs.Count - 1; i >= 0; --i)
                 {
-                    if (regValue.Storage is SequenceStorage seqStorage)
+                    RegisterStorage regDef;
+                    (regDef, regValue) = defs[i];
+                    var bitRange = regDef.GetBitRange();
+                    regValue = ResolveCanonical(regValue);
+                    if (regDef.Covers(regUse))
                     {
-                        var offset = seqStorage.OffsetOf(regUse);
-                        if (offset >= 0)
+                        if (regValue.Storage is SequenceStorage seqStorage)
                         {
+                            var offset = seqStorage.OffsetOf(regUse);
+                            if (offset >= 0 || regUse.DataType.BitSize < seqStorage.DataType.BitSize)
+                            {
+                                var slice = factory.Slice(regUse.DataType, regValue, offset);
+                                slice.Storage = regUse;
+                                WriteStorage(state, regUse, slice);
+                                return slice;
+                            }
+                        }
+                        if (regDef == regUse)
+                            return regValue;
+
+                        // regDef is a plain register wider than regUse (e.g. rax covers ah).
+                        // Emit a SLICE of the wider value at the sub-register's bit offset.
+                        {
+                            var offset = regUse.GetBitRange().Lsb;
                             var slice = factory.Slice(regUse.DataType, regValue, offset);
                             slice.Storage = regUse;
-                            state.RegisterDefs[regUse] = [(regUse.GetBitRange(), slice)];
+                            WriteStorage(state, regUse, slice);
                             return slice;
                         }
                     }
                 }
-                return regValue;
             }
             break;
         case SequenceStorage seq:
@@ -778,16 +810,27 @@ public partial class NodeGraphBuilder
     private void WriteStorage(BlockState state, Storage stgDst, ExpressionNode value)
     {
         value = ResolveCanonical(value);
+        if (value.Storage is null)
+            value.Storage = stgDst;
         switch (stgDst)
         {
         case RegisterStorage regDst:
-            if (!state.RegisterDefs.TryGetValue(regDst, out var defs))
+            if (!state.RegisterDefs.TryGetValue(regDst.Domain, out var defs))
             {
                 defs = [];
-                state.RegisterDefs[regDst] = defs;
+                state.RegisterDefs[regDst.Domain] = defs;
             }
-            defs.Add((regDst.GetBitRange(), value));
-            state.RegisterDefs[regDst] = defs;
+            for (int i = 0; i < defs.Count; ++i)
+            {
+                var (stg, valuePrev) = defs[i];
+                if (stgDst.Covers(stg))
+                {
+                    defs.RemoveAt(i);
+                    --i;
+                }
+            }
+            defs.Add((regDst, value));
+            state.RegisterDefs[regDst.Domain] = defs;
             break;
         case FlagGroupStorage flagGroup:
             if (!state.FlagGroupDefs.TryGetValue(flagGroup.FlagRegister, out var flagDefs))
