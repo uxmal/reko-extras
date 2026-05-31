@@ -63,10 +63,10 @@ namespace FindLoadAddr
             {
                 throw new Exception("No strings found in target binary.");
             }
-            Console.WriteLine("Located {0} strings", strings.Count);
+            Console.WriteLine($"Located {strings.Count} strings");
 
             var pointers = ReadPointers(mem, 4);
-            Console.WriteLine("Located {0} pointers", pointers.Count);
+            Console.WriteLine($"Located {pointers.Count} pointers");
 
             var children = new List<Task<List<(int, ulong)>>>();
             var shared_strings = strings;
@@ -76,7 +76,7 @@ namespace FindLoadAddr
                         ? new Progress<int>(Console.Error)
                         : new NullProgress<int>());
 
-            Debug.WriteLine("Scanning with {0} Threads...", Threads);
+            Debug.WriteLine($"Scanning with {Threads} Threads...");
             for (int i = 0; i < this.Threads; ++i)
             {
                 var pb = mb.create_bar(100);
@@ -205,7 +205,7 @@ namespace FindLoadAddr
             ProgressBar pb)
         {
             var interval = Interval.GetRange(threadIndex, Threads, _stride);
-            //Console.WriteLine("Thread {0} in range: {1:X8}-{2:X8}",
+            //Console.WriteLine($"Thread {threadIndex} in range: {interval.start_addr:X8}-{interval.end_addr:X8}");
             //    threadIndex,
             //    interval.start_addr,
             //    interval.end_addr);

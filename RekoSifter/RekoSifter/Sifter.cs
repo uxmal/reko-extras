@@ -59,7 +59,7 @@ public class Sifter
         {
             OutputDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
         };
-        fsSvc = new FileSystemService();
+        this.fsSvc = new FileSystemService();
         this.cfgSvc = RekoConfigurationService.Load(sc, "reko/reko.config");
         sc.AddService<ITestGenerationService>(testGen);
         sc.AddService<IFileSystemService>(fsSvc);
@@ -608,15 +608,13 @@ Options:
         var ldr = new ElfImageLoader(sc, null!, objectData);
         var image = ldr.LoadProgram(loadAddr);
         var codeSeg = image.SegmentMap
-            .Segments.Where(x => x.Value.IsExecutable)
-            .First().Value;
+            .Segments.First(x => x.Value.IsExecutable)
+            .Value;
 
 
         var temp = codeSeg.CreateImageReader(arch);
         var data = temp.ReadBytes(codeSeg.ContentSize);
         this.mem = new ByteMemoryArea(loadAddr, data);
-        // $BUG
-        //var newRdr = new LeImageReader(mem, 0);
         var newRdr = new LeImageReader(mem, loadAddr);
 
         this.rdr = newRdr;

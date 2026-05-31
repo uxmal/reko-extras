@@ -170,8 +170,7 @@ namespace FindLoadAddr
                 var stringaddrs = FindAdjacentStrings(strings);
                 if (stringaddrs.Length == 0)
                     continue;
-                Console.WriteLine("using adjacent strings {0}",
-                    string.Join(",", stringaddrs.Select(s => $"0x{s:X8}")));
+                Console.WriteLine($"using adjacent strings {string.Join(",", stringaddrs.Select(s => $"0x{s:X8}"))}");
 
                 baseaddrs = IdentifyBaseAddresses(values, stringaddrs);
                 if (baseaddrs.Count > 0)

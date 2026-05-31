@@ -92,7 +92,7 @@ namespace Reko.Database
                 atomWriter(this, o);
                 return;
             }
-            throw new NotImplementedException(string.Format("Don't know how to write {0}.", o.GetType()));
+            throw new NotImplementedException($"Don't know how to write {o.GetType()}.");
         }
 
         public void Write(bool value)

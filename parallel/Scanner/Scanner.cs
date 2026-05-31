@@ -110,7 +110,7 @@ namespace ParallelScan
         public void WorkerFinished(Address workerAddress)
         {
             workers.TryRemove(workerAddress, out _);
-            Console.WriteLine("scanner: Worker {0} finished: now at {1}", workerAddress, workers.Count);
+            Console.WriteLine($"scanner: Worker {workerAddress} finished: now at {workers.Count}");
             if (workers.IsEmpty)
             {
                 promise.TrySetResult(cfg);

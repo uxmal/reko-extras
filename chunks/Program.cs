@@ -48,11 +48,11 @@ namespace chunks
 
         private static void TestArchitecture(RekoConfigurationService cfg, ArchitectureDefinition archDef)
         {
-            Console.Out.WriteLine("= Testing {0} ============", archDef.Description);
+            Console.Out.WriteLine($"= Testing {archDef.Description} ============");
             var work = MakeWorkUnit(cfg, archDef, 42);
             if (work is null)
             {
-                Console.Out.WriteLine("*** Failed to load {0}", archDef.Name);
+                Console.Out.WriteLine($"*** Failed to load {archDef.Name}");
                 return;
             }
             var factories = new RewriterTaskFactory[] {
@@ -70,7 +70,7 @@ namespace chunks
         {
             for (int chunkSize = MinChunkSize; chunkSize <= MemorySize; chunkSize *= 16)
             {
-                Console.Out.WriteLine("    {0}, chunk size {1}", factory.Name, chunkSize);
+                Console.Out.WriteLine($"    {factory.Name}, chunk size {chunkSize}");
                 long sum = 0;
                 long totClusters = 0;
                 for (int rep = 0; rep < CReps; ++rep)
@@ -79,13 +79,13 @@ namespace chunks
                     var (msec, clusters) = sc.DoIt(factory);
                     sum += msec;
                     totClusters += clusters;
-                    Console.Out.Write(" {0,7}", msec);
+                    Console.Out.Write($" {msec,7}");
                     Console.Out.Flush();
                     GC.Collect();
                 }
                 var avg = sum / (double)CReps;
                 var perInstr = sum * 1000.0 / totClusters;
-                Console.Out.WriteLine(", avg: {0:0.000} msec; {1:0.000} usec/rtl cluster {2,6} clusters;", avg, perInstr, totClusters);
+                Console.Out.WriteLine($", avg: {avg:0.000} msec; {perInstr:0.000} usec/rtl cluster {totClusters,6} clusters;");
             }
         }
 
