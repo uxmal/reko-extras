@@ -4,7 +4,8 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public class MemoryNode : Node
 {
-    public MemoryNode(int number, params Node?[] inputs) : base(number, inputs)
+    public MemoryNode(int number, DataType dt, params Node?[] inputs) 
+        : base(number, dt, inputs)
     {
     }
 

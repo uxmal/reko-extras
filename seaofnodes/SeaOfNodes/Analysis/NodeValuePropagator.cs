@@ -85,7 +85,7 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
         {
             if (oLeft.Operator.Type == OperatorType.IAdd
                 && oLeft.Inputs.Count == 3
-                && oLeft.Inputs[1] is ExpressionNode nLeftLeft
+                && oLeft.Inputs[1] is Node nLeftLeft
                 && oLeft.Inputs[2] is ConstantNode cLeftRight)
             if (n.Operator.Type == OperatorType.IAdd)
             {

@@ -48,8 +48,8 @@ public sealed class NodeApplicationBuilder
         Node? cfNode,
         FunctionType sigCallee,
         ProcedureCharacteristics? chr,
-        Func<Storage, DataType, ExpressionNode> bindInArg,
-        Action<Storage, ExpressionNode> writeOutArg)
+        Func<Storage, DataType, Node> bindInArg,
+        Action<Storage, Node> writeOutArg)
     {
         if (sigCallee is null || !sigCallee.ParametersValid)
             throw new InvalidOperationException("No signature available; application cannot be constructed.");
@@ -60,7 +60,7 @@ public sealed class NodeApplicationBuilder
         
         arguments.AddRange(BindOutputs(sigCallee.Outputs, chr, writeOutArg));
 
-        ExpressionNode appl = factory.Apply(dtOut, cfNode, callee, arguments.ToArray());
+        Node appl = factory.Apply(dtOut, cfNode, callee, arguments.ToArray());
         if (idReturn is null || dtOut is VoidType)
         {
             if (cfNode is null)
@@ -85,12 +85,12 @@ public sealed class NodeApplicationBuilder
     /// <param name="chr">The <see cref="ProcedureCharacteristics"/> of the called procedure, if any.</param>
     /// <param name="site">The <see cref="CallSite"/> of the call.</param>
     /// <returns>The resulting list of actual arguments.</returns>
-    public List<ExpressionNode> BindArguments(Identifier[] parameters, bool isVariadic,
+    public List<Node> BindArguments(Identifier[] parameters, bool isVariadic,
         ProcedureCharacteristics? chr,
         CallSite site,
-        Func<Storage, DataType, ExpressionNode> bindInArg)
+        Func<Storage, DataType, Node> bindInArg)
     {
-        var actuals = new List<ExpressionNode>();
+        var actuals = new List<Node>();
         for (int i = 0; i < parameters.Length; ++i)
         {
             var formalArg = parameters[i];
@@ -130,12 +130,12 @@ public sealed class NodeApplicationBuilder
     /// <param name="chr">Procedure characteristics.</param>
     /// <returns>The bound output parameters.
     /// </returns>
-    private List<ExpressionNode> BindOutputs(
+    private List<Node> BindOutputs(
         Identifier[] outputs,
         ProcedureCharacteristics? chr,
-        Action<Storage, ExpressionNode> bindOutArg)
+        Action<Storage, Node> bindOutArg)
     {
-        var actuals = new List<ExpressionNode>();
+        var actuals = new List<Node>();
         // We've already processed the first output parameter, which is 
         // modeled as the return value. All other parameters are modeled
         // as OutArguments.
@@ -160,7 +160,7 @@ public sealed class NodeApplicationBuilder
     /// call.</param>
     /// <returns>A list consisting of all actual arguments including any variadic ones.
     /// </returns>
-    public List<ExpressionNode> BindVariadicArguments(ProcedureCharacteristics? chr, List<ExpressionNode> actuals)
+    public List<Node> BindVariadicArguments(ProcedureCharacteristics? chr, List<Node> actuals)
     {
         actuals.Add(factory.Word32(0));
         Debug.Print($"{nameof(NodeApplicationBuilder)}: Varargs are not implemented yet.");

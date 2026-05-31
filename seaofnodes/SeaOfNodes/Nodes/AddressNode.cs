@@ -2,7 +2,7 @@ using Reko.Core;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class AddressNode : ExpressionNode
+public sealed class AddressNode : Node
 {
     public AddressNode(int number, Address addr) : base(number, addr.DataType, [null])
     {

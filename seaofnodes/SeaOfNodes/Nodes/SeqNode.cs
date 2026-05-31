@@ -4,7 +4,7 @@ using Reko.Core.Types;
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
 [DebuggerDisplay("{} = SEQ({InputsAsString})")]
-public sealed class SeqNode : ExpressionNode
+public sealed class SeqNode : Node
 {
     public SeqNode(int number, DataType dt, params Node?[] inputs) : base(number, dt, inputs)
     {

@@ -2,7 +2,7 @@ using Reko.Core.Expressions;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class ConstantNode : ExpressionNode
+public sealed class ConstantNode : Node
 {
     public ConstantNode(int number, Constant value) : base(number, value.DataType, [null])
     {

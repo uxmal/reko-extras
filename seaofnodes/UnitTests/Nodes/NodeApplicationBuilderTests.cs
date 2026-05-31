@@ -14,12 +14,12 @@ public class NodeApplicationBuilderTests
         var m = new ProcedureBuilder();
         var r1 = m.Reg32("r1", 1);
         var application = m.Fn(Reko.Core.Intrinsics.CommonOps.Abs, r1);
-        var procedure = ((ProcedureConstant) application.Procedure).Procedure;
+        var pc = (ProcedureConstant) application.Procedure;
 
         var factory = new NodeFactory();
         var builder = new NodeApplicationBuilder(factory);
         var start = factory.Start(m.Procedure);
-        var callee = factory.ProcedureConstant(procedure);
+        var callee = factory.ProcedureConstant(pc.DataType, pc.Procedure);
         var argument = factory.Def(start, r1.Storage, r1.DataType);
 
         var node = builder.Build(
@@ -48,12 +48,12 @@ public class NodeApplicationBuilderTests
     {
         var m = new ProcedureBuilder();
         var application = m.Fn("mix", m.Word32(1), m.Word32(2));
-        var procedure = ((ProcedureConstant) application.Procedure).Procedure;
+        var pc = (ProcedureConstant) application.Procedure;
 
         var factory = new NodeFactory();
         var builder = new NodeApplicationBuilder(factory);
         var start = factory.Start(m.Procedure);
-        var callee = factory.ProcedureConstant(procedure);
+        var callee = factory.ProcedureConstant(pc.DataType, pc.Procedure);
         var first = factory.Const(Constant.Word32(1));
         var second = factory.Const(Constant.Word32(2));
 

@@ -1,13 +1,15 @@
 using Reko.Core;
+using Reko.Core.Types;
 using System.Diagnostics;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public abstract class Node
 {
-    protected Node(int number, params Node?[] inputs)
+    protected Node(int number, DataType dt, params Node?[] inputs)
     {
         this.Number = number;
+        this.DataType = dt;
         this.Inputs = [];
         this.Outputs = [];
 
@@ -20,9 +22,10 @@ public abstract class Node
         }
     }
 
-    protected Node(int number, Node? cfNode, params Node?[] inputs)
+    protected Node(int number, DataType dt, Node? cfNode, params Node?[] inputs)
     {
         this.Number = number;
+        this.DataType = dt;
         this.Inputs = [];
         this.Outputs = [];
 
@@ -38,9 +41,10 @@ public abstract class Node
         }
     }
 
-    protected Node(int number, Node? cfNode, Node n, params Node?[] inputs)
+    protected Node(int number, DataType dt, Node? cfNode, Node n, params Node?[] inputs)
     {
         this.Number = number;
+        this.DataType = dt; 
         this.Inputs = [];
         this.Outputs = [];
 
@@ -61,6 +65,14 @@ public abstract class Node
     /// Unique identifier for this node.
     /// </summary>
     public int Number { get; internal set; }
+
+    /// <summary>
+    /// The data type of the value produced by this node.
+    /// </summary>
+    /// <remarks>
+    /// Control-flow nodes generate values of type <see cref="VoidType"/>.
+    /// </remarks>
+    public DataType DataType { get; }
 
     /// <summary>
     /// Optional <see cref="Storage"/> describing where this node

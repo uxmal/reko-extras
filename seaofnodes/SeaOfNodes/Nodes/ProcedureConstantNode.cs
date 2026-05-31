@@ -1,12 +1,13 @@
 using System.Runtime.Serialization;
 using Reko.Core;
 using Reko.Core.Output;
+using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public sealed class ProcedureConstantNode : Node
 {
-    public ProcedureConstantNode(int number, ProcedureBase procedure) : base(number, [null])
+    public ProcedureConstantNode(int number, DataType dt, ProcedureBase procedure) : base(number, dt, [null])
     {
         this.Procedure = procedure;
     }

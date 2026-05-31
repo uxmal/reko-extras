@@ -3,9 +3,10 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class DefNode : ExpressionNode
+public sealed class DefNode : Node
 {
-    public DefNode(int number, Storage storage, DataType dt, params Node?[] inputs) : base(number, dt, inputs)
+    public DefNode(int number, Storage storage, DataType dt, params Node?[] inputs)
+        : base(number, dt, inputs)
     {
         this.Storage = storage;
     }

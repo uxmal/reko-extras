@@ -4,7 +4,7 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class SliceNode : ExpressionNode
+public sealed class SliceNode : Node
 {
     public SliceNode(int number, DataType dt, Node? cfNode, Node input, int offset)
         : base(number, dt, cfNode, input)

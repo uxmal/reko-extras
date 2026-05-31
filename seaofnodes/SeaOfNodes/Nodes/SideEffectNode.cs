@@ -1,9 +1,11 @@
+using Reko.Core.Types;
+
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public sealed class SideEffectNode : Node
 {
     public SideEffectNode(int number, Node ctrl,  Node input) 
-        : base(number, ctrl, input)
+        : base(number, VoidType.Instance, ctrl, input)
     {
     }
 

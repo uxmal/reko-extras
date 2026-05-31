@@ -20,12 +20,12 @@ public partial class PeepholeOptimizer
         this.m = factory;
     }
 
-    public ExpressionNode And(DefNode left, ulong right)
+    public Node And(DefNode left, ulong right)
     {
         return Bin(left.DataType, Operator.And, null, left, m.Const(Constant.Create(left.DataType, right)));
     }
 
-    public ExpressionNode ISub(ExpressionNode left, ExpressionNode right)
+    public Node ISub(Node left, Node right)
     {
         return Bin(left.DataType, Operator.ISub, null, left, right);
     }

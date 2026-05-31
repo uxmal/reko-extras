@@ -3,7 +3,7 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class LoadNode : ExpressionNode
+public sealed class LoadNode : Node
 {
     public LoadNode(
         int number,

@@ -11,12 +11,9 @@ public sealed class StoreNode : MemoryNode
         Node memNode,
         DataType dt,
          Node ea,
-         Node value) : base(number,  ctrlNode, memNode, ea, value)
+         Node value) : base(number, dt, ctrlNode, memNode, ea, value)
     {
-        this.DataType = dt;
     }
-
-    public DataType DataType { get; }
 
     public override void Render(TextWriter sw)
     {

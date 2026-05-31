@@ -3,7 +3,7 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class OperationNode : ExpressionNode
+public sealed class OperationNode : Node
 {
     private static readonly Dictionary<OperatorType, string> operatorName = new()
     {
@@ -101,7 +101,7 @@ public sealed class OperationNode : ExpressionNode
         sw.Write(opName);
         var dtResult = this.DataType;
         if (this.Operator is not ConditionalOperator &&
-            dtResult.BitSize != ((ExpressionNode)input).DataType.BitSize)
+            dtResult.BitSize != ((Node)input).DataType.BitSize)
         {
             sw.Write(dtResult.BitSize);
         }

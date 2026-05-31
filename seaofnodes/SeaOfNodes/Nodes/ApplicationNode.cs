@@ -4,7 +4,7 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class ApplicationNode : ExpressionNode
+public sealed class ApplicationNode : Node
 {
     public ApplicationNode(int number, DataType dt, Node? cfNode, Node fn, params Node?[] inputs) :
         base(number, dt, cfNode, new Node?[] { fn }.Concat(inputs).ToArray())

@@ -2,7 +2,7 @@
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public class OutArgumentNode : ExpressionNode
+public class OutArgumentNode : Node
 {
     public OutArgumentNode(int nodeId, DataType dt) 
         : base(nodeId, dt, [null])

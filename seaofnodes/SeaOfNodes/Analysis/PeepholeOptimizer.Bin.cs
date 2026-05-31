@@ -7,7 +7,7 @@ namespace Reko.Extras.SeaOfNodes.Analysis;
 
 public partial class PeepholeOptimizer
 {
-    public ExpressionNode Bin(DataType dt, Operator op, Node? cfNode, Node left, Node right)
+    public Node Bin(DataType dt, Operator op, Node? cfNode, Node left, Node right)
     {
         var cLeft = left as ConstantNode;
         var cRight = right as ConstantNode;
@@ -39,7 +39,7 @@ public partial class PeepholeOptimizer
                     }
                 }
                 if (cRight.Value.IsZero)
-                    return (ExpressionNode)left;
+                    return (Node)left;
                 if (cRight.Value.IsNegative)
                 {
                     cRight = m.Const(cRight.Value.Negate());
@@ -69,7 +69,7 @@ public partial class PeepholeOptimizer
                     }
                 }
                 if (cRight.Value.IsZero)
-                    return (ExpressionNode)left;
+                    return (Node)left;
                 if (cRight.Value.IsNegative)
                 {
                     cRight = m.Const(cRight.Value.Negate());
@@ -80,22 +80,22 @@ public partial class PeepholeOptimizer
             break;
         case OperatorType.And:
             if (left == right)
-                return (ExpressionNode)left;
+                return (Node)left;
             if (cRight is not null)
             {
                 if (cRight.Value.IsZero)
                     return m.Const(Constant.Zero(dt));
                 if (cRight.Value.IsMaxUnsigned)
-                    return (ExpressionNode)left;
+                    return (Node)left;
             }
             break;
         case OperatorType.Or:
             if (left == right)
-                return (ExpressionNode)left;
+                return (Node)left;
             if (cRight is not null)
             {
                 if (cRight.Value.IsZero)
-                    return (ExpressionNode)left;
+                    return (Node)left;
             }
             break;
         case OperatorType.Xor:
@@ -104,7 +104,7 @@ public partial class PeepholeOptimizer
             if (cRight is not null)
             {
                 if (cRight.Value.IsZero)
-                    return (ExpressionNode)left;
+                    return (Node)left;
             }
             break;
         }

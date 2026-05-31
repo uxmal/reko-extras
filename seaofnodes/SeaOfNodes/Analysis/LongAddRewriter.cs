@@ -66,7 +66,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
     private void ProcessGraph(StartNode graph, IEnumerable<Node> reachable)
     {
         var opNodes = reachable.OfType<OperationNode>().OrderBy(n => n.Number).ToList();
-        var wl = new WorkList<ExpressionNode>();
+        var wl = new WorkList<Node>();
         wl.AddRange(opNodes);
         while (wl.TryGetWorkItem(out var node))
         {
@@ -100,7 +100,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         Debug.WriteLine(sw.ToString());
     }
 
-    private ExpressionNode? TryFuseAddSub(OperationNode addcSubc)
+    private Node? TryFuseAddSub(OperationNode addcSubc)
     {
         if (addcSubc.Inputs.Count != 3)
             return null;
@@ -136,8 +136,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
                 var newUpperAdd = addcSubc.Outputs.SingleOrDefault(o => o is OperationNode oo && oo.Operator.Type == opLo);
                 if (newUpperAdd is not null)
                 {
-                    hiLeft = (ExpressionNode)addcSubc.Inputs[1]!;
-                    hiRight = (ExpressionNode)newUpperAdd.Inputs[2]!;
+                    hiLeft = (Node)addcSubc.Inputs[1]!;
+                    hiRight = (Node)newUpperAdd.Inputs[2]!;
                 }
                 else
                 {
@@ -145,7 +145,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     // Done on PDP-11, for instance:
                     //    add r2,[r1]  ; low part
                     //    adc r3       ; high part   
-                    hiLeft = (ExpressionNode)hiAddSub;
+                    hiLeft = (Node)hiAddSub;
                     hiRight = m.Const(Constant.Create(hiLeft.DataType, 0));
                 }
             }
@@ -172,7 +172,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return null;
     }
 
-    private void ReplaceCondOfs(OperationNode addcSubc, ExpressionNode wideSum)
+    private void ReplaceCondOfs(OperationNode addcSubc, Node wideSum)
     {
         foreach (var use in addcSubc.Outputs.ToList())
         {
@@ -202,8 +202,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
     private static bool IsAddSub(
         Node? node,
         [MaybeNullWhen(false)] out OperatorType opType,
-        [MaybeNullWhen(false)] out ExpressionNode left,
-        [MaybeNullWhen(false)] out ExpressionNode right)
+        [MaybeNullWhen(false)] out Node left,
+        [MaybeNullWhen(false)] out Node right)
     {
         opType = default;
         left = null;
@@ -215,8 +215,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (op.Inputs[1] is null || op.Inputs[2] is null)
             return false;
         opType = op.Operator.Type;
-        left = (ExpressionNode) op.Inputs[1]!;
-        right = (ExpressionNode) op.Inputs[2]!;
+        left = (Node) op.Inputs[1]!;
+        right = (Node) op.Inputs[2]!;
         return true;
     }
 
@@ -327,7 +327,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         var shiftAmount = lowShift.Inputs[2];
         var highInput = spillShift.Inputs[1];
         var spillAmount = spillShift.Inputs[2];
-        if (lowInput is not ExpressionNode lowExpr || shiftAmount is null || highInput is not ExpressionNode highExpr || spillAmount is null)
+        if (lowInput is not Node lowExpr || shiftAmount is null || highInput is not Node highExpr || spillAmount is null)
             return false;
 
         if (!MatchesComplementaryShiftAmount(spillAmount, shiftAmount, lowExpr.DataType.BitSize))

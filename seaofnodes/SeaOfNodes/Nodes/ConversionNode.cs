@@ -2,7 +2,7 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class ConversionNode : ExpressionNode
+public sealed class ConversionNode : Node
 {
     public ConversionNode(int number, DataType dstType, DataType srcType, Node? cfNode, Node input)
         : base(number, dstType, cfNode, input)

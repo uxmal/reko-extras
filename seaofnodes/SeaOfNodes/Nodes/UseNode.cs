@@ -6,7 +6,8 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public sealed class UseNode : Node
 {
-    public UseNode(int number, Storage storage, BitRange bitRange, Node? cfNode) : base(number, cfNode)
+    public UseNode(int number, Storage storage, BitRange bitRange, Node? cfNode)
+        : base(number, storage.DataType, cfNode)
     {
         this.Storage = storage;
         this.BitRange = bitRange;

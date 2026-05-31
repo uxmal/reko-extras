@@ -74,11 +74,11 @@ public partial class NodeGraphBuilder
         /// ch,  SLICE(cx, 1)
         /// </code>
         /// </summary>
-        public Dictionary<StorageDomain, List<(RegisterStorage, ExpressionNode)>> RegisterDefs { get; }
-        public Dictionary<RegisterStorage, List<(FlagGroupStorage, ExpressionNode)>> FlagGroupDefs { get; }
-        public Dictionary<SequenceStorage, ExpressionNode> SequenceDefs { get; }
-        public Dictionary<TemporaryStorage, ExpressionNode> TemporaryDefs { get; }
-        public IntervalTree<int, ExpressionNode> StackDefs { get; }
+        public Dictionary<StorageDomain, List<(RegisterStorage, Node)>> RegisterDefs { get; }
+        public Dictionary<RegisterStorage, List<(FlagGroupStorage, Node)>> FlagGroupDefs { get; }
+        public Dictionary<SequenceStorage, Node> SequenceDefs { get; }
+        public Dictionary<TemporaryStorage, Node> TemporaryDefs { get; }
+        public IntervalTree<int, Node> StackDefs { get; }
     }
 
     private enum ReadStoragePhase
@@ -284,7 +284,7 @@ public partial class NodeGraphBuilder
         var value = ass.Src.Accept(this);
         if (value.Storage is null)
             value.Storage = idDst.Storage;
-        WriteStorage(blocks[currentBlock], idDst.Storage, (ExpressionNode) value);
+        WriteStorage(blocks[currentBlock], idDst.Storage, (Node) value);
         return value;
     }
 
@@ -461,14 +461,14 @@ public partial class NodeGraphBuilder
         return ReadStorage(currentBlock, id.Storage, id.DataType);
     }
 
-    private ExpressionNode ResolveCanonical(ExpressionNode node)
+    private Node ResolveCanonical(Node node)
     {
-        ExpressionNode canonical = node;
+        Node canonical = node;
         while (replacements.TryGetValue(canonical, out var replacement))
         {
             if (replacement is null)
                 throw new InvalidOperationException();
-            canonical = (ExpressionNode) replacement;
+            canonical = (Node) replacement;
         }
 
         if (!ReferenceEquals(canonical, node))
@@ -478,7 +478,7 @@ public partial class NodeGraphBuilder
         return canonical;
     }
 
-    private void ReplaceNode(ExpressionNode original, ExpressionNode substitute)
+    private void ReplaceNode(Node original, Node substitute)
     {
         var canonicalSubstitute = ResolveCanonical(substitute);
         replacements[original] = canonicalSubstitute;
@@ -514,12 +514,12 @@ public partial class NodeGraphBuilder
     /// <param name="dt"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    private ExpressionNode ReadStorage(Block block, Storage storage, DataType dt)
+    private Node ReadStorage(Block block, Storage storage, DataType dt)
     {
         var work = new Stack<ReadStorageFrame>();
         work.Push(new ReadStorageFrame(ReadStoragePhase.Resolve, block, null, 0));
 
-        ExpressionNode? lastResult = null;
+        Node? lastResult = null;
         while (work.TryPop(out var frame))
         {
             switch (frame.Phase)
@@ -616,7 +616,7 @@ public partial class NodeGraphBuilder
         return lastResult;
     }
 
-    private ExpressionNode CreateDefNode(BlockState state, Storage storage, DataType dt)
+    private Node CreateDefNode(BlockState state, Storage storage, DataType dt)
     {
         var defNode = factory.Def(state.Node, storage, dt);
         WriteStorage(state, storage, defNode);
@@ -641,7 +641,7 @@ public partial class NodeGraphBuilder
         }
     }
 
-    private void ReplaceCoveredDefsWithSlices(BlockState state, SequenceStorage sequence, ExpressionNode value)
+    private void ReplaceCoveredDefsWithSlices(BlockState state, SequenceStorage sequence, Node value)
     {
         foreach (var element in sequence.Elements)
         {
@@ -668,7 +668,7 @@ public partial class NodeGraphBuilder
         }
     }
 
-    private void TrackSequenceCoveredDefs(BlockState state, SequenceStorage sequence, ExpressionNode value)
+    private void TrackSequenceCoveredDefs(BlockState state, SequenceStorage sequence, Node value)
     {
         var seqBitRange = sequence.GetBitRange();
         foreach (var reg in EnumerateSequenceRegisters(sequence))
@@ -686,7 +686,7 @@ public partial class NodeGraphBuilder
         }
     }
 
-    private ExpressionNode? ReadLocalStorage(Storage storage, BlockState state, in ReadStorageFrame frame)
+    private Node? ReadLocalStorage(Storage storage, BlockState state, in ReadStorageFrame frame)
     {
         switch (storage)
         {
@@ -700,7 +700,7 @@ public partial class NodeGraphBuilder
         case RegisterStorage regUse:
             if (state.RegisterDefs.TryGetValue(regUse.Domain, out var defs) && defs.Count > 0)
             {
-                ExpressionNode regValue;
+                Node regValue;
                 for (int i = defs.Count - 1; i >= 0; --i)
                 {
                     RegisterStorage regDef;
@@ -761,10 +761,10 @@ public partial class NodeGraphBuilder
 
     }
 
-    private static ExpressionNode? GetTrivialPhiReplacement(PhiNode phi)
+    private static Node? GetTrivialPhiReplacement(PhiNode phi)
     {
-        ExpressionNode? candidate = null;
-        foreach (var input in phi.Inputs.Skip(1).Cast<ExpressionNode>())
+        Node? candidate = null;
+        foreach (var input in phi.Inputs.Skip(1).Cast<Node>())
         {
             if (input is null || ReferenceEquals(input, phi))
                 continue;
@@ -782,7 +782,7 @@ public partial class NodeGraphBuilder
         return candidate;
     }
 
-    private ExpressionNode? TryReadFlagGroupStorage(Block block, FlagGroupStorage storage)
+    private Node? TryReadFlagGroupStorage(Block block, FlagGroupStorage storage)
     {
         var state = blocks[block];
         if (!state.FlagGroupDefs.TryGetValue(storage.FlagRegister, out var defs) || defs.Count == 0)
@@ -807,7 +807,7 @@ public partial class NodeGraphBuilder
         return null;
     }
 
-    private void WriteStorage(BlockState state, Storage stgDst, ExpressionNode value)
+    private void WriteStorage(BlockState state, Storage stgDst, Node value)
     {
         value = ResolveCanonical(value);
         if (value.Storage is null)
@@ -918,7 +918,7 @@ public partial class NodeGraphBuilder
 
     public Node VisitProcedureConstant(ProcedureConstant pc)
     {
-        return factory.ProcedureConstant(pc.Procedure);
+        return factory.ProcedureConstant(pc.DataType, pc.Procedure);
     }
 
     public Node VisitScopeResolution(ScopeResolution scopeResolution)

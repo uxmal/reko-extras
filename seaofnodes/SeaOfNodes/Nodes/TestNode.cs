@@ -3,7 +3,7 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class TestNode : ExpressionNode
+public sealed class TestNode : Node
 {
     public TestNode(int number, DataType dt, ConditionCode conditionCode, Node? cfNode, Node input)
         : base(number, dt, cfNode, input)

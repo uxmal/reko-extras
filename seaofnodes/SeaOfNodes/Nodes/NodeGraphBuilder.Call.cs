@@ -47,13 +47,13 @@ public partial class NodeGraphBuilder
         return s;
     }
 
-    private ExpressionNode BindInArg(Storage storage, DataType dt)
+    private Node BindInArg(Storage storage, DataType dt)
     {
         Debug.Assert(this.currentBlock is not null);
         return ReadStorage(this.currentBlock, storage, dt);
     }
 
-    private void BindOutArg(Storage storage, ExpressionNode value)
+    private void BindOutArg(Storage storage, Node value)
     {
         Debug.Assert(currentBlock is not null);
         WriteStorage(blocks[currentBlock], storage, value);

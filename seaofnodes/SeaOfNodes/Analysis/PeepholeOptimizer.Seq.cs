@@ -11,7 +11,7 @@ namespace Reko.Extras.SeaOfNodes.Analysis;
 
 public partial class PeepholeOptimizer
 {
-    public ExpressionNode Seq(DataType dt, params Node[] inputs)
+    public Node Seq(DataType dt, params Node[] inputs)
     {
         List<Node> nodes = [];
         foreach (var n in inputs)
@@ -27,14 +27,14 @@ public partial class PeepholeOptimizer
         }
         nodes = FuseAdjacentSlices(nodes);
         if (nodes.Count == 1)
-            return (ExpressionNode)nodes[0];
+            return (Node)nodes[0];
         return m.Seq(dt, nodes.ToArray());
     }
 
     private List<Node> FuseAdjacentSlices(List<Node> nodes)
     {
         SliceNode? curSlice = null;
-        ExpressionNode? slicedNode = null;
+        Node? slicedNode = null;
         Domain dom = default;
         int bitsize = 0;
         int offset = 0;
@@ -46,7 +46,7 @@ public partial class PeepholeOptimizer
                 if (curSlice is null)
                 {
                     curSlice = s;
-                    slicedNode = (ExpressionNode)s.Inputs[1]!;
+                    slicedNode = (Node)s.Inputs[1]!;
                     dom = s.DataType.Domain;
                     bitsize = s.DataType.BitSize;
                     offset = s.Offset;

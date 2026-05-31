@@ -1,9 +1,11 @@
+using Reko.Core.Types;
+
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public class StartNode : Node
 {
 
-    public StartNode(int number, params Node?[] inputs) : base(number, inputs)
+    public StartNode(int number, params Node?[] inputs) : base(number, VoidType.Instance, inputs)
     {
         this.EndNode = null!;
     }

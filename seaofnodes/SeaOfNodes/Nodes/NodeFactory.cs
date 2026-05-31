@@ -84,34 +84,34 @@ public class NodeFactory
         return Bin(PrimitiveType.Bool, Operator.Eq, null, left, right);
     }
 
-    public OperationNode IAdd(ExpressionNode left, ExpressionNode right)
+    public OperationNode IAdd(Node left, Node right)
     {
         return Bin(left.DataType, Operator.IAdd, null, left, right);
     }
 
-    public OperationNode ISub(ExpressionNode left, long right)
+    public OperationNode ISub(Node left, long right)
     {
         return Bin(left.DataType, Operator.ISub, null, left, this.Const(Constant.Create(left.DataType, right)));
     }
 
-    public OperationNode ISub(ExpressionNode left, ulong right)
+    public OperationNode ISub(Node left, ulong right)
     {
         return Bin(left.DataType, Operator.ISub, null, left, this.Const(Constant.Create(left.DataType, right)));
     }
 
-    public OperationNode IAdd(ExpressionNode left, long right)
+    public OperationNode IAdd(Node left, long right)
     {
         return Bin(left.DataType, Operator.IAdd, null, left, this.Const(Constant.Create(left.DataType, right)));
     }
 
-    public OperationNode IAdd(ExpressionNode left, ulong right)
+    public OperationNode IAdd(Node left, ulong right)
     {
         return Bin(left.DataType, Operator.IAdd, null, left, this.Const(Constant.Create(left.DataType, right)));
     }
 
     public MemoryNode Mem(Node cfNode)
     {
-        return new MemoryNode(NextId(), cfNode);
+        return new MemoryNode(NextId(), new UnknownType(), cfNode);
     }
 
     public PhiNode Phi(DataType dt, Node? cfNode)
@@ -129,14 +129,14 @@ public class NodeFactory
         return new LoadNode(NextId(), cfNode, memNode, dt, ea);
     }
 
-    public ExpressionNode OutArg(DataType dt)
+    public Node OutArg(DataType dt)
     {
         return new OutArgumentNode(NextId(), dt);
     }
 
-    public ProcedureConstantNode ProcedureConstant(ProcedureBase procedure)
+    public ProcedureConstantNode ProcedureConstant(DataType dt, ProcedureBase procedure)
     {
-        return new ProcedureConstantNode(NextId(), procedure);
+        return new ProcedureConstantNode(NextId(), dt, procedure);
     }
 
     public CondNode Cond(DataType dt, Node? cfNode, Node input)
