@@ -203,8 +203,7 @@ public abstract class Node
     public override string ToString()
     {
         StringWriter sw = new();
-        this.RenderReference(sw);
-        sw.Write($":{Label}");
+        this.Render(sw);
         return sw.ToString();
     }
 }

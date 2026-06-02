@@ -308,7 +308,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
     private bool TryFuseLongShiftRight(OperationNode orNode)
     {
-        if (orNode.Inputs.Count != 3)
+        if (orNode.Inputs.Count != 3 || orNode.Operator.Type != OperatorType.Or)
             return false;
 
         var left = orNode.Inputs[1];
@@ -345,6 +345,10 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
         replacements[orNode] = sliceLow;
         replacements[highShift] = sliceHigh;
+
+        Node.Replace(orNode, sliceLow);
+        Node.Replace(highShift, sliceHigh);
+
         return true;
     }
 
