@@ -1,12 +1,8 @@
-using Reko.Arch.Rl78;
+using Reko.Arch.Renesas.Rl78;
 using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Machine;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace RekoSifter
 {

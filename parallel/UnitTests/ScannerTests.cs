@@ -67,7 +67,7 @@ namespace ParallelScan.UnitTests
             if (sExp != sActual)
             {
                 Console.WriteLine(sActual);
-                Assert.AreEqual(sExp, sActual);
+                Assert.That(sActual, Is.EqualTo(sExp));
             }
         }
 
@@ -80,7 +80,7 @@ namespace ParallelScan.UnitTests
             m.Ret();
 
             Cfg cfg = await ScanProgramAsync(addr, m);
-            Assert.AreEqual(1, cfg.F.Count);
+            Assert.That(cfg.F.Count, Is.EqualTo(1));
         }
 
         [Test]
@@ -95,8 +95,8 @@ namespace ParallelScan.UnitTests
             m.Ret();
 
             Cfg cfg = await ScanProgramAsync(addr, m);
-            Assert.AreEqual(1, cfg.F.Count);
-            Assert.AreEqual(2, cfg.B.Count);
+            Assert.That(cfg.F.Count, Is.EqualTo(1));
+            Assert.That(cfg.B.Count, Is.EqualTo(2));
         }
 
         [Test]

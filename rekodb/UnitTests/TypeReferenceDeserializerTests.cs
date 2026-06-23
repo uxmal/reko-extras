@@ -21,7 +21,7 @@ namespace Reko.Database.UnitTests
 
             var sw = new StringWriter();
             SerializeToWriter(dtNew, sw);
-            Assert.AreEqual(sExpected, sw.ToString().Replace("\"", "\'"));
+            Assert.That(sw.ToString().Replace("\"", "\'"), Is.EqualTo(sExpected));
         }
 
         private static void SerializeToWriter(DataType dt, TextWriter tw)

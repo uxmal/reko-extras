@@ -22,7 +22,7 @@ namespace Reko.Database.UnitTests.Mocks
 
         public string Name => throw new NotImplementedException();
 
-        public string? Description { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public string? Description { get; set; }
 
         public PrimitiveType FramePointerType => PrimitiveType.Ptr32;
 
@@ -164,7 +164,7 @@ namespace Reko.Database.UnitTests.Mocks
             throw new NotImplementedException();
         }
 
-        public FlagGroupStorage? GetFlagGroup(RegisterStorage flagRegister, uint grf)
+        public FlagGroupStorage? GetFlagGroup(RegisterStorage flagRegister, ulong grf)
         {
             throw new NotImplementedException();
         }
@@ -209,7 +209,7 @@ namespace Reko.Database.UnitTests.Mocks
             throw new NotImplementedException();
         }
 
-        public string GrfToString(RegisterStorage flagRegister, string prefix, uint grf)
+        public string GrfToString(RegisterStorage flagRegister, string prefix, ulong grf)
         {
             throw new NotImplementedException();
         }

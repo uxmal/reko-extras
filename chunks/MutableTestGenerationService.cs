@@ -1,12 +1,9 @@
 ﻿using Reko.Core;
+using Reko.Core.Analysis;
 using Reko.Core.Machine;
 using Reko.Core.Memory;
 using Reko.Core.Services;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace chunks
 {
@@ -76,5 +73,11 @@ namespace chunks
         {
             throw new NotImplementedException();
         }
+
+        public void GenerateUnitTestFromSsaState(string fileName, string testCaption, SsaState proc)
+        {
+            throw new NotImplementedException();
+        }
+
     }
 }

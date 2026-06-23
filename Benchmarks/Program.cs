@@ -153,7 +153,6 @@ namespace Reko.Benchmarks
             var sr = new Scanning.ScanResults();
             sr.ICFG = new DiGraph<Reko.Scanning.RtlBlock>();
             sr.KnownProcedures = new HashSet<Address>();
-            sr.KnownAddresses = new Dictionary<Address, ImageSymbol>();
 
             scanner.ScanImage(sr);
         }

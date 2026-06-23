@@ -34,7 +34,7 @@ namespace Reko.Database.UnitTests
             if (sExpected != sActual)
             {
                 Console.WriteLine(sActual);
-                Assert.AreEqual(sExpected, sActual);
+                Assert.That(sActual, Is.EqualTo(sExpected));
             }
         }
 

@@ -30,7 +30,7 @@ namespace Reko.Database.UnitTests
             foreach (var token in tokens)
             {
                 var t = rdr.Read();
-                Assert.AreEqual(token, t);
+                Assert.That(t, Is.EqualTo(token));
             }
         }
 
@@ -39,8 +39,8 @@ namespace Reko.Database.UnitTests
         {
             Lex("0");
             AssertTokens(JsonToken.Number);
-            Assert.IsTrue(rdr.TryGetDouble(out var num));
-            Assert.AreEqual(0.0, num);
+            Assert.That(rdr.TryGetDouble(out var num), Is.True);
+            Assert.That(num, Is.EqualTo(0.0));
         }
 
         [Test]
@@ -48,8 +48,8 @@ namespace Reko.Database.UnitTests
         {
             Lex(" -21.5e-04");
             AssertTokens(JsonToken.Number);
-            Assert.IsTrue(rdr.TryGetDouble(out var num));
-            Assert.AreEqual(-21.5e-4, num);
+            Assert.That(rdr.TryGetDouble(out var num), Is.True);
+            Assert.That(num, Is.EqualTo(-21.5e-4));
         }
 
         [Test]
@@ -70,9 +70,9 @@ namespace Reko.Database.UnitTests
         public void Jr_BadTrailingListComma()
         {
             Lex("[ 'a',]");
-            Assert.AreEqual(JsonToken.BeginList, rdr.Read());
-            Assert.AreEqual(JsonToken.String, rdr.Read());
-            Assert.AreEqual("a", rdr.GetString());
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.BeginList));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.String));
+            Assert.That(rdr.GetString(), Is.EqualTo("a"));
             Assert.Throws<BadImageFormatException>(() => { rdr.Read(); });
         }
 
@@ -80,21 +80,21 @@ namespace Reko.Database.UnitTests
         public void Jr_List_two_items()
         {
             Lex("[ 'a', 'b']");
-            Assert.AreEqual(JsonToken.BeginList, rdr.Read());
-            Assert.AreEqual(JsonToken.String, rdr.Read());
-            Assert.AreEqual("a", rdr.GetString());
-            Assert.AreEqual(JsonToken.String, rdr.Read());
-            Assert.AreEqual("b", rdr.GetString());
-            Assert.AreEqual(JsonToken.EndList, rdr.Read());
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.BeginList));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.String));
+            Assert.That(rdr.GetString(), Is.EqualTo("a"));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.String));
+            Assert.That(rdr.GetString(), Is.EqualTo("b"));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.EndList));
         }
 
         [Test]
         public void Jr_List_bad_two_commas()
         {
             Lex("[ 'a',,'b']");
-            Assert.AreEqual(JsonToken.BeginList, rdr.Read());
-            Assert.AreEqual(JsonToken.String, rdr.Read());
-            Assert.AreEqual("a", rdr.GetString());
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.BeginList));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.String));
+            Assert.That(rdr.GetString(), Is.EqualTo("a"));
             Assert.Throws<BadImageFormatException>(() => rdr.Read());
         }
 
@@ -102,17 +102,17 @@ namespace Reko.Database.UnitTests
         public void Jr_Empty_object()
         {
             Lex("{  }");
-            Assert.AreEqual(JsonToken.BeginObject, rdr.Read());
-            Assert.AreEqual(JsonToken.EndObject, rdr.Read());
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.BeginObject));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.EndObject));
         }
 
         [Test]
         public void Jr_object_missing_colon()
         {
             Lex("{ 'a' 3 }");
-            Assert.AreEqual(JsonToken.BeginObject, rdr.Read());
-            Assert.AreEqual(JsonToken.PropertyName, rdr.Read());
-            Assert.AreEqual("a", rdr.GetString());
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.BeginObject));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.PropertyName));
+            Assert.That(rdr.GetString(), Is.EqualTo("a"));
             Assert.Throws<BadImageFormatException>(() => rdr.Read());
         }
 
@@ -120,25 +120,25 @@ namespace Reko.Database.UnitTests
         public void Jr_object_single_value()
         {
             Lex("{ 'a': -3.0 }");
-            Assert.AreEqual(JsonToken.BeginObject, rdr.Read());
-            Assert.AreEqual(JsonToken.PropertyName, rdr.Read());
-            Assert.AreEqual("a", rdr.GetString());
-            Assert.AreEqual(JsonToken.Number, rdr.Read());
-            Assert.IsTrue(rdr.TryGetDouble(out var d));
-            Assert.AreEqual(-3.0, d);
-            Assert.AreEqual(JsonToken.EndObject, rdr.Read());
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.BeginObject));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.PropertyName));
+            Assert.That(rdr.GetString(), Is.EqualTo("a"));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.Number));
+            Assert.That(rdr.TryGetDouble(out var d), Is.True);
+            Assert.That(d, Is.EqualTo(-3.0));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.EndObject));
         }
 
         [Test]
         public void Jr_object_bad_trailing_comma()
         {
             Lex("{ 'a': -3.0,  }");
-            Assert.AreEqual(JsonToken.BeginObject, rdr.Read());
-            Assert.AreEqual(JsonToken.PropertyName, rdr.Read());
-            Assert.AreEqual("a", rdr.GetString());
-            Assert.AreEqual(JsonToken.Number, rdr.Read());
-            Assert.IsTrue(rdr.TryGetDouble(out var d));
-            Assert.AreEqual(-3.0, d);
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.BeginObject));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.PropertyName));
+            Assert.That(rdr.GetString(), Is.EqualTo("a"));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.Number));
+            Assert.That(rdr.TryGetDouble(out var d), Is.True);
+            Assert.That(d, Is.EqualTo(-3.0));
             Assert.Throws<BadImageFormatException>(() => rdr.Read());
         }
 
@@ -146,19 +146,19 @@ namespace Reko.Database.UnitTests
         public void Jr_object_two_properties()
         {
             Lex("{ 'a': -3.0, 'p':['b','c'] }");
-            Assert.AreEqual(JsonToken.BeginObject, rdr.Read());
-            Assert.AreEqual(JsonToken.PropertyName, rdr.Read());
-            Assert.AreEqual("a", rdr.GetString());
-            Assert.AreEqual(JsonToken.Number, rdr.Read());
-            Assert.IsTrue(rdr.TryGetDouble(out var d));
-            Assert.AreEqual(-3.0, d);
-            Assert.AreEqual(JsonToken.PropertyName, rdr.Read());
-            Assert.AreEqual(JsonToken.BeginList, rdr.Read());
-            Assert.AreEqual(JsonToken.String, rdr.Read());
-            Assert.AreEqual(JsonToken.String, rdr.Read());
-            Assert.AreEqual(JsonToken.EndList, rdr.Read());
-            Assert.AreEqual(JsonToken.EndObject, rdr.Read());
-            Assert.AreEqual(JsonToken.Eof, rdr.Read());
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.BeginObject));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.PropertyName));
+            Assert.That(rdr.GetString(), Is.EqualTo("a"));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.Number));
+            Assert.That(rdr.TryGetDouble(out var d), Is.True);
+            Assert.That(d, Is.EqualTo(-3.0));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.PropertyName));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.BeginList));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.String));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.String));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.EndList));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.EndObject));
+            Assert.That(rdr.Read(), Is.EqualTo(JsonToken.Eof));
         }
     }
 }

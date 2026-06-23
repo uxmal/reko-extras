@@ -27,7 +27,7 @@ namespace RekoSifter.UnitTests
             var dasm = arch.CreateDisassemblerImpl(mem.CreateLeReader(0));
             var renderer = new X86Renderer();
             var sObjdump = renderer.RenderAsObjdump(dasm.First());
-            Assert.AreEqual(sExp, sObjdump);
+            Assert.That(sObjdump, Is.EqualTo(sExp));
         }
 
         [Test]

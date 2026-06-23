@@ -71,8 +71,8 @@ namespace Reko.Database.UnitTests.Mocks
             this.InstructionSize = 1;
             this.Architecture = arch;
             this.Procedure = new Procedure(arch, name, addr, arch.CreateFrame());
-            this.blocks = blocks ?? new Dictionary<string, Block>();
-            this.unresolvedProcedures = new List<ProcUpdater>();
+            this.blocks = blocks ?? [];
+            this.unresolvedProcedures = [];
             BuildBody();
         }
 
@@ -97,7 +97,7 @@ namespace Reko.Database.UnitTests.Mocks
 
         public Statement BranchIf(Expression expr, string label)
         {
-            Block b = EnsureBlock(null);
+            EnsureBlock(null);
             branchBlock = BlockOf(label);
 
             var stm = Emit(new Branch(expr, branchBlock));
@@ -186,10 +186,10 @@ namespace Reko.Database.UnitTests.Mocks
             return Emit(ci);
         }
 
-
         public void Compare(string flags, Expression a, Expression b)
         {
-            Assign(Flags(flags), new ConditionOf(ISub(a, b)));
+            var freg = Flags(flags);
+            Assign(freg, new ConditionOf(freg.DataType, ISub(a, b)));
         }
 
         public Block? CurrentBlock
@@ -240,7 +240,7 @@ namespace Reko.Database.UnitTests.Mocks
 
         private Block EnsureBlock(string? name)
         {
-            if (Block != null)
+            if (Block is not null)
                 return Block;
 
             if (name is null)

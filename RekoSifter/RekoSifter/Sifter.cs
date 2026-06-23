@@ -606,7 +606,7 @@ Options:
         var loadAddr = Address.Ptr32(0);
 
         var ldr = new ElfImageLoader(sc, null!, objectData);
-        var image = ldr.LoadProgram(loadAddr);
+        var image = ldr.LoadProgram(loadAddr, null);
         var codeSeg = image.SegmentMap
             .Segments.First(x => x.Value.IsExecutable)
             .Value;

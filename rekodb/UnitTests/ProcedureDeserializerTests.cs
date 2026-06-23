@@ -24,7 +24,7 @@ namespace Reko.Database.UnitTests
 
             var sw = new StringWriter();
             proc.Write(false, sw);
-            Assert.AreEqual(sExpected, sw.ToString());
+            Assert.That(sw.ToString(), Is.EqualTo(sExpected));
         }
 
         [Test]

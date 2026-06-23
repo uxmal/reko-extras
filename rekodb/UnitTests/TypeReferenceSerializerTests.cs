@@ -19,7 +19,7 @@ namespace Reko.Database.UnitTests
             var json = new JsonWriter(sw);
             var tyrefser = new TypeReferenceSerializer(json);
             tyrefser.Serialize(dt);
-            Assert.AreEqual(sExpected, sw.ToString().Replace('\"','\''));
+            Assert.That(sw.ToString().Replace('\"','\''), Is.EqualTo(sExpected));
         }
 
         [Test]
