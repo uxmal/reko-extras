@@ -5,7 +5,8 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public sealed class PhiNode : Node
 {
-    public PhiNode(int number, DataType dt, params Node?[] inputs) : base(number, dt, inputs)
+    public PhiNode(int number, DataType dt, params Node?[] inputs)
+        : base(number, dt, inputs)
     {
     }
 

@@ -4,7 +4,8 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public class StringNode : Node
 {
-    public StringNode(int number, StringConstant c) : base(number, c.DataType)
+    public StringNode(int number, StringConstant c)
+        : base(number, c.DataType)
     {
         this.Value = c;
     }

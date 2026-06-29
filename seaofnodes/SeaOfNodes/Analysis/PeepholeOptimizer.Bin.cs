@@ -16,6 +16,8 @@ public partial class PeepholeOptimizer
             var c = op.ApplyConstants(dt, cLeft.Value, cRight.Value);
             return m.Const(c);
         }
+
+        // Prefer constants as the right operand for commutative operations.
         if (IsSymmetric(op) && cLeft is not null)
         {
             left = right;
@@ -33,13 +35,16 @@ public partial class PeepholeOptimizer
                     {
                         if (inner.Inputs[2] is ConstantNode cInnerRight)
                         {
+                            // (+ (+/- x C1) C@) => (+/- x (C1 + C2))
                             cRight = m.Const(inner.Operator.ApplyConstants(dt, cRight.Value, cInnerRight.Value));
                             left = inner.Inputs[1]!;
                         }
                     }
                 }
+                // (+ x 0) => x
                 if (cRight.Value.IsZero)
-                    return (Node)left;
+                    return left;
+                // (+ x -C) => (- x C)
                 if (cRight.Value.IsNegative)
                 {
                     cRight = m.Const(cRight.Value.Negate());
@@ -49,6 +54,7 @@ public partial class PeepholeOptimizer
             }
             break;
         case OperatorType.ISub:
+            // (- x x) => 0
             if (left == right)
                 return m.Const(Constant.Zero(dt));
             if (cRight is not null)
@@ -69,7 +75,7 @@ public partial class PeepholeOptimizer
                     }
                 }
                 if (cRight.Value.IsZero)
-                    return (Node)left;
+                    return left;
                 if (cRight.Value.IsNegative)
                 {
                     cRight = m.Const(cRight.Value.Negate());
@@ -79,14 +85,17 @@ public partial class PeepholeOptimizer
             }
             break;
         case OperatorType.And:
+            // x & x => x
             if (left == right)
-                return (Node)left;
+                return left;
             if (cRight is not null)
             {
+                // X & 0 => 0
                 if (cRight.Value.IsZero)
                     return m.Const(Constant.Zero(dt));
+                // X & MAX => X
                 if (cRight.Value.IsMaxUnsigned)
-                    return (Node)left;
+                    return left;
             }
             break;
         case OperatorType.Or:

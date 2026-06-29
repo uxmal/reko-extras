@@ -70,10 +70,14 @@ public class LongAddRewriter : INodeVisitor<Node?>
         wl.AddRange(opNodes);
         while (wl.TryGetWorkItem(out var node))
         {
+            if (replacements.ContainsKey(node))
+                continue;
             if (node is OperationNode opNode)
             {
-                if (IsAddOrSub(opNode))
+                switch (opNode.Operator.Type)
                 {
+                case OperatorType.IAdd:
+                case OperatorType.ISub:
                     var newNode = TryFuseAddSub(opNode);
                     if (newNode is not null)
                     {
@@ -82,11 +86,24 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
                         // If we fused a long operation, we may have created new opportunities for fusion.
                         wl.Add(newNode);
+                        break;
                     }
-                }
-                else if (TryFuseLongShiftRight(opNode))
-                {
-                    wl.AddRange(node.Outputs.OfType<OperationNode>());
+                    if (opNode.Operator.Type == OperatorType.ISub)
+                    {
+                        newNode = TryFuseNegation(opNode);
+                        if (newNode is not null)
+                        {
+                            wl.AddRange(newNode.Outputs.OfType<OperationNode>());
+                        }
+
+                    }
+                    break;
+                case OperatorType.Or:
+                    if (TryFuseLongShiftRight(opNode))
+                    {
+                        wl.AddRange(node.Outputs.OfType<OperationNode>());
+                    }
+                    break;
                 }
             }
         }
@@ -165,6 +182,9 @@ public class LongAddRewriter : INodeVisitor<Node?>
             ReplaceCondOfs(addcSubc, wideSum);
             Node.Replace(addcSubc, sumHi);
             Node.Replace(loAddSub!, sumLo);
+            replacements[addcSubc] = sumHi;
+            replacements[loAddSub!] = sumLo;
+
             Node.RemoveFromInputs(addcSubc);
             Node.RemoveFromInputs(loAddSub!);
             return wideSum;
@@ -220,40 +240,6 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return true;
     }
 
-    private void CoalesceDuplicateFloatingNegations(IEnumerable<OperationNode> opNodes)
-    {
-        var groups = new Dictionary<(Node operand, int bitSize, Domain domain), List<OperationNode>>();
-        foreach (var node in opNodes)
-        {
-            if (node.Operator.Type != OperatorType.Neg)
-                continue;
-            if (!node.IsFloating || node.Inputs.Count != 2 || node.Inputs[0] is not null)
-                continue;
-            var operand = node.Inputs[1];
-            if (operand is null)
-                continue;
-
-            var key = (operand, node.DataType.BitSize, node.DataType.Domain);
-            if (!groups.TryGetValue(key, out var bucket))
-            {
-                bucket = [];
-                groups[key] = bucket;
-            }
-            bucket.Add(node);
-        }
-
-        foreach (var bucket in groups.Values)
-        {
-            if (bucket.Count < 2)
-                continue;
-            var canonical = bucket.OrderBy(n => n.Number).Last();
-            foreach (var duplicate in bucket)
-            {
-                if (!ReferenceEquals(duplicate, canonical))
-                    replacements[duplicate] = canonical;
-            }
-        }
-    }
 
     private static bool IsAddOrSub(OperationNode node)
         => node.Operator.Type == OperatorType.IAdd || node.Operator.Type == OperatorType.ISub;
@@ -304,6 +290,73 @@ public class LongAddRewriter : INodeVisitor<Node?>
         replacements[highOp] = sliceHigh;
         replacements[carryGen] = m.Cond(carryGen.DataType, null, sliceLow);
         return true;
+    }
+
+    private Node? TryFuseNegation(OperationNode subNode)
+    {
+        //     d0_8 = -d0
+        //    n13 = -d1
+        // CZ_9 = cond(d0_8)
+        // C_11 = CZ_9 & 4 < 32 >
+        // d1_14 = n13 - C_11
+        // CZ_15 = cond(d1_14)
+        var subLeft = subNode.Inputs[1]!;
+        var subRight = subNode.Inputs[2]!;
+        if (subLeft is OperationNode opLeft && opLeft.Operator == Operator.Neg)
+        {
+            if (subRight is OperationNode andNode &&
+                andNode.Operator == Operator.And &&
+                andNode.Inputs[2] is ConstantNode)
+            {
+                subRight = andNode.Inputs[1]!;
+            }
+            if (subRight is CondNode cond)
+            {
+                if (cond.Inputs[1] is OperationNode negLo && negLo.Operator == Operator.Neg)
+                {
+                    var lo = negLo.Inputs[1]!;
+                    var hi = opLeft.Inputs[1]!;
+                    var dtLo = lo.DataType;
+                    var dtHi = hi.DataType;
+                    var dt = CombineTypes(dtLo, dtHi);
+                    var seq = m.Seq(dt, hi, lo);
+                    var wideNeg = m.Neg(dt, seq);
+                    var sliceLo = m.Slice(dtLo, wideNeg, 0);
+                    var sliceHi = m.Slice(dtHi, wideNeg, dtLo.BitSize);
+                    ReplaceCondOfs(subNode, wideNeg);
+                    Node.Replace(subNode, sliceHi);
+                    Node.Replace(negLo, sliceLo);
+                    Node.RemoveFromInputs(subNode);
+                    return wideNeg;
+                }
+            }
+            if (subLeft is OperationNode negHi && 
+                negHi.Operator == Operator.Neg &&
+                subRight is ConversionNode conv &&
+                conv.Inputs[1] is OperationNode ucmp &&
+                ucmp.Operator == Operator.Ult &&
+                ucmp.Inputs[2] is ConstantNode zero &&
+                zero.Value.IsZero &&
+                ucmp.Inputs[1] is OperationNode negLo2 &&
+                negLo2.Operator == Operator.Neg)
+            {
+                var lo = negLo2.Inputs[1]!;
+                var hi = negHi.Inputs[1]!;
+                var dtLo = lo.DataType;
+                var dtHi = hi.DataType;
+                var dt = CombineTypes(dtLo, dtHi);
+                var seq = m.Seq(dt, hi, lo);
+                var wideNeg = m.Neg(dt, seq);
+                var sliceLo = m.Slice(dtLo, wideNeg, 0);
+                var sliceHi = m.Slice(dtHi, wideNeg, dtLo.BitSize);
+                ReplaceCondOfs(subNode, wideNeg);
+                Node.Replace(subNode, sliceHi);
+                Node.Replace(negLo2, sliceLo);
+                Node.RemoveFromInputs(subNode);
+                return wideNeg;
+            }
+        }
+        return null;
     }
 
     private bool TryFuseLongShiftRight(OperationNode orNode)

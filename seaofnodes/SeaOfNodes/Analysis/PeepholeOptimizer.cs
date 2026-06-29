@@ -30,20 +30,31 @@ public partial class PeepholeOptimizer
         return Bin(left.DataType, Operator.ISub, null, left, right);
     }
 
-    internal CondNode Cond(DataType dataType, Node? value, Node exp)
+    public CondNode Cond(DataType dataType, Node? value, Node exp)
     {
         return m.Cond(dataType, value, exp);
     }
 
-    internal ConstantNode Const(Constant constant)
+    public ConstantNode Const(Constant constant)
     {
         return m.Const(constant);
     }
 
-    internal Node Load(Node cfNode, Node memNode, DataType dt, Node ea)
+    public Node Load(Node cfNode, Node memNode, DataType dt, Node ea)
     {
         return m.Load(cfNode, memNode, dt, ea);
     }
+
+    public Node Neg(DataType dt, Node node)
+    {
+        if (node is OperationNode op)
+        {
+            if (op.Operator.Type == OperatorType.Neg)
+                return node.Inputs[1]!;
+        }
+        return m.Neg(dt, node);
+    }
+
 
     private bool IsSymmetric(Operator op)
     {

@@ -115,12 +115,10 @@ public class NodeGraphRenderer
             }
         }
 
-        // Step 2: Order CF-anchored nodes.
-        var orderedAnchored = cfAnchoredSet
-            .OrderBy(node => node is PhiNode ? 0 : 1)
-            .ThenBy(node => IsBlockTerminator(node) ? 1 : 0)
-            .ThenBy(node => node.Number)
-            .ToList();
+        // Step 2: Topologically sort CF-anchored nodes so that if node A is a
+        // transitive dependency of node B through floating inputs, A appears before B.
+        // PhiNodes always first; block terminators always last.
+        var orderedAnchored = TopologicalSortAnchored(cfAnchoredSet, reachable);
 
         // Step 3: Build the final list by interleaving floating nodes just before
         // their first CF-anchored consumer ("as late as possible").
@@ -151,9 +149,9 @@ public class NodeGraphRenderer
                 if (valueInputIndex >= phi.Inputs.Count) continue;
                 var phiValue = phi.Inputs[valueInputIndex];
                 if (phiValue is null || !IsFloating(phiValue)) continue;
-                ScheduleFloatingInputs(phiValue, scheduled, result, reachable);
-                if (scheduled.Add(phiValue))
-                    result.Add(phiValue);
+                    ScheduleFloatingInputs(phiValue, scheduled, result, reachable);
+                    if (scheduled.Add(phiValue))
+                        result.Add(phiValue);
             }
 
             if (!ReferenceEquals(succBlockNode, exitBlock) || succBlockNode.Block.Pred.Count != 1)
@@ -219,6 +217,113 @@ public class NodeGraphRenderer
     }
 
     /// <summary>
+    /// Topologically sorts the CF-anchored nodes so that if node A is reachable from
+    /// node B through floating-node paths (i.e., B's computation depends on A), A appears
+    /// before B. Within that constraint, PhiNodes first, terminators last, then by number.
+    /// </summary>
+    private static List<Node> TopologicalSortAnchored(HashSet<Node> cfAnchoredSet, HashSet<Node> reachable)
+    {
+        // Build: for each anchored node, compute the set of anchored nodes it transitively
+        // depends on through floating-node paths (i.e., anchored nodes that must precede it).
+        var deps = new Dictionary<Node, HashSet<Node>>();
+        foreach (var node in cfAnchoredSet)
+            deps[node] = [];
+
+        foreach (var node in cfAnchoredSet)
+        {
+            // Walk floating inputs transitively to find which anchored nodes feed into 'node'.
+            CollectAnchoredDeps(node, cfAnchoredSet, reachable, deps[node], []);
+        }
+
+        // Kahn's algorithm with stable tiebreaking by (PhiFirst, TerminatorLast, Number).
+        // inDegree[b] = number of anchored nodes that must come before b.
+        var inDegree = cfAnchoredSet.ToDictionary(n => n, _ => 0);
+        foreach (var (node, nodeDeps) in deps)
+        {
+            foreach (var dep in nodeDeps)
+                inDegree[node]++;
+        }
+
+        var ready = new SortedSet<Node>(
+            Comparer<Node>.Create((a, b) =>
+            {
+                int pa = a is PhiNode ? 0 : 1;
+                int pb = b is PhiNode ? 0 : 1;
+                if (pa != pb) return pa.CompareTo(pb);
+                int ta = IsBlockTerminator(a) ? 1 : 0;
+                int tb = IsBlockTerminator(b) ? 1 : 0;
+                if (ta != tb) return ta.CompareTo(tb);
+                return a.Number.CompareTo(b.Number);
+            }));
+
+        foreach (var node in cfAnchoredSet.Where(n => inDegree[n] == 0))
+            ready.Add(node);
+
+        var result = new List<Node>(cfAnchoredSet.Count);
+        while (ready.Count > 0)
+        {
+            var node = ready.Min!;
+            ready.Remove(node);
+            result.Add(node);
+
+            // For every anchored node that depended on 'node', decrement its in-degree.
+            foreach (var other in cfAnchoredSet)
+            {
+                if (deps[other].Contains(node))
+                {
+                    inDegree[other]--;
+                    if (inDegree[other] == 0)
+                        ready.Add(other);
+                }
+            }
+        }
+
+        // Fallback: if there are cycles (shouldn't happen in valid SSA), append remaining nodes.
+        foreach (var node in cfAnchoredSet)
+        {
+            if (!result.Contains(node))
+                result.Add(node);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Walks floating inputs of <paramref name="node"/> transitively and collects any
+    /// CF-anchored nodes (other than <paramref name="node"/> itself) that are inputs.
+    /// These represent anchored nodes that must be rendered before <paramref name="node"/>.
+    /// Memory-chain inputs (Inputs[1] of Load/Store/MemoryNodes) are excluded because
+    /// they reflect conservative memory ordering, not computation order.
+    /// </summary>
+    private static void CollectAnchoredDeps(
+        Node node,
+        HashSet<Node> cfAnchoredSet,
+        HashSet<Node> reachable,
+        HashSet<Node> foundDeps,
+        HashSet<Node> visited)
+    {
+        for (int i = 0; i < node.Inputs.Count; i++)
+        {
+            var input = node.Inputs[i];
+            if (input is null || !reachable.Contains(input)) continue;
+            if (input is StartNode or EndNode or BlockNode) continue;
+            // Skip memory-chain inputs (index 1 on Load/Store/Memory nodes) to avoid
+            // creating false cycles between loads and the stores that precede them.
+            if (i == 1 && (node is LoadNode or StoreNode or MemoryNode)) continue;
+            if (!IsFloating(input))
+            {
+                // CF-anchored input: if it's in the same block, record it as a dependency.
+                if (cfAnchoredSet.Contains(input))
+                    foundDeps.Add(input);
+                continue;
+            }
+            // Floating: recurse to find anchored nodes deeper in the floating subgraph.
+            if (visited.Add(input))
+                CollectAnchoredDeps(input, cfAnchoredSet, reachable, foundDeps, visited);
+        }
+    }
+
+    /// <summary>
     /// Recursively inserts floating (null-cfNode) inputs of <paramref name="node"/>
     /// into <paramref name="result"/> before <paramref name="node"/> itself, as long
     /// as they have not yet been scheduled.
@@ -227,7 +332,8 @@ public class NodeGraphRenderer
         Node node,
         HashSet<Node> scheduled,
         List<Node> result,
-        HashSet<Node> reachable)
+        HashSet<Node> reachable,
+        HashSet<Node>? localAnchored = null)
     {
         foreach (var input in node.Inputs)
         {
@@ -238,7 +344,7 @@ public class NodeGraphRenderer
             if (!IsFloating(input)) continue; // CF-anchored globally — belongs to another block
 
             // Floating input: recurse to schedule its own inputs first.
-            ScheduleFloatingInputs(input, scheduled, result, reachable);
+            ScheduleFloatingInputs(input, scheduled, result, reachable, localAnchored);
             if (scheduled.Add(input))
                 result.Add(input);
         }
@@ -357,5 +463,12 @@ public class NodeGraphRenderer
             return false;
 
         return nextBlock is null || block.Block.Succ[0] != nextBlock.Block;
+    }
+
+    public static string RenderToString(StartNode graph)
+    {
+        var writer2 = new StringWriter();
+        new NodeGraphRenderer().Render(graph, writer2, false);
+        return writer2.ToString();
     }
 }

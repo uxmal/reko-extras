@@ -2,7 +2,8 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public class ReturnNode : CfNode
 {
-    public ReturnNode(int number, params Node?[] inputs) : base(number, inputs)
+    public ReturnNode(int number, params Node?[] inputs)
+        : base(number, inputs)
     {
     }
 

@@ -2,6 +2,7 @@ using Reko.Analysis;
 using Reko.Core;
 using Reko.Core.Code;
 using Reko.Core.Collections;
+using Reko.Core.Diagnostics;
 using Reko.Core.Expressions;
 using Reko.Core.Graphs;
 using Reko.Core.Lib;
@@ -15,6 +16,8 @@ public partial class NodeGraphBuilder
     : InstructionVisitor<Node>
     , ExpressionVisitor<Node>
 {
+    private static readonly TraceSwitch trace = new(nameof(NodeGraphBuilder), "");
+
     private readonly NodeFactory factory;
     private readonly NodeApplicationBuilder applicationBuilder;
     private readonly ProgramDataFlow programFlow;
@@ -23,6 +26,7 @@ public partial class NodeGraphBuilder
     private readonly HashSet<Procedure> sccProcs;
     private readonly Dictionary<Node, Node> replacements;
     private readonly List<PhiNode> incompletePhis;
+    private readonly Dictionary<Node, List<(BitRange, SliceNode)>> availableSlices;
     private Node? cfNode;
     private Block? currentBlock;
     private Block? entryBlock;
@@ -38,6 +42,7 @@ public partial class NodeGraphBuilder
         this.sccProcs = [];
         this.replacements = [];
         this.incompletePhis = [];
+        this.availableSlices = [];
     }
 
     /// <summary>
@@ -190,14 +195,26 @@ public partial class NodeGraphBuilder
             }
         }
 
-        //$TODO al, ah then ax; ax should cover al and ah.
-        var reachingRegisters = exitBlock.Pred
+        var reachingRegisterLeaves = exitBlock.Pred
             .SelectMany(pred => blocks[pred].RegisterDefs.Values)
             .SelectMany(defs => defs.Select(entry => entry.Item1))
             .Distinct()
+            .ToArray();
+
+        var allSeenRegisters = blocks.Values
+            .SelectMany(state => state.RegisterDefs.Values)
+            .SelectMany(defs => defs.Select(entry => entry.Item1))
+            .Distinct()
+            .ToArray();
+
+        var reachingRegisters = PruneCoveredRegisters(
+            reachingRegisterLeaves
+                .Concat(reachingRegisterLeaves.SelectMany(leaf =>
+                    allSeenRegisters.Where(reg => reg.Covers(leaf))))
+                .Distinct()
             .OrderBy(reg => reg.Name)
             .ThenBy(reg => reg.Number)
-            .ToArray();
+            .ToArray());
 
         foreach (var reg in reachingRegisters)
         {
@@ -243,6 +260,36 @@ public partial class NodeGraphBuilder
         return true;
     }
 
+    private static RegisterStorage[] PruneCoveredRegisters(IEnumerable<RegisterStorage> registers)
+    {
+        var ordered = registers
+            .OrderBy(reg => reg.Name)
+            .ThenBy(reg => reg.Number)
+            .ToArray();
+
+        var remaining = new List<RegisterStorage>(ordered.Length);
+        for (int i = 0; i < ordered.Length; ++i)
+        {
+            var reg = ordered[i];
+            var covered = false;
+            for (int j = 0; j < ordered.Length; ++j)
+            {
+                if (i == j)
+                    continue;
+                if (ordered[j].Covers(reg))
+                {
+                    covered = true;
+                    break;
+                }
+            }
+            if (!covered)
+            {
+                remaining.Add(reg);
+            }
+        }
+        return remaining.ToArray();
+    }
+
     private void LinkBlocks(Procedure proc)
     {
         foreach (var block in proc.ControlGraph.Blocks)
@@ -284,7 +331,7 @@ public partial class NodeGraphBuilder
         var value = ass.Src.Accept(this);
         if (value.Storage is null)
             value.Storage = idDst.Storage;
-        WriteStorage(blocks[currentBlock], idDst.Storage, (Node) value);
+        WriteStorage(blocks[currentBlock], idDst.Storage, value);
         return value;
     }
 
@@ -466,9 +513,8 @@ public partial class NodeGraphBuilder
         Node canonical = node;
         while (replacements.TryGetValue(canonical, out var replacement))
         {
-            if (replacement is null)
-                throw new InvalidOperationException();
-            canonical = (Node) replacement;
+            Debug.Assert(replacement is not null);
+            canonical = replacement;
         }
 
         if (!ReferenceEquals(canonical, node))
@@ -530,7 +576,10 @@ public partial class NodeGraphBuilder
                 // If it's defined in the current block, return the latest definition.
                 lastResult = ReadLocalStorage(storage, state, frame);
                 if (lastResult is not null)
+                {
+                    WriteStorage(state, storage, lastResult);
                     break;
+                }
 
                 if (frame.Block.Pred.Any(b => !blocks[b].IsVisited))
                 {
@@ -650,7 +699,7 @@ public partial class NodeGraphBuilder
 
             if (element is RegisterStorage reg)
             {
-                var slice = factory.Slice(reg.DataType, value, offset);
+                var slice = MakeSlice(reg.DataType, value, offset);
                 slice.Storage = reg;
                 if (state.RegisterDefs.TryGetValue(reg.Domain, out var existingRegDefs))
                 {
@@ -668,12 +717,27 @@ public partial class NodeGraphBuilder
         }
     }
 
-    private void TrackSequenceCoveredDefs(BlockState state, SequenceStorage sequence, Node value)
+    /// <summary>
+    /// Writes storages for each of the elements of the <see cref="SequenceStorage"/>. 
+    /// </summary>
+    /// <remarks>
+    /// The slices are created eagerly, which may cause a lot of garbage if the slices are not used.
+    /// However, this is necessary to ensure that the slices are available for use in the current block.
+    /// A more complex solution would be to create the slices lazily, but that would require a more
+    /// complex data structure to track the slices and their offsets.
+    /// </remarks>
+    /// <param name="state"></param>
+    /// <param name="sequence"></param>
+    /// <param name="value"></param>
+    private void WriteSubelementStorages(BlockState state, SequenceStorage sequence, Node value)
     {
-        var seqBitRange = sequence.GetBitRange();
-        foreach (var reg in EnumerateSequenceRegisters(sequence))
+        var bitMax = (int) sequence.BitSize;
+        foreach (var reg in sequence.Elements)
         {
-            state.RegisterDefs[reg.Domain] = [(reg, value)];
+            var bitMin = bitMax - (int)reg.BitSize;
+            //$FUTURE: consider deferring slice creation until actually needed.
+            WriteStorage(state, reg, MakeSlice(reg.DataType, value, bitMin));
+            bitMax = bitMin;
         }
     }
 
@@ -698,42 +762,10 @@ public partial class NodeGraphBuilder
             }
             break;
         case RegisterStorage regUse:
-            if (state.RegisterDefs.TryGetValue(regUse.Domain, out var defs) && defs.Count > 0)
+            var regValue = TryReadRegisterStorage(frame, state, regUse);
+            if (regValue is not null)
             {
-                Node regValue;
-                for (int i = defs.Count - 1; i >= 0; --i)
-                {
-                    RegisterStorage regDef;
-                    (regDef, regValue) = defs[i];
-                    var bitRange = regDef.GetBitRange();
-                    regValue = ResolveCanonical(regValue);
-                    if (regDef.Covers(regUse))
-                    {
-                        if (regValue.Storage is SequenceStorage seqStorage)
-                        {
-                            var offset = seqStorage.OffsetOf(regUse);
-                            if (offset >= 0 || regUse.DataType.BitSize < seqStorage.DataType.BitSize)
-                            {
-                                var slice = factory.Slice(regUse.DataType, regValue, offset);
-                                slice.Storage = regUse;
-                                WriteStorage(state, regUse, slice);
-                                return slice;
-                            }
-                        }
-                        if (regDef == regUse)
-                            return regValue;
-
-                        // regDef is a plain register wider than regUse (e.g. rax covers ah).
-                        // Emit a SLICE of the wider value at the sub-register's bit offset.
-                        {
-                            var offset = regUse.GetBitRange().Lsb;
-                            var slice = factory.Slice(regUse.DataType, regValue, offset);
-                            slice.Storage = regUse;
-                            WriteStorage(state, regUse, slice);
-                            return slice;
-                        }
-                    }
-                }
+                return regValue;
             }
             break;
         case SequenceStorage seq:
@@ -759,6 +791,287 @@ public partial class NodeGraphBuilder
         }
         return null;
 
+    }
+
+    private Node? TryReadRegisterStorage(ReadStorageFrame frame, BlockState state, RegisterStorage regUse)
+    {
+        trace.Verbose("  TryReadRegisterStorage: ({0}, {1}, ({2})", frame.Block.DisplayName, regUse);
+        if (!state.RegisterDefs.TryGetValue(regUse.Domain, out var reachingDefs))
+            return null;
+
+        // At least some of the bits of 'regUse' are available locally in this 
+        // block. Walk across the bits of 'regUse', collecting all parts
+        // defined into a sequence.
+        int offsetLo = (int)regUse.BitAddress;
+        int offsetHi = (int)(regUse.BitAddress + regUse.BitSize);
+        var subNodes = new List<Node>();
+        while (offsetLo < offsetHi)
+        {
+            var useRange = new BitRange(offsetLo, offsetHi);
+            var (sidElem, usedRange, defRange) = FindIntersectingRegister(reachingDefs, useRange);
+            if (sidElem is null || offsetLo < usedRange.Lsb)
+            {
+                // Found a gap in the register that wasn't defined in
+                // this basic block. Seek backwards into predecessor
+                // blocks.
+                var bitrangeR = sidElem is null
+                    ? useRange
+                    : new BitRange(offsetLo, usedRange.Lsb);
+
+                var predecessorValue = ReadStorageFromPredecessors(frame.Block, regUse, regUse.DataType);
+                if (predecessorValue is null)
+                    return null;
+                predecessorValue = MaybeSlice(predecessorValue, bitrangeR);
+                subNodes.Add(predecessorValue);
+                offsetLo = bitrangeR.Msb;
+            }
+            if (sidElem is not null)
+            {
+                sidElem = MaybeSlice(sidElem, usedRange);
+                subNodes.Add(sidElem);
+                offsetLo = usedRange.Msb;
+            }
+        }
+        if (subNodes.Count == 1)
+        {
+            return subNodes[0];
+        }
+        else
+        {
+            subNodes.Reverse(); // Order sids in big-endian order
+            var seq = factory.Seq(regUse.DataType, subNodes.ToArray());
+            return seq;
+        }
+
+#if NOT_WORKING
+        if (state.RegisterDefs.TryGetValue(regUse.Domain, out var defs) && defs.Count > 0)
+        {
+            Node regValue;
+            for (int i = defs.Count - 1; i >= 0; --i)
+            {
+                RegisterStorage regDef;
+                (regDef, regValue) = defs[i];
+                var bitRange = regDef.GetBitRange();
+                regValue = ResolveCanonical(regValue);
+                if (regDef.Covers(regUse))
+                {
+                    if (regValue.Storage is SequenceStorage seqStorage)
+                    {
+                        var offset = seqStorage.OffsetOf(regUse);
+                        if (offset >= 0 || regUse.DataType.BitSize < seqStorage.DataType.BitSize)
+                        {
+                            var slice = MakeSlice(regUse.DataType, regValue, offset);
+                            slice.Storage = regUse;
+                            WriteStorage(state, regUse, slice);
+                            return slice;
+                        }
+                    }
+                    if (regDef == regUse)
+                        return regValue;
+
+                    // regDef is a plain register wider than regUse (e.g. rax covers ah).
+                    // Emit a SLICE of the wider value at the sub-register's bit offset.
+                    {
+                        var offset = regUse.GetBitRange().Lsb;
+                        var slice = MakeSlice(regUse.DataType, regValue, offset);
+                        slice.Storage = regUse;
+                        WriteStorage(state, regUse, slice);
+                        return slice;
+                    }
+                }
+            }
+
+            var rebuilt = TryRebuildRegisterFromOverlappingDefs(regUse, defs, frame.Block, state);
+            if (rebuilt is not null)
+            {
+                return rebuilt;
+            }
+        }
+#endif
+        return null;
+    }
+
+    private Node MaybeSlice(Node value, BitRange bitRange)
+    {
+        if (bitRange.Extent < value.DataType.BitSize)
+        {
+            value = MakeSlice(
+                PrimitiveType.CreateWord(bitRange.Extent),
+                value,
+                bitRange.Lsb);
+        }
+        return value;
+    }
+
+    private (Node? sidElem, BitRange usedRange, BitRange defRange) FindIntersectingRegister(
+        List<(RegisterStorage, Node)> definitions,
+        BitRange useRange)
+    {
+        var result = ((Node?)null, useRange, default(BitRange));
+        for (int i = definitions.Count - 1; i >= 0; --i)
+        {
+            var (regDef, sid) = definitions[i];
+            var defRange = regDef.GetBitRange();
+            var intersection = defRange.Intersect(useRange);
+            if (!intersection.IsEmpty && (result.Item1 is null || result.useRange.Lsb > intersection.Lsb))
+            {
+                defRange = new BitRange(intersection.Lsb, intersection.Msb);
+                result = (sid, intersection, defRange);
+                useRange = new BitRange(useRange.Lsb, defRange.Lsb);
+            }
+        }
+        return result;
+    }
+
+    private SliceNode MakeSlice(DataType dt, Node slicedValue, int offset)
+    {
+        BitRange range = new(offset, offset + dt.BitSize);
+        if (!this.availableSlices.TryGetValue(slicedValue, out var slices))
+        {
+            slices = [];
+            this.availableSlices.Add(slicedValue, slices);
+        }
+        foreach (var slice in slices)
+        {
+            if (slice.Item1 == range)
+            {
+                return slice.Item2;
+            }
+        }
+        var newSlice = factory.Slice(dt, slicedValue, offset);
+        slices.Add((range, newSlice));
+        return newSlice;
+    }
+
+    private Node? TryRebuildRegisterFromOverlappingDefs(
+        RegisterStorage regUse,
+        List<(RegisterStorage Register, Node Value)> defs,
+        Block block,
+        BlockState state)
+    {
+        var useLsb = regUse.GetBitRange().Lsb;
+        var useWidth = regUse.DataType.BitSize;
+        var useMsbExclusive = useLsb + useWidth;
+
+        var segments = new List<(int Lsb, int Width, Node Value)>();
+
+        for (int i = defs.Count - 1; i >= 0; --i)
+        {
+            var (regDef, valueDef) = defs[i];
+            var defLsb = regDef.GetBitRange().Lsb;
+            var defWidth = regDef.DataType.BitSize;
+            var defMsbExclusive = defLsb + defWidth;
+
+            var overlapLsb = Math.Max(useLsb, defLsb);
+            var overlapMsbExclusive = Math.Min(useMsbExclusive, defMsbExclusive);
+            if (overlapMsbExclusive <= overlapLsb)
+                continue;
+
+            if (segments.Any(seg => CoversInterval(seg.Lsb, seg.Width, overlapLsb, overlapMsbExclusive - overlapLsb)))
+                continue;
+
+            valueDef = ResolveCanonical(valueDef);
+            var pieceWidth = overlapMsbExclusive - overlapLsb;
+            if (pieceWidth != regDef.DataType.BitSize || overlapLsb != defLsb)
+            {
+                var pieceDt = PrimitiveType.Create(regUse.DataType.Domain, pieceWidth);
+                valueDef = MakeSlice(pieceDt, valueDef, overlapLsb - defLsb);
+            }
+
+            segments.Add((overlapLsb, pieceWidth, valueDef));
+        }
+
+        if (segments.Count == 0)
+            return null;
+
+        var predecessorValue = ReadStorageFromPredecessors(block, regUse, regUse.DataType);
+        if (predecessorValue is null)
+            return null;
+
+        var missing = ComputeMissingIntervals(useLsb, useWidth, segments);
+        foreach (var gap in missing)
+        {
+            var gapDt = PrimitiveType.Create(regUse.DataType.Domain, gap.Width);
+            var gapValue = MakeSlice(gapDt, predecessorValue, gap.Lsb - useLsb);
+            segments.Add((gap.Lsb, gap.Width, gapValue));
+        }
+
+        segments.Sort((a, b) => b.Lsb.CompareTo(a.Lsb));
+        var seqInputs = segments.Select(seg => seg.Value).ToArray();
+        var seq = factory.Seq(regUse.DataType, seqInputs);
+        seq.Storage = regUse;
+        WriteStorage(state, regUse, seq);
+        return seq;
+    }
+
+    private static bool CoversInterval(int coverLsb, int coverWidth, int targetLsb, int targetWidth)
+    {
+        var coverEnd = coverLsb + coverWidth;
+        var targetEnd = targetLsb + targetWidth;
+        return coverLsb <= targetLsb && coverEnd >= targetEnd;
+    }
+
+    private static List<(int Lsb, int Width)> ComputeMissingIntervals(
+        int useLsb,
+        int useWidth,
+        List<(int Lsb, int Width, Node Value)> covered)
+    {
+        var intervals = covered
+            .Select(seg => (Start: seg.Lsb, End: seg.Lsb + seg.Width))
+            .OrderBy(seg => seg.Start)
+            .ToArray();
+
+        var missing = new List<(int Lsb, int Width)>();
+        var cursor = useLsb;
+        var useEnd = useLsb + useWidth;
+        foreach (var interval in intervals)
+        {
+            if (interval.End <= cursor)
+                continue;
+            if (interval.Start > cursor)
+            {
+                missing.Add((cursor, interval.Start - cursor));
+            }
+            cursor = Math.Max(cursor, interval.End);
+            if (cursor >= useEnd)
+                break;
+        }
+
+        if (cursor < useEnd)
+        {
+            missing.Add((cursor, useEnd - cursor));
+        }
+
+        return missing;
+    }
+
+    private Node? ReadStorageFromPredecessors(Block block, Storage storage, DataType dt)
+    {
+        if (block == entryBlock)
+            return null;
+
+        if (block.Pred.Count == 0)
+            return null;
+
+        if (block.Pred.Count == 1)
+            return ReadStorage(block.Pred[0], storage, dt);
+
+        var state = blocks[block];
+        var phi = factory.Phi(dt, state.Node);
+        phi.Storage = storage;
+        foreach (var pred in block.Pred)
+        {
+            var predValue = ReadStorage(pred, storage, dt);
+            Node.AddEdge(ResolveCanonical(predValue), phi);
+        }
+
+        var sameNode = GetTrivialPhiReplacement(phi);
+        if (sameNode is not null)
+        {
+            ReplaceNode(phi, sameNode);
+            return ResolveCanonical(sameNode);
+        }
+        return phi;
     }
 
     private static Node? GetTrivialPhiReplacement(PhiNode phi)
@@ -809,6 +1122,8 @@ public partial class NodeGraphBuilder
 
     private void WriteStorage(BlockState state, Storage stgDst, Node value)
     {
+        if (value.Number == 17)
+            _ = this;
         value = ResolveCanonical(value);
         if (value.Storage is null)
             value.Storage = stgDst;
@@ -850,7 +1165,7 @@ public partial class NodeGraphBuilder
             }
             else
             {
-                TrackSequenceCoveredDefs(state, seq, value);
+                WriteSubelementStorages(state, seq, value);
             }
             break;
         case TemporaryStorage tmp:
@@ -936,7 +1251,7 @@ public partial class NodeGraphBuilder
     public Node VisitSlice(Slice slice)
     {
         var input = slice.Expression.Accept(this);
-        return factory.Slice(slice.DataType, input, slice.Offset);
+        return MakeSlice(slice.DataType, input, slice.Offset);
     }
 
     public Node VisitStringConstant(StringConstant str)

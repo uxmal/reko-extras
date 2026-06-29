@@ -166,7 +166,7 @@ public class FakeArchitecture : IProcessorArchitecture
         throw new NotImplementedException();
     }
 
-    public FlagGroupStorage? GetFlagGroup(RegisterStorage flagRegister, uint grf)
+    public FlagGroupStorage? GetFlagGroup(RegisterStorage flagRegister, ulong grf)
     {
         var sb = new StringBuilder();
         if ((grf & 1) != 0) sb.Append('C');
@@ -224,7 +224,7 @@ public class FakeArchitecture : IProcessorArchitecture
         throw new NotImplementedException();
     }
 
-    public string GrfToString(RegisterStorage flagRegister, string prefix, uint grf)
+    public string GrfToString(RegisterStorage flagRegister, string prefix, ulong grf)
     {
         throw new NotImplementedException();
     }

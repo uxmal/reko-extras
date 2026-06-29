@@ -15,7 +15,11 @@ public class NodeFactory
         this.number = 0;
     }
 
-    private int NextId() => ++number;
+    private int NextId()
+    {
+        ++this.number;
+        return number;
+    }
 
     public OperationNode Bin(DataType dt, Operator op, Node? cfNode, Node left, Node right)
     {
@@ -142,6 +146,11 @@ public class NodeFactory
     public CondNode Cond(DataType dt, Node? cfNode, Node input)
     {
         return new CondNode(NextId(), dt, cfNode, input);
+    }
+
+    public Node Neg(DataType dt, Node node)
+    {
+        return Unary(dt, Operator.Neg, null, node);
     }
 
     public Node Return(Node cfNode)

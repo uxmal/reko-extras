@@ -20,7 +20,10 @@ public class NodeRepresentationBuilderTests
         this.programFlow = new Reko.Analysis.ProgramDataFlow();
     }
 
-    private void RunTest(string sExpected, Action<ProcedureBuilder> testCodeBuilder)
+    private void RunTest(
+        string sExpected, 
+        Action<ProcedureBuilder> testCodeBuilder,
+        bool includeOutputRefs = false)
     {
         this.pb = new ProgramBuilder();
         this.programFlow = new ProgramDataFlow();
@@ -35,7 +38,7 @@ public class NodeRepresentationBuilderTests
         var renderer = new NodeGraphRenderer();
         var sw = new StringWriter();
         sw.WriteLine();
-        renderer.Render(graph, sw);
+        renderer.Render(graph, sw, includeOutputRefs);
         // RenderGraph(renderer, graph, sw);
         var sActual = sw.ToString();
         if (sActual != sExpected)
@@ -93,7 +96,7 @@ public class NodeRepresentationBuilderTests
     }
 
     [Test]
-    public void Npb_Create()
+    public void Ngb_Create()
     {
         var sExpected =
         #region Expected
@@ -113,7 +116,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_ReturnValue()
+    public void Ngb_ReturnValue()
     {
         var sExpected =
         #region Expected
@@ -133,7 +136,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_DefReturn()
+    public void Ngb_DefReturn()
     {
         var sExpected =
         #region Expected
@@ -154,7 +157,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Add()
+    public void Ngb_Add()
     {
         var sExpected =
         #region Expected
@@ -163,8 +166,8 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    n9 = r1 + r2
-    return n9
+    v9 = r1 + r2
+    return v9
 ProcedureBuilder_exit:
 ";
         #endregion
@@ -178,7 +181,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Add_Variable()
+    public void Ngb_Add_Variable()
     {
         var sExpected =
         #region Expected
@@ -204,7 +207,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Store()
+    public void Ngb_Store()
     {
         var sExpected =
         #region Expected
@@ -229,7 +232,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Store_Fork()
+    public void Ngb_Store_Fork()
     {
         string sExpected =
         #region Expected
@@ -239,8 +242,8 @@ ProcedureBuilder_entry:
     def r2:word32
 l1:
     r1_11 = r1 + r2
-    n13 = r1_11 >= 0<32>
-    if (n13) goto m2_nonneg
+    v13 = r1_11 >= 0<32>
+    if (v13) goto m2_nonneg
 m1_neg:
     Mem19[0x123400<32>:word32] = r1_11
     return
@@ -270,7 +273,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Phi_diamond()
+    public void Ngb_Phi_diamond()
     {
         string sExpected =
         #region Expected
@@ -279,8 +282,8 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    n12 = r1 >= r2
-    if (n12) goto m2_ge
+    v12 = r1 >= r2
+    if (v12) goto m2_ge
 m1_lt:
     r1_17 = r2 + 1<32>
     goto m3_done
@@ -313,7 +316,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_RedundantPhi()
+    public void Ngb_RedundantPhi()
     {
         string sExpected =
         #region Expected
@@ -321,8 +324,8 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
 l1:
     r2_11 = Mem9[0x123400<32>:word32]
-    n13 = r2_11 >= 0<32>
-    if (n13) goto m2_ge
+    v13 = r2_11 >= 0<32>
+    if (v13) goto m2_ge
     // succ: m1_lt, m2_ge
 m1_lt:
     r1_15 = -r2_11
@@ -369,11 +372,11 @@ ProcedureBuilder_entry:
 l1:
     r1_8 = PHI(r1, r1_10)
     r1_10 = r1_8 + 1<32>
-    n13 = r1_10 * 8<32>
-    n14 = 0x123400<32> + n13
-    Mem16[n14:word32] = r2
-    n17 = r1_10 < r2
-    if (n17) goto l1
+    v17 = r1_10 < r2
+    v13 = r1_10 * 8<32>
+    v14 = 0x123400<32> + v13
+    Mem16[v14:word32] = r2
+    if (v17) goto l1
 l2:
     return r1_10
 ProcedureBuilder_exit:
@@ -395,7 +398,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Convert()
+    public void Ngb_Convert()
     {
         var sExpected =
         #region Expected
@@ -403,9 +406,9 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r2:word32
 l1:
-    n9 = SLICE(r2, byte, 0)
-    n10 = CONVERT(n9, byte, uint64)
-    Mem11[0x123400<32>:uint64] = n10
+    v9 = SLICE(r2, byte, 0)
+    v10 = CONVERT(v9, byte, uint64)
+    Mem11[0x123400<32>:uint64] = v10
     return
 ProcedureBuilder_exit:
 ";
@@ -420,7 +423,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Slice()
+    public void Ngb_Slice()
     {
         var sExpected =
         #region Expected
@@ -428,8 +431,8 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1:word32
 l1:
-    n9 = SLICE(r1, byte, 0)
-    Mem10[0x123400<32>:byte] = n9
+    v9 = SLICE(r1, byte, 0)
+    Mem10[0x123400<32>:byte] = v9
     return
 ProcedureBuilder_exit:
 ";
@@ -444,7 +447,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Address()
+    public void Ngb_Address()
     {
         var sExpected =
         #region Expected
@@ -464,7 +467,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_call()
+    public void Ngb_call()
     {
         string sExpected =
         #region Expected
@@ -512,7 +515,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_cond_test()
+    public void Ngb_cond_test()
     {
         string sExpected =
         #region Expected
@@ -521,10 +524,10 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    n9 = r1 - r2
-    CZ_10 = cond(n9)
-    n12 = TEST(LE, CZ_10)
-    Mem13[0x123400<32>:bool] = n12
+    v9 = r1 - r2
+    CZ_10 = cond(v9)
+    v12 = TEST(LE, CZ_10)
+    Mem13[0x123400<32>:bool] = v12
     return
 ProcedureBuilder_exit:
     use CZ:CZ_10
@@ -545,7 +548,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_application()
+    public void Ngb_application()
     {
         string sExpected =
         #region Expected
@@ -569,7 +572,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_switch()
+    public void Ngb_switch()
     {
         string sExpected =
         #region Expected
@@ -578,10 +581,10 @@ ProcedureBuilder_entry:
     def fp:ptr32
     def stack:int32
 l1:
-    n13 = fp + 4<32>
-    r1_14 = Mem10[n13:word32]
-    n16 = r1_14 >u 5<32>
-    if (n16) goto m4_default
+    v13 = fp + 4<32>
+    r1_14 = Mem10[v13:word32]
+    v16 = r1_14 >u 5<32>
+    if (v16) goto m4_default
 m1:
     switch (r1_14) goto m2, m2, m3, m3, m2, m3
 m2:
@@ -643,7 +646,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_overlapping_FlagGroups()
+    public void Ngb_overlapping_FlagGroups()
     {
         string sExpected =
         #region Expected
@@ -652,11 +655,11 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    n9 = r1 - r2
-    CZ_10 = cond(n9)
+    v9 = r1 - r2
+    CZ_10 = cond(v9)
     C_12 = CZ_10 & 1<32>
-    n13 = TEST(ULT, C_12)
-    return n13
+    v13 = TEST(ULT, C_12)
+    return v13
 ProcedureBuilder_exit:
     use CZ:CZ_10
 ";
@@ -677,7 +680,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Sequence()
+    public void Ngb_Sequence()
     {
         string sExpected =
         #region Expected
@@ -689,19 +692,21 @@ l1:
     r4_12 = Mem6[0x123408<32>:word32]
     r3_14 = Mem6[0x12340C<32>:word32]
     r1_r2_15 = SEQ(r1_10, r2_8)
-    r3_r4_16 = SEQ(r3_14, r4_12)
-    r1_r2_17 = r1_r2_15 + r3_r4_16
-    r1_19 = SLICE(r1_r2_17, word32, 32)
-    r2_21 = SLICE(r1_r2_17, word32, 0)
-    r3_23 = SLICE(r3_r4_16, word32, 32)
-    r4_25 = SLICE(r3_r4_16, word32, 0)
+    r3_r4_18 = SEQ(r3_14, r4_12)
+    r1_r2_21 = r1_r2_15 + r3_r4_18
+    r1_22 = SLICE(r1_r2_21, word32, 32)
+    r2_23 = SLICE(r1_r2_21, word32, 0)
+    r3_19 = SLICE(r3_r4_18, word32, 32)
+    r4_20 = SLICE(r3_r4_18, word32, 0)
+    r1_16 = SLICE(r1_r2_15, word32, 32)
+    r2_17 = SLICE(r1_r2_15, word32, 0)
     return
     // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
-    use r1:r1_19
-    use r2:r2_21
-    use r3:r3_23
-    use r4:r4_25
+    use r1:r1_22
+    use r2:r2_23
+    use r3:r3_19
+    use r4:r4_20
 ";
         #endregion
 
@@ -729,7 +734,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Sequence_Def()
+    public void Ngb_Sequence_Def()
     {
         string sExpected =
         #region Expected
@@ -738,20 +743,20 @@ ProcedureBuilder_entry:
     def r1_r2:word64
 l1:
     r1_9 = SLICE(r1_r2, word32, 32)
-    n11 = r1_9 >= 0<32>
-    r2_17 = SLICE(r1_r2, word32, 0)
-    if (n11) goto m2_done
+    v11 = r1_9 >= 0<32>
+    r2_15 = SLICE(r1_r2, word32, 0)
+    if (v11) goto m2_done
 m1_negative:
-    r1_r2_20 = -r1_r2
-    r1_23 = SLICE(r1_r2_20, word32, 32)
-    r2_26 = SLICE(r1_r2_20, word32, 0)
+    r1_r2_16 = -r1_r2
+    r1_17 = SLICE(r1_r2_16, word32, 32)
+    r2_18 = SLICE(r1_r2_16, word32, 0)
 m2_done:
-    r1_22 = PHI(r1_9, r1_23)
-    r2_25 = PHI(r2_17, r2_26)
+    r1_20 = PHI(r1_9, r1_17)
+    r2_22 = PHI(r2_15, r2_18)
     return
 ProcedureBuilder_exit:
-    use r1:r1_22
-    use r2:r2_25
+    use r1:r1_20
+    use r2:r2_22
 ";
         #endregion
 
@@ -775,7 +780,7 @@ ProcedureBuilder_exit:
     }
 
     [Test(Description = "Loads shouldn't affect the Memx identifier")]
-    public void Dpb_TwoLoads()
+    public void Ngb_TwoLoads()
     {
         string sExpected =
         #region Expected
@@ -805,7 +810,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Npb_Overlapping_Registers()
+    public void Ngb_Overlapping_Registers()
     {
         string sExpected =
         #region Expected    
@@ -816,14 +821,14 @@ l1:
     eax_10 = Mem6[00123408:word32]
     ah_12 = Mem6[00123410:byte]
     al_14 = Mem6[00123411:byte]
+    v16 = SLICE(rax_8, word32, 32)
+    v15 = SLICE(eax_10, word16, 16)
+    rax_17 = SEQ(v16, v15, ah_12, al_14)
     return
     // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
-    use ah:ah_12
-    use al:al_14
-    use eax:eax_10
-    use rax:rax_8
-    use rbx:rax_8
+    use rax:rax_17
+    use rbx:rax_17
 ";
         #endregion
 
@@ -847,7 +852,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Dpb_Copy()
+    public void Ngb_Copy()
     {
         string sExpected =
         #region Expected
@@ -872,7 +877,7 @@ ProcedureBuilder_exit:
     }
 
     [Test]
-    public void Dpb_Read_Slice()
+    public void Ngb_Read_Slice()
     {
         string sExpected =
         #region Expected
@@ -882,11 +887,14 @@ l1:
     rax_8 = Mem6[00123400:word64]
     ah_10 = SLICE(rax_8, byte, 8)
     Mem11[00123408:byte] = ah_10
+    Mem13[0012340A:byte] = ah_10
+    v16 = SLICE(rax_8, word48, 16)
+    v15 = SLICE(rax_8, byte, 0)
+    rax_17 = SEQ(v16, ah_10, v15)
     return
     // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
-    use ah:ah_10
-    use rax:rax_8
+    use rax:rax_17
 ";
         #endregion
 
@@ -897,6 +905,42 @@ ProcedureBuilder_exit:
 
             m.Assign(rax, m.Mem64(Address.Ptr32(0x123400)));
             m.MStore(Address.Ptr32(0x123408), ah);
+            m.MStore(Address.Ptr32(0x12340A), ah);
+            m.Return();
+        });
+    }
+
+    [Test]
+    public void Dbp_Read_Slices_from_different_blocks()
+    {
+        string sExpected =
+        #region Expected
+            @"
+ProcedureBuilder_entry:
+l1:
+    rax_9 = Mem7[0000000000123400:word64]
+    // succ: m1
+m1:
+    ah_11 = Mem7[0000000000123408:byte]
+    v14 = SLICE(rax_9, word48, 16)
+    v13 = SLICE(rax_9, byte, 0)
+    rax_15 = SEQ(v14, ah_11, v13)
+    return
+    // succ: ProcedureBuilder_exit
+ProcedureBuilder_exit:
+    use rax:rax_15
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var rax = m.Reg64("rax", 0);
+            var ah = m.Reg8("ah", 0, 8);
+
+            m.Assign(rax, m.Mem64(Address.Ptr64(0x123400)));
+
+            m.Label("m1");
+            m.Assign(ah, m.Mem8(Address.Ptr64(0x123408)));
             m.Return();
         });
     }

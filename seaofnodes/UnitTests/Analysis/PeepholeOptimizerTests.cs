@@ -20,7 +20,7 @@ public class PeepholeOptimizerTests
         peep = new PeepholeOptimizer(m);
         var arch = new FakeArchitecture();
         var proc = new Procedure(arch, "test", Address.Ptr32(0x123400), arch.CreateFrame());
-        var b = new Block(proc, proc.EntryAddress, Reko.Core.NamingPolicy.Instance.BlockName(proc.EntryAddress));
+        var b = new Block(proc, proc.EntryAddress, NamingPolicy.Instance.BlockName(proc.EntryAddress));
         block = m.Block(b); 
     }
 
@@ -45,7 +45,7 @@ public class PeepholeOptimizerTests
 
         var result = peep.Bin(r3.DataType, Operator.IAdd, null, add1, m.Word32(5));
 
-        Assert.That(result.ToString(), Is.EqualTo("n9 = r3 + 9<32>"));
+        Assert.That(result.ToString(), Is.EqualTo("v9 = r3 + 9<32>"));
     }
 
     [Test]
@@ -56,7 +56,7 @@ public class PeepholeOptimizerTests
 
         var result = peep.Bin(r3.DataType, Operator.IAdd, null, sub1, m.Word32(5));
 
-        Assert.That(result.ToString(), Is.EqualTo("n7 = r3 + 1<32>"));
+        Assert.That(result.ToString(), Is.EqualTo("v7 = r3 + 1<32>"));
     }
 
     [Test]
@@ -67,7 +67,7 @@ public class PeepholeOptimizerTests
 
         var result = peep.Bin(r3.DataType, Operator.ISub, null, sub1, m.Word32(5));
 
-        Assert.That(result.ToString(), Is.EqualTo("n7 = r3 - 1<32>"));
+        Assert.That(result.ToString(), Is.EqualTo("v7 = r3 - 1<32>"));
     }
 
     [Test]
@@ -78,7 +78,7 @@ public class PeepholeOptimizerTests
 
         var result = peep.Bin(r3.DataType, Operator.ISub, null, sub1, m.Word32(5));
 
-        Assert.That(result.ToString(), Is.EqualTo("n7 = r3 - 9<32>"));
+        Assert.That(result.ToString(), Is.EqualTo("v7 = r3 - 9<32>"));
     }
 
     [Test]
@@ -118,6 +118,6 @@ public class PeepholeOptimizerTests
 
         var result = peep.And(r3, 0xFFFE);
 
-        Assert.That(result.ToString(), Is.EqualTo("n4 = r3 & 0xFFFE<16>"));
+        Assert.That(result.ToString(), Is.EqualTo("v4 = r3 & 0xFFFE<16>"));
     }
 }

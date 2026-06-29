@@ -74,8 +74,8 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r:word32
 l1:
-    n13 = r == 3<32>
-    if (n13) goto m_skip
+    v13 = r == 3<32>
+    if (v13) goto m_skip
 l2:
     return
 m_skip:
@@ -109,20 +109,20 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1:word32
 l1:
-    n12 = r1 < 0<32>
-    if (n12) goto m2_skip
+    v12 = r1 < 0<32>
+    if (v12) goto m2_skip
 m1:
-    n18 = r1 - 3<32>
-    Z_19 = cond(n18)
-    n26 = r1 == 3<32>
+    v18 = r1 - 3<32>
+    Z_19 = cond(v18)
+    v26 = r1 == 3<32>
     goto m3_join
 m2_skip:
-    n15 = r1 - 0xFFFFFFFC<32>
-    Z_16 = cond(n15)
-    n27 = r1 == 0xFFFFFFFC<32>
+    v15 = r1 - 0xFFFFFFFC<32>
+    Z_16 = cond(v15)
+    v27 = r1 == 0xFFFFFFFC<32>
 m3_join:
     Z_20 = PHI(Z_19, Z_16)
-    r2_21 = PHI(n26, n27)
+    r2_21 = PHI(v26, v27)
     return
 ProcedureBuilder_exit:
     use r2:r2_21
@@ -161,28 +161,28 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1:word32
 l1:
-    n14 = r1 < 0<32>
-    if (n14) goto m3_skip
+    v14 = r1 < 0<32>
+    if (v14) goto m3_skip
 l2:
-    n20 = r1 < 0xA<32>
-    if (n20) goto m2
+    v20 = r1 < 0xA<32>
+    if (v20) goto m2
 m1:
-    n26 = r1 - 0xF<32>
-    Z_27 = cond(n26)
-    n34 = r1 == 0xF<32>
+    v26 = r1 - 0xF<32>
+    Z_27 = cond(v26)
+    v34 = r1 == 0xF<32>
     goto m4_join
 m2:
-    n23 = r1 - 3<32>
-    Z_24 = cond(n23)
-    n35 = r1 == 3<32>
+    v23 = r1 - 3<32>
+    Z_24 = cond(v23)
+    v35 = r1 == 3<32>
     goto m4_join
 m3_skip:
-    n17 = r1 - 0xFFFFFFFC<32>
-    Z_18 = cond(n17)
-    n36 = r1 == 0xFFFFFFFC<32>
+    v17 = r1 - 0xFFFFFFFC<32>
+    Z_18 = cond(v17)
+    v36 = r1 == 0xFFFFFFFC<32>
 m4_join:
     Z_28 = PHI(Z_27, Z_24, Z_18)
-    r2_29 = PHI(n34, n35, n36)
+    r2_29 = PHI(v34, v35, v36)
     return
 ProcedureBuilder_exit:
     use r2:r2_29
