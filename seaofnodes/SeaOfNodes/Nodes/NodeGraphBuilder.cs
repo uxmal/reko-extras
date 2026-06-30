@@ -741,15 +741,6 @@ public partial class NodeGraphBuilder
         }
     }
 
-    private static IEnumerable<RegisterStorage> EnumerateSequenceRegisters(SequenceStorage sequence)
-    {
-        foreach (var element in EnumerateSequenceLeafStorages(sequence))
-        {
-            if (element is RegisterStorage reg)
-                yield return reg;
-        }
-    }
-
     private Node? ReadLocalStorage(Storage storage, BlockState state, in ReadStorageFrame frame)
     {
         switch (storage)
@@ -842,53 +833,6 @@ public partial class NodeGraphBuilder
             var seq = factory.Seq(regUse.DataType, subNodes.ToArray());
             return seq;
         }
-
-#if NOT_WORKING
-        if (state.RegisterDefs.TryGetValue(regUse.Domain, out var defs) && defs.Count > 0)
-        {
-            Node regValue;
-            for (int i = defs.Count - 1; i >= 0; --i)
-            {
-                RegisterStorage regDef;
-                (regDef, regValue) = defs[i];
-                var bitRange = regDef.GetBitRange();
-                regValue = ResolveCanonical(regValue);
-                if (regDef.Covers(regUse))
-                {
-                    if (regValue.Storage is SequenceStorage seqStorage)
-                    {
-                        var offset = seqStorage.OffsetOf(regUse);
-                        if (offset >= 0 || regUse.DataType.BitSize < seqStorage.DataType.BitSize)
-                        {
-                            var slice = MakeSlice(regUse.DataType, regValue, offset);
-                            slice.Storage = regUse;
-                            WriteStorage(state, regUse, slice);
-                            return slice;
-                        }
-                    }
-                    if (regDef == regUse)
-                        return regValue;
-
-                    // regDef is a plain register wider than regUse (e.g. rax covers ah).
-                    // Emit a SLICE of the wider value at the sub-register's bit offset.
-                    {
-                        var offset = regUse.GetBitRange().Lsb;
-                        var slice = MakeSlice(regUse.DataType, regValue, offset);
-                        slice.Storage = regUse;
-                        WriteStorage(state, regUse, slice);
-                        return slice;
-                    }
-                }
-            }
-
-            var rebuilt = TryRebuildRegisterFromOverlappingDefs(regUse, defs, frame.Block, state);
-            if (rebuilt is not null)
-            {
-                return rebuilt;
-            }
-        }
-#endif
-        return null;
     }
 
     private Node MaybeSlice(Node value, BitRange bitRange)
@@ -943,108 +887,6 @@ public partial class NodeGraphBuilder
         return newSlice;
     }
 
-    private Node? TryRebuildRegisterFromOverlappingDefs(
-        RegisterStorage regUse,
-        List<(RegisterStorage Register, Node Value)> defs,
-        Block block,
-        BlockState state)
-    {
-        var useLsb = regUse.GetBitRange().Lsb;
-        var useWidth = regUse.DataType.BitSize;
-        var useMsbExclusive = useLsb + useWidth;
-
-        var segments = new List<(int Lsb, int Width, Node Value)>();
-
-        for (int i = defs.Count - 1; i >= 0; --i)
-        {
-            var (regDef, valueDef) = defs[i];
-            var defLsb = regDef.GetBitRange().Lsb;
-            var defWidth = regDef.DataType.BitSize;
-            var defMsbExclusive = defLsb + defWidth;
-
-            var overlapLsb = Math.Max(useLsb, defLsb);
-            var overlapMsbExclusive = Math.Min(useMsbExclusive, defMsbExclusive);
-            if (overlapMsbExclusive <= overlapLsb)
-                continue;
-
-            if (segments.Any(seg => CoversInterval(seg.Lsb, seg.Width, overlapLsb, overlapMsbExclusive - overlapLsb)))
-                continue;
-
-            valueDef = ResolveCanonical(valueDef);
-            var pieceWidth = overlapMsbExclusive - overlapLsb;
-            if (pieceWidth != regDef.DataType.BitSize || overlapLsb != defLsb)
-            {
-                var pieceDt = PrimitiveType.Create(regUse.DataType.Domain, pieceWidth);
-                valueDef = MakeSlice(pieceDt, valueDef, overlapLsb - defLsb);
-            }
-
-            segments.Add((overlapLsb, pieceWidth, valueDef));
-        }
-
-        if (segments.Count == 0)
-            return null;
-
-        var predecessorValue = ReadStorageFromPredecessors(block, regUse, regUse.DataType);
-        if (predecessorValue is null)
-            return null;
-
-        var missing = ComputeMissingIntervals(useLsb, useWidth, segments);
-        foreach (var gap in missing)
-        {
-            var gapDt = PrimitiveType.Create(regUse.DataType.Domain, gap.Width);
-            var gapValue = MakeSlice(gapDt, predecessorValue, gap.Lsb - useLsb);
-            segments.Add((gap.Lsb, gap.Width, gapValue));
-        }
-
-        segments.Sort((a, b) => b.Lsb.CompareTo(a.Lsb));
-        var seqInputs = segments.Select(seg => seg.Value).ToArray();
-        var seq = factory.Seq(regUse.DataType, seqInputs);
-        seq.Storage = regUse;
-        WriteStorage(state, regUse, seq);
-        return seq;
-    }
-
-    private static bool CoversInterval(int coverLsb, int coverWidth, int targetLsb, int targetWidth)
-    {
-        var coverEnd = coverLsb + coverWidth;
-        var targetEnd = targetLsb + targetWidth;
-        return coverLsb <= targetLsb && coverEnd >= targetEnd;
-    }
-
-    private static List<(int Lsb, int Width)> ComputeMissingIntervals(
-        int useLsb,
-        int useWidth,
-        List<(int Lsb, int Width, Node Value)> covered)
-    {
-        var intervals = covered
-            .Select(seg => (Start: seg.Lsb, End: seg.Lsb + seg.Width))
-            .OrderBy(seg => seg.Start)
-            .ToArray();
-
-        var missing = new List<(int Lsb, int Width)>();
-        var cursor = useLsb;
-        var useEnd = useLsb + useWidth;
-        foreach (var interval in intervals)
-        {
-            if (interval.End <= cursor)
-                continue;
-            if (interval.Start > cursor)
-            {
-                missing.Add((cursor, interval.Start - cursor));
-            }
-            cursor = Math.Max(cursor, interval.End);
-            if (cursor >= useEnd)
-                break;
-        }
-
-        if (cursor < useEnd)
-        {
-            missing.Add((cursor, useEnd - cursor));
-        }
-
-        return missing;
-    }
-
     private Node? ReadStorageFromPredecessors(Block block, Storage storage, DataType dt)
     {
         if (block == entryBlock)
@@ -1091,7 +933,6 @@ public partial class NodeGraphBuilder
             if (!ReferenceEquals(candidate, input))
                 return null;
         }
-
         return candidate;
     }
 
@@ -1122,8 +963,6 @@ public partial class NodeGraphBuilder
 
     private void WriteStorage(BlockState state, Storage stgDst, Node value)
     {
-        if (value.Number == 17)
-            _ = this;
         value = ResolveCanonical(value);
         if (value.Storage is null)
             value.Storage = stgDst;

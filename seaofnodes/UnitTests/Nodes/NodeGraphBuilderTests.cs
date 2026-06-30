@@ -566,7 +566,7 @@ ProcedureBuilder_exit:
         RunTest(sExpected, m =>
         {
             var r1 = m.Reg32("r1", 1);
-            m.Assign(r1, m.Fn(Reko.Core.Intrinsics.CommonOps.Abs, r1));
+            m.Assign(r1, m.Fn(Core.Intrinsics.CommonOps.Abs, r1));
             m.Return(r1);
         });
     }

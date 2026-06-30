@@ -1,9 +1,11 @@
-﻿using Reko.Core.Types;
+﻿using Reko.Core.Expressions;
+using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -25,10 +27,29 @@ public partial class PeepholeOptimizer
                 nodes.Add(n);
             }
         }
+
         nodes = FuseAdjacentSlices(nodes);
+
+        var cnode = FuseAdjacentConstants(dt, nodes);
+        if (cnode is not null)
+            return cnode;
+
         if (nodes.Count == 1)
-            return (Node)nodes[0];
+            return nodes[0];
         return m.Seq(dt, nodes.ToArray());
+    }
+
+    private ConstantNode? FuseAdjacentConstants(DataType dt, List<Node> newSeq)
+    {
+        if (!newSeq.All(e => e is ConstantNode))
+            return null;
+        BigInteger value = BigInteger.Zero;
+        for (int i = 0; i < newSeq.Count; ++i)
+        {
+            var c = (ConstantNode)newSeq[i];
+            value = (value << c.DataType.BitSize) | c.Value.ToBigInteger();
+        }
+        return m.Const(Constant.Create(dt, value));
     }
 
     private List<Node> FuseAdjacentSlices(List<Node> nodes)
@@ -46,7 +67,7 @@ public partial class PeepholeOptimizer
                 if (curSlice is null)
                 {
                     curSlice = s;
-                    slicedNode = (Node)s.Inputs[1]!;
+                    slicedNode = s.Inputs[1]!;
                     dom = s.DataType.Domain;
                     bitsize = s.DataType.BitSize;
                     offset = s.Offset;

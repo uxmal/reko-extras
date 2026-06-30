@@ -121,13 +121,12 @@ public class LongAddRewriterTests
     }
 
     private void RunTest(
-        string sExp,
+        string sExpected,
         Action<ProcedureBuilder> builder,
         bool includeOutputRefs = false,
         [CallerMemberName] string testName = "")
     {
         builder(m);
-        var dynamicLinker = new Mock<IDynamicLinker>();
         var factory = new NodeFactory();
         var ngb = new NodeGraphBuilder(factory, programFlow, program.Architecture);
         var graph = ngb.Transform(m.Procedure);
@@ -145,15 +144,15 @@ public class LongAddRewriterTests
         var writer = new StringWriter();
         new NodeGraphRenderer().Render(graphNew, writer, includeOutputRefs);
         var sActual = writer.ToString();
-        if (sExp != sActual)
+        if (sExpected != sActual)
         {
             Console.WriteLine($"** {testName} failed ******");
             Console.WriteLine("Expected:");
-            Console.WriteLine(sExp);
+            Console.WriteLine(sExpected);
             Console.WriteLine("Actual:");
             Console.WriteLine(sActual);
             Console.WriteLine();
-            Assert.That(sActual, Is.EqualTo(sExp));
+            Assert.That(sActual, Is.EqualTo(sExpected));
         }
     }
 
@@ -252,8 +251,10 @@ ProcedureBuilder_exit:
     def ax:word16
     def dx:word16
 l1:
-    ax_9 = ax + 0x5678<16>
-    v13 = dx + 0x1234<16>
+    v19 = SEQ(dx, ax)
+    v21 = v19 + 0x12345678<32>
+    v9 = SLICE(v21, word16, 0)
+    v14 = SLICE(v21, word16, 16)
     C_10 = cond(ax_9)
     dx_14 = v13 +16 C_10
     return
@@ -275,19 +276,26 @@ ProcedureBuilder_exit:
     public void Larw_Match_AddConstant()
     {
         var sExp =
-@"l1:
-	dx_ax_6 = SEQ(dx, ax)
-	dx_ax_7 = dx_ax_6 + 1<32>
-	ax_2 = SLICE(dx_ax_7, word16, 0) (alias)
-	dx_5 = SLICE(dx_ax_7, word16, 16) (alias)
-	C_3 = cond(ax_2)
-	return
+@"ProcedureBuilder_entry:
+    def ax:word16
+    def dx:word16
+l1:
+    v19 = SEQ(dx, ax)
+    v21 = v19 + 1<32>
+    v9 = SLICE(v21, word16, 0)
+    v14 = SLICE(v21, word16, 16)
+    C_10 = cond(v9)
+    return
+ProcedureBuilder_exit:
+    use ax:v9
+    use dx:v14
+    use C:C_10
 ";
         RunTest(sExp, m =>
         {
             m.Assign(ax, m.IAdd(ax, 1));
             m.Assign(CF, m.Cond(CF.DataType, ax));
-            m.Assign(dx, m.IAdd(m.IAdd(dx, 0), CF));
+            m.Assign(dx, m.IAddC(dx, m.Word16(0), CF));
             m.Return();
         });
     }
@@ -445,52 +453,31 @@ ProcedureBuilder_exit:
     [Test]
     public void Larw_Multiply_Accumulate()
     {
-        var sExpOld =
-@"l1:
-	eax_2 = CONVERT(Mem0[0x5418<32>:word16], word16, int32)
-	edx_3 = 0xF000<32>
-	edx_eax_4 = edx_3 *s64 eax_2
-	eax_5 = SLICE(edx_eax_4, word32, 0) (alias)
-	edx_9 = SLICE(edx_eax_4, word32, 32) (alias)
-	edx_eax_17 = SEQ(edx_9, eax_5)
-	tmp2_tmp1_18 = Mem0[0x6FF0<32>:ui64] - edx_eax_17
-	tmp1_6 = SLICE(tmp2_tmp1_18, word32, 0) (alias)
-	tmp2_11 = SLICE(tmp2_tmp1_18, word32, 32) (alias)
-	Mem7[0x6FF0<32>:word32] = tmp1_6
-	SCZ_8 = cond(tmp1_6)
-	C_10 = SCZ_8 & 4<32> (alias)
-	Mem12[0x6FF4<32>:word32] = tmp2_11
-	SCZ_13 = cond(tmp2_11)
-	C_14 = SCZ_13 & 4<32> (alias)
-	S_15 = SCZ_13 & 1<32> (alias)
-	Z_16 = SCZ_13 & 2<32> (alias)
-	return
-";
         var sExp =
         #region  Expected
 @"ProcedureBuilder_entry:
 l1:
     v8 = Mem6[0x5418<32>:word16]
-    v13 = Mem6[0x6FF0<32>:word32]
-    v20 = Mem17[0x6FF4<32>:word32]
-    v33 = SEQ(v20, v13)
+    v15 = Mem6[0x6FF0<32>:word32]
+    v21 = Mem18[0x6FF4<32>:word32]
+    v33 = SEQ(v21, v15)
     eax_9 = CONVERT(v8, word16, int32)
     edx_eax_11 = 0xF000<32> *s64 eax_9
     v34 = v33 - edx_eax_11
-    v15 = SLICE(v34, word32, 0)
-    Mem17[0x6FF0<32>:word32] = v15
+    v16 = SLICE(v34, word32, 0)
+    Mem18[0x6FF0<32>:word32] = v16
     v25 = SLICE(v34, word32, 32)
     Mem27[0x6FF4<32>:word32] = v25
-    edx_21 = SLICE(edx_eax_11, word32, 32)
-    eax_14 = SLICE(edx_eax_11, word32, 0)
+    edx_12 = SLICE(edx_eax_11, word32, 32)
+    eax_13 = SLICE(edx_eax_11, word32, 0)
     CZ_28 = cond(v34)
-    CZ_18 = cond(v15)
-    C_24 = CZ_18 & 1<32>
+    CZ_19 = cond(v16)
+    C_24 = CZ_19 & 1<32>
     return
     // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
-    use edx:edx_21
-    use eax:eax_14
+    use edx:edx_12
+    use eax:eax_13
     use CZ:CZ_28
 ";
         #endregion
@@ -531,7 +518,7 @@ l1:
     v24 = bx + 8<16>
     v25 = Mem6[v24:word16]
     v35 = SEQ(dx, ax)
-    v37 = SEQ(0<16>, v11)
+    v36 = SEQ(0<16>, v11)
     v38 = v36 + v37
     v41 = SEQ(v25, v20)
     v42 = v38 + v41
@@ -640,36 +627,23 @@ ProcedureBuilder_exit:
 @"ProcedureBuilder_entry:
     def r7:byte
 l1:
-    b_a_9 = a *u16 6<8>
-    b_21 = SLICE(b_a_9, byte, 8)
+    b_a_9 = r7 *u16 6<8>
+    b_10 = SLICE(b_a_9, byte, 8)
     v27 = SLICE(b_a_9, byte, 0)
     v28 = SEQ(0<8>, v27)
-    v30 = v28 + v29
-    v19 = SLICE(v30, byte, 8)
-    v12 = SLICE(v30, byte, 0)
-    CZ_13 = cond(v12)
-    a_10 = SLICE(b_a_9, byte, 0)
-    C_18 = CZ_13 & 1<32>
+    v30 = v28 + 0x14<16>
+    v20 = SLICE(v30, byte, 8)
+    v13 = SLICE(v30, byte, 0)
+    CZ_14 = cond(v13)
+    a_11 = SLICE(b_a_9, byte, 0)
+    C_19 = CZ_14 & 1<32>
     return
 ProcedureBuilder_exit:
-    use b:b_21
-    use a:v19
-    use DPH:v19
-    use DPL:v12
-    use CZ:CZ_13
-"; string old =@"l1:
-	a_2 = r7
-	b_3 = 6<8>
-	b_a_4 = a_2 *u16 b_3
-	a_5 = SLICE(b_a_4, byte, 0) (alias)
-	a_a_13 = CONVERT(a_5, byte, uint16) + 0x14<16>
-	a_6 = SLICE(a_a_13, byte, 0) (alias)
-	a_11 = SLICE(a_a_13, byte, 8) (alias)
-	SCZ_7 = cond(a_6)
-	C_10 = SCZ_7 & 4<32> (alias)
-	DPL_8 = a_6
-	a_9 = 0<8>
-	DPH_12 = a_11
+    use b:b_10
+    use a:v20
+    use DPH:v20
+    use DPL:v13
+    use CZ:CZ_14
 ";
         #endregion
 

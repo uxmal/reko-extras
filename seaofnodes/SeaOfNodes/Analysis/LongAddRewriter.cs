@@ -95,7 +95,6 @@ public class LongAddRewriter : INodeVisitor<Node?>
                         {
                             wl.AddRange(newNode.Outputs.OfType<OperationNode>());
                         }
-
                     }
                     break;
                 case OperatorType.Or:
