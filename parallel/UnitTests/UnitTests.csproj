@@ -11,7 +11,7 @@
     <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
     <PackageReference Include="NUnit" Version="4.3.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
-    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.12.3" />
+    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.12.4" />
   </ItemGroup>
 
   <ItemGroup>

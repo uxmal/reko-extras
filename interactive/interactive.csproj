@@ -20,7 +20,7 @@
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.12.3" />
+    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.12.4" />
   </ItemGroup>
 
   <ItemGroup>
