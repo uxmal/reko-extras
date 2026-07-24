@@ -73,7 +73,7 @@ public class FakePlatform : IPlatform
         throw new NotImplementedException();
     }
 
-    public IPlatformEmulator CreateEmulator(SegmentMap segmentMap, Dictionary<Address, ImportReference> importReferences)
+    public IPlatformEmulator CreateEmulator(IMemory memory, Dictionary<Address, ImportReference> importReferences)
     {
         throw new NotImplementedException();
     }

@@ -18,6 +18,8 @@ public class NodeFactory
     private int NextId()
     {
         ++this.number;
+        if (number == 25)
+            _ = this; //$DEBUG
         return number;
     }
 

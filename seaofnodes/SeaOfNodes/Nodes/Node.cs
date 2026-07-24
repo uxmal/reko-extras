@@ -191,6 +191,7 @@ public abstract class Node
         original.Outputs.Clear();
 
         substitute.Number = Math.Min(original.Number, substitute.Number);
+        substitute.Storage ??= original.Storage;
     }
 
     public void ReplaceInput(int iInput, Node replacement)

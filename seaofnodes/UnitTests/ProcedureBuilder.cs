@@ -22,11 +22,8 @@ using Reko.Core;
 using Reko.Core.Code;
 using Reko.Core.Expressions;
 using Reko.Core.Types;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Diagnostics;
-using System.Linq;
 
 namespace Reko.Extras.SeaOfNodes.UnitTests;
 
@@ -120,7 +117,7 @@ public class ProcedureBuilder : CodeEmitter
     public CallInstruction Call(string procedureName, int retSizeOnStack)
     {
         var tmp = InvalidConstant.Create(PrimitiveType.Word32);
-        var ci = new CallInstruction(tmp, new CallSite(retSizeOnStack, 0));
+        var ci = new CallInstruction(tmp, new CallSite(retSizeOnStack));
         unresolvedProcedures.Add(new ProcedureConstantUpdater(procedureName, ci));
         Emit(ci);
         return ci;
@@ -129,14 +126,14 @@ public class ProcedureBuilder : CodeEmitter
     public CallInstruction Call(ProcedureBase callee, int retSizeOnStack)
     {
         var c = new ProcedureConstant(PrimitiveType.Ptr32, callee);
-        var ci = new CallInstruction(c, new CallSite(retSizeOnStack, 0));
+        var ci = new CallInstruction(c, new CallSite(retSizeOnStack));
         Emit(ci);
         return ci;
     }
 
     public CallInstruction Call(Expression e, int retSizeOnstack)
     {
-        var ci = new CallInstruction(e, new CallSite(retSizeOnstack, 0));
+        var ci = new CallInstruction(e, new CallSite(retSizeOnstack));
         Emit(ci);
         return ci;
     }
@@ -147,7 +144,7 @@ public class ProcedureBuilder : CodeEmitter
         IEnumerable<Identifier> uses,
         IEnumerable<Identifier> definitions)
     {
-        var ci = new CallInstruction(e, new CallSite(retSizeOnstack, 0));
+        var ci = new CallInstruction(e, new CallSite(retSizeOnstack));
         ci.Uses.UnionWith(uses.Select(u => new CallBinding(u.Storage, u)));
         ci.Definitions.UnionWith(definitions.Select(d => new CallBinding(d.Storage, d)));
         return Emit(ci);
@@ -160,7 +157,7 @@ public class ProcedureBuilder : CodeEmitter
         IEnumerable<Identifier> definitions)
     {
         var tmp = InvalidConstant.Create(PrimitiveType.Word32);
-        var ci = new CallInstruction(tmp, new CallSite(retSizeOnStack, 0));
+        var ci = new CallInstruction(tmp, new CallSite(retSizeOnStack));
         ci.Uses.UnionWith(uses.Select(u => new CallBinding(u.Storage, u)));
         ci.Definitions.UnionWith(definitions.Select(d => new CallBinding(d.Storage, d)));
         unresolvedProcedures.Add(new ProcedureConstantUpdater(procedureName, ci));
@@ -174,7 +171,7 @@ public class ProcedureBuilder : CodeEmitter
         IEnumerable<(Storage stg, Identifier e)> definitions)
     {
         var tmp = InvalidConstant.Create(PrimitiveType.Word32);
-        var ci = new CallInstruction(tmp, new CallSite(retSizeOnStack, 0));
+        var ci = new CallInstruction(tmp, new CallSite(retSizeOnStack));
         ci.Uses.UnionWith(uses.Select(u => new CallBinding(u.stg, u.e)));
         ci.Definitions.UnionWith(definitions.Select(d => new CallBinding(d.stg, d.e)));
         unresolvedProcedures.Add(new ProcedureConstantUpdater(procedureName, ci));
@@ -188,7 +185,7 @@ public class ProcedureBuilder : CodeEmitter
         IEnumerable<(Storage stg, Identifier e)> definitions)
     {
         var tmp = new ProcedureConstant(PrimitiveType.Ptr32, callee);
-        var ci = new CallInstruction(tmp, new CallSite(retSizeOnStack, 0));
+        var ci = new CallInstruction(tmp, new CallSite(retSizeOnStack));
         ci.Uses.UnionWith(uses.Select(u => new CallBinding(u.stg, u.e)));
         ci.Definitions.UnionWith(definitions.Select(d => new CallBinding(d.stg, d.e)));
         return Emit(ci);

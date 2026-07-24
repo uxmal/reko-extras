@@ -123,15 +123,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         // Try detecting an addc/subc pattern.
         var hiAddSub = addcSubc.Inputs[1]!;
         var cyRight = addcSubc.Inputs[2]!;
-        if (IsAnd(cyRight, out var andLeft, out var andRight) &&
-            andRight is ConstantNode)
-        {
-            cyRight = andLeft;
-        }
-
-        if (hiAddSub is null)
-            throw new InvalidOperationException();
-        if (cyRight is not CondNode cond)
+        if (!IsMaybeMaskedCondNode(cyRight, out var cond))
             return null;
 
         // We've established that addcSubc is indeed an ADDC/SUBC
@@ -152,8 +144,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
                 var newUpperAdd = addcSubc.Outputs.SingleOrDefault(o => o is OperationNode oo && oo.Operator.Type == opLo);
                 if (newUpperAdd is not null)
                 {
-                    hiLeft = (Node)addcSubc.Inputs[1]!;
-                    hiRight = (Node)newUpperAdd.Inputs[2]!;
+                    hiLeft = addcSubc.Inputs[1]!;
+                    hiRight = newUpperAdd.Inputs[2]!;
                 }
                 else
                 {
@@ -161,11 +153,30 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     // Done on PDP-11, for instance:
                     //    add r2,[r1]  ; low part
                     //    adc r3       ; high part   
-                    hiLeft = (Node)hiAddSub;
+                    hiLeft = hiAddSub;
                     hiRight = m.Const(Constant.Create(hiLeft.DataType, 0));
                 }
             }
 
+            // We may be seeing a PDP-11 style addc, which has only one argument. 
+            //    add r2,r0
+            //    adc r3
+            //    add r3,r1
+            if (hiRight is ConstantNode cZero && cZero.Value.IsZero)
+            {
+                // Check if the (only) non-cond users of addcSubc are another add/sub.
+                foreach (var o in addcSubc.Outputs)
+                {
+                    if (IsAddSub(o, out var opEx, out var exLeft, out var exRight) &&
+                        exLeft == addcSubc &&
+                        opEx == opHi &&
+                        !IsCarryAddSub(o))
+                    {
+                        hiRight = exRight;
+                        break;
+                    }
+                }
+            }
             // Found a candidate.
             trace.Verbose("Larw: found candidate high={0}+{1}, low={2}+{3}",
                 hiLeft, hiRight, loLeft, loRight);
@@ -189,6 +200,30 @@ public class LongAddRewriter : INodeVisitor<Node?>
             return wideSum;
         }
         return null;
+    }
+
+    private static bool IsCarryAddSub(Node node)
+    {
+        var inputs = node.Inputs;
+        return node is OperationNode opNode &&
+             IsAddOrSub(opNode) &&
+             IsMaybeMaskedCondNode(inputs[2]!, out _);
+    }
+
+    private static bool IsMaybeMaskedCondNode(Node n, [MaybeNullWhen(false)] out Node condNode)
+    {
+        if (IsAnd(n, out var andLeft, out var andRight) &&
+            andRight is ConstantNode)
+        {
+            n = andLeft;
+        }
+        if (n is not CondNode cond)
+        {
+            condNode = null;
+            return false;
+        }
+        condNode = cond;
+        return true;
     }
 
     private void ReplaceCondOfs(OperationNode addcSubc, Node wideSum)

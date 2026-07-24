@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public class NodeGraphRenderer
