@@ -214,4 +214,9 @@ public class NodeFactory
     public ConstantNode Word32(uint value) => new ConstantNode(
         NextId(),
         Constant.Word32(value));
+
+    public ConstantNode Zero(DataType dt)
+    {
+        return this.Const(Constant.Zero(dt));
+    }
 }

@@ -56,7 +56,7 @@ public sealed class OperationNode : Node
     };
 
     public OperationNode(int number, DataType dt, Operator op, params Node?[] inputs)
-     : base(number, dt, inputs)
+        : base(number, dt, inputs)
     {
         this.Operator = op;
     }

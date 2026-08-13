@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using Reko.Core.Collections;
-using Reko.Core.Expressions;
 using Reko.Core.Operators;
 using Reko.Extras.SeaOfNodes.Nodes;
 

@@ -100,20 +100,20 @@ public partial class PeepholeOptimizer
             break;
         case OperatorType.Or:
             if (left == right)
-                return (Node)left;
+                return left;
             if (cRight is not null)
             {
                 if (cRight.Value.IsZero)
-                    return (Node)left;
+                    return left;
             }
             break;
         case OperatorType.Xor:
             if (left == right)
-                return m.Const(Constant.Zero(dt));
+                return m.Zero(dt);
             if (cRight is not null)
             {
                 if (cRight.Value.IsZero)
-                    return (Node)left;
+                    return left;
             }
             break;
         }

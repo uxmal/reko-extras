@@ -1,19 +1,29 @@
 ﻿using Reko.Core.Expressions;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Reko.Extras.SeaOfNodes.Analysis;
 
 public partial class PeepholeOptimizer
 {
     public Node Seq(DataType dt, params Node[] inputs)
+    {
+        List<Node> nodes = FlattenNestedSequences(inputs);
+
+        nodes = FuseAdjacentSlices(nodes);
+
+        var cnode = FuseAdjacentConstants(dt, nodes);
+        if (cnode is not null)
+            return cnode;
+
+        if (nodes.Count == 1)
+            return nodes[0];
+        return m.Seq(dt, nodes.ToArray());
+    }
+
+    private static List<Node> FlattenNestedSequences(Node[] inputs)
     {
         List<Node> nodes = [];
         foreach (var n in inputs)
@@ -28,15 +38,7 @@ public partial class PeepholeOptimizer
             }
         }
 
-        nodes = FuseAdjacentSlices(nodes);
-
-        var cnode = FuseAdjacentConstants(dt, nodes);
-        if (cnode is not null)
-            return cnode;
-
-        if (nodes.Count == 1)
-            return nodes[0];
-        return m.Seq(dt, nodes.ToArray());
+        return nodes;
     }
 
     private ConstantNode? FuseAdjacentConstants(DataType dt, List<Node> newSeq)

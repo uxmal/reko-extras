@@ -1,6 +1,7 @@
 using Reko.Core.Collections;
 using Reko.Core.Diagnostics;
 using Reko.Core.Expressions;
+using Reko.Core.Intrinsics;
 using Reko.Core.Operators;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
@@ -65,7 +66,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
     private void ProcessGraph(StartNode graph, IEnumerable<Node> reachable)
     {
-        var opNodes = reachable.OfType<OperationNode>().OrderBy(n => n.Number).ToList();
+        var opNodes = reachable.OrderBy(n => n.Number).ToList();
         var wl = new WorkList<Node>();
         wl.AddRange(opNodes);
         while (wl.TryGetWorkItem(out var node))
@@ -76,9 +77,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
             {
                 switch (opNode.Operator.Type)
                 {
-                case OperatorType.IAdd:
                 case OperatorType.ISub:
-                    var newNode = TryFuseAddSub(opNode);
+                    var newNode = TryFuseNegation(opNode);
                     if (newNode is not null)
                     {
                         Debug.WriteLine($"== {newNode.Label}{newNode.Number} =======");
@@ -86,15 +86,6 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
                         // If we fused a long operation, we may have created new opportunities for fusion.
                         wl.Add(newNode);
-                        break;
-                    }
-                    if (opNode.Operator.Type == OperatorType.ISub)
-                    {
-                        newNode = TryFuseNegation(opNode);
-                        if (newNode is not null)
-                        {
-                            wl.AddRange(newNode.Outputs.OfType<OperationNode>());
-                        }
                     }
                     break;
                 case OperatorType.Or:
@@ -103,6 +94,34 @@ public class LongAddRewriter : INodeVisitor<Node?>
                         wl.AddRange(node.Outputs.OfType<OperationNode>());
                     }
                     break;
+                }
+            }
+            if (node is ApplicationNode appl)
+            {
+                if (appl.Inputs[1] is ProcedureConstantNode pc)
+                {
+                    Node? newNode = null;
+                    var name = pc.Procedure.Name;
+                    if (name == CommonOps.IAddC.Name)
+                    {
+                        newNode = TryFuseAddSub(appl, Operator.IAdd);
+                    }
+                    else if (name == CommonOps.ISubC.Name)
+                    {
+                        newNode = TryFuseAddSub(appl, Operator.ISub);
+                        if (newNode is null)
+                        {
+                            newNode = this.TryFuseNegation(appl);
+                        }
+                    }
+                    if (newNode is not null)
+                    {
+                        Debug.WriteLine($"== {newNode.Label}{newNode.Number} =======");
+                        Dump(graph);
+
+                        // If we fused a long operation, we may have created new opportunities for fusion.
+                        wl.Add(newNode);
+                    }
                 }
             }
         }
@@ -116,13 +135,15 @@ public class LongAddRewriter : INodeVisitor<Node?>
         Debug.WriteLine(sw.ToString());
     }
 
-    private Node? TryFuseAddSub(OperationNode addcSubc)
+    private Node? TryFuseAddSub(ApplicationNode addcSubc, BinaryOperator opType)
     {
-        if (addcSubc.Inputs.Count != 3)
+        if (addcSubc.Inputs.Count != 5)
             return null;
         // Try detecting an addc/subc pattern.
-        var hiAddSub = addcSubc.Inputs[1]!;
-        var cyRight = addcSubc.Inputs[2]!;
+        var hiLeft = addcSubc.Inputs[2]!;
+        Node hiToReplace = addcSubc;
+        var hiRight = addcSubc.Inputs[3]!;
+        var cyRight = addcSubc.Inputs[4]!;
         if (!IsMaybeMaskedCondNode(cyRight, out var cond))
             return null;
 
@@ -133,31 +154,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
             loAddSub = slice.Inputs[1];
 
         if (IsAddSub(loAddSub, out var opLo, out var loLeft, out var loRight)
-            && opLo == addcSubc.Operator.Type)
+            && opLo == opType.Type)
         {
-            // We have a carry-generating low add/sub, now verify that the
-            // high add/sub matches and consumes the carry.
-            if (!IsAddSub(hiAddSub, out var opHi, out var hiLeft, out var hiRight))
-            {
-                // Maybe addcsubc is the inner expression and we have to "rotate":
-                //   (+ (+ a Cy) b)
-                var newUpperAdd = addcSubc.Outputs.SingleOrDefault(o => o is OperationNode oo && oo.Operator.Type == opLo);
-                if (newUpperAdd is not null)
-                {
-                    hiLeft = addcSubc.Inputs[1]!;
-                    hiRight = newUpperAdd.Inputs[2]!;
-                }
-                else
-                {
-                    // The addc is done directly on the high part without a separate add/sub node.
-                    // Done on PDP-11, for instance:
-                    //    add r2,[r1]  ; low part
-                    //    adc r3       ; high part   
-                    hiLeft = hiAddSub;
-                    hiRight = m.Const(Constant.Create(hiLeft.DataType, 0));
-                }
-            }
-
             // We may be seeing a PDP-11 style addc, which has only one argument. 
             //    add r2,r0
             //    adc r3
@@ -169,10 +167,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
                 {
                     if (IsAddSub(o, out var opEx, out var exLeft, out var exRight) &&
                         exLeft == addcSubc &&
-                        opEx == opHi &&
+                        opEx == opType.Type &&
                         !IsCarryAddSub(o))
                     {
                         hiRight = exRight;
+                        hiToReplace = o;
                         break;
                     }
                 }
@@ -186,11 +185,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
             var dt = CombineTypes(dtLo, dtHi);
             var seqLeft = m.Seq(dt, hiLeft, loLeft);
             var seqRight = m.Seq(dt, hiRight, loRight);
-            var wideSum = m.Bin(dt, addcSubc.Operator, null, seqLeft, seqRight);
+            var wideSum = m.Bin(dt, opType, null, seqLeft, seqRight);
             var sumLo = m.Slice(dtLo, wideSum, 0);
             var sumHi = m.Slice(dtHi, wideSum, dtLo.BitSize);
             ReplaceCondOfs(addcSubc, wideSum);
-            Node.Replace(addcSubc, sumHi);
+            Node.Replace(hiToReplace, sumHi);
             Node.Replace(loAddSub!, sumLo);
             replacements[addcSubc] = sumHi;
             replacements[loAddSub!] = sumLo;
@@ -226,7 +225,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return true;
     }
 
-    private void ReplaceCondOfs(OperationNode addcSubc, Node wideSum)
+    private void ReplaceCondOfs(Node addcSubc, Node wideSum)
     {
         foreach (var use in addcSubc.Outputs.ToList())
         {
@@ -269,8 +268,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (op.Inputs[1] is null || op.Inputs[2] is null)
             return false;
         opType = op.Operator.Type;
-        left = (Node) op.Inputs[1]!;
-        right = (Node) op.Inputs[2]!;
+        left = op.Inputs[1]!;
+        right = op.Inputs[2]!;
         return true;
     }
 
@@ -324,6 +323,107 @@ public class LongAddRewriter : INodeVisitor<Node?>
         replacements[highOp] = sliceHigh;
         replacements[carryGen] = m.Cond(carryGen.DataType, null, sliceLow);
         return true;
+    }
+
+    private Node? TryFuseNegation(ApplicationNode subcNode)
+    {
+        // d0_8 = -d0
+        // SCZ_9 = cond(d0_8)
+        // CF_10 = SCZ_9 & 4<32>
+        // d1_11 = __subc(0<32>, d1, CF_10)
+        // SCZ = cond(d1_11)
+        Debug.Assert(subcNode.Inputs.Count == 5);
+        var cZeroLeft = subcNode.Inputs[2] as ConstantNode;
+        var hiNegNode = subcNode.Inputs[3]!;
+        var carry = subcNode.Inputs[4]!;
+        if (cZeroLeft is not null && 
+            cZeroLeft.Value.IsZero &&
+            IsMaybeMaskedCondNode(carry, out var cond) &&
+            cond.Inputs[1] is OperationNode loNegNode &&
+            loNegNode.Operator == Operator.Neg)
+        {
+            var dtLo = loNegNode.DataType;
+            var dtHi = hiNegNode.DataType;
+            var dt = CombineTypes(dtLo, dtHi);
+            var seq = m.Seq(dt, hiNegNode, loNegNode.Inputs[1]!);
+            var wideNeg = m.Neg(dt, seq);
+            var sliceLo = m.Slice(dtLo, wideNeg, 0);
+            var sliceHi = m.Slice(dtHi, wideNeg, dtLo.BitSize);
+            ReplaceCondOfs(subcNode, wideNeg);
+            Node.Replace(subcNode, sliceHi);
+            Node.Replace(loNegNode, sliceLo);
+            Node.RemoveFromInputs(subcNode);
+            return wideNeg;
+        }
+        if (subcNode.Inputs[3] is ConstantNode cZeroRight &&
+            cZeroRight.Value.IsZero)
+        {
+            OperationNode opCy;
+            if (IsCarryNe0(subcNode, carry, out hiNegNode, out opCy))
+            {
+                var loNegNode2 = FindNegation(opCy.Inputs[1]!);
+                if (loNegNode2 is null)
+                    return null;
+                var dtLo = loNegNode2.DataType;
+                var dtHi = hiNegNode.DataType;
+                var dt = CombineTypes(dtLo, dtHi);
+                var seq = m.Seq(dt, hiNegNode, loNegNode2.Inputs[1]!);
+                var wideNeg = m.Neg(dt, seq);
+                var sliceLo = m.Slice(dtLo, wideNeg, 0);
+                var sliceHi = m.Slice(dtHi, wideNeg, dtLo.BitSize);
+                ReplaceCondOfs(subcNode, wideNeg);
+                Node.Replace(loNegNode2, sliceLo);
+                Node.Replace(subcNode, sliceHi);
+                Node.RemoveFromInputs(subcNode);
+                return wideNeg;
+
+            }
+        }
+        return null;
+    }
+
+    private bool IsCarryNe0(ApplicationNode subcNode, Node carry, out Node? hiNegNode, out OperationNode? opCy)
+    {
+        hiNegNode = null;
+        opCy = null;
+        if (!IsNeg(subcNode.Inputs[2], out hiNegNode))
+            return false;
+        if (carry is CondNode cn)
+        {
+            carry = cn.Inputs[1]!;
+        }
+        if (carry is not OperationNode op)
+            return false;
+        if (op.Operator != Operator.Ne ||
+            op.Inputs[2] is not ConstantNode cCy ||
+            !cCy.Value.IsZero)
+            return false;
+
+        opCy = op;
+        return true;
+    }
+
+    private Node? FindNegation(Node node)
+    {
+        foreach (var use in node.Outputs)
+        {
+            if (use is OperationNode op && op.Operator == Operator.Neg)
+                return op;
+        }
+        return null;
+    }
+
+
+    private bool IsNeg(Node? node, [MaybeNullWhen(false)] out Node negatedNode)
+    {
+        if (node is OperationNode o &&
+            o.Operator == Operator.Neg)
+        {
+            negatedNode = o.Inputs[1]!;
+            return true;
+        }
+        negatedNode = null;
+        return false;
     }
 
     private Node? TryFuseNegation(OperationNode subNode)
