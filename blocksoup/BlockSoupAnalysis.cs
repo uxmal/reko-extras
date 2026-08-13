@@ -152,7 +152,7 @@ public class BlockSoupAnalysis
     {
         if ((iclass & (InstrClass.Return | InstrClass.Invalid)) != 0)
             return false;
-        if ((iclass & InstrClass.ConditionalTransfer) == InstrClass.Transfer)
+        if ((iclass & InstrClass.CtiJump | InstrClass.Conditional) == InstrClass.CtiJump)
             return false;
         return true;
     }

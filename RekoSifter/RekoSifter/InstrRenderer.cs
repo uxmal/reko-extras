@@ -1,4 +1,6 @@
- using Reko.Core.Machine;
+using Reko.Arch.X86;
+using Reko.Core;
+using Reko.Core.Machine;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -35,7 +37,7 @@ namespace RekoSifter
             return i.ToString();
         }
 
-        public static InstrRenderer Create(string archName)
+        public static InstrRenderer Create(IProcessorArchitecture? arch, string archName)
         {
             switch (archName)
             {
@@ -45,7 +47,7 @@ namespace RekoSifter
             case "x86-protected-16":
             case "x86-protected-32":
             case "x86-protected-64":
-                return new X86Renderer();
+                return new X86Renderer((IntelArchitecture) arch);
             case "ppc-be-32":
             case "ppc-le-32":
             case "ppc-be-64":

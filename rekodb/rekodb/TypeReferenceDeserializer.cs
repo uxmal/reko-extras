@@ -44,7 +44,7 @@ namespace Reko.Database
                         throw new BadImageFormatException();
                     var dtPointee = Deserialize();
                     Expect(JsonToken.EndList);
-                    return new Pointer(dtPointee, ptrBitsize);
+                    return new PointerType(dtPointee, ptrBitsize);
                 }
                 break;
             default:

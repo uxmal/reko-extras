@@ -26,7 +26,6 @@ public class CallDestinationLoadAddressFinder
 
     private HashSet<Address> FindAllPossibleProcedureEntries()
     {
-        int i = 0; 
         var dasms = new Dictionary<int, IEnumerator<MachineInstruction>>();
         throw new System.NotImplementedException();
     }

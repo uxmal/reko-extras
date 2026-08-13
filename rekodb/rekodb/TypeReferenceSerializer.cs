@@ -53,7 +53,7 @@ namespace Reko.Database
             throw new NotImplementedException();
         }
 
-        public void VisitPointer(Pointer ptr)
+        public void VisitPointer(PointerType ptr)
         {
             json.BeginList();
             json.WriteListItem("p");

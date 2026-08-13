@@ -2,15 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text;
 using libopcodes;
-using Reko.Arch.X86;
-using Reko.Core;
-using Reko.Core.Machine;
 using Constant = Reko.Core.Expressions.Constant;
 
 namespace RekoSifter

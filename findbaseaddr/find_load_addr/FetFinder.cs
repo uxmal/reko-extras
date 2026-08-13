@@ -6,6 +6,7 @@ using Reko.ImageLoaders.OdbgScript;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Linq;
 using System.Numerics;
@@ -30,8 +31,6 @@ namespace FindLoadAddr
         private readonly BigInteger wordMask;
 
         private uint word_size;
-        private uint uAddrMax;
-        private uint uAddrMin;
 
 
         public FetFinder(
@@ -44,6 +43,7 @@ namespace FindLoadAddr
             this.mem = mem;
             this.alignMask = alignMask;
             this.maskedValue = maskedValue;
+            this.Endianness = EndianServices.Little;
             this.wordMask = Bits.Mask(arch.PointerType.BitSize);
             this.word_size = (uint)(arch.WordWidth.BitSize / arch.MemoryGranularity);
         }
@@ -126,7 +126,7 @@ namespace FindLoadAddr
 
         public record FET(uint head, uint gap, uint tableSize);
 
-        private bool read_word(EndianImageReader rdr, out Constant ptrValue)
+        private bool read_word(EndianImageReader rdr, [MaybeNullWhen(false)] out Constant ptrValue)
         {
             return rdr.TryRead(arch.PointerType, out ptrValue);
         }

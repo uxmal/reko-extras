@@ -306,9 +306,8 @@ public class Sifter
                 ? "be"
                 : "le";
         }
-        return (
-            cfgSvc.GetArchitecture(archName!, rekoOptions),
-            InstrRenderer.Create(archName!));
+        var architecture = cfgSvc.GetArchitecture(archName!, rekoOptions);
+        return (architecture, InstrRenderer.Create(architecture, archName!));
     }
 
     private void Usage()

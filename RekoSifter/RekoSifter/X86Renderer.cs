@@ -12,8 +12,7 @@ namespace RekoSifter
 {
     public class X86Renderer : InstrRenderer
     {
-        private readonly string[] prefixes = new string[]
-        {
+        private readonly string[] prefixes = [
             "addr32 ",
             "bnd ",
             "ds ",
@@ -40,7 +39,13 @@ namespace RekoSifter
             "rep ",
             "repz ",
             "repnz "
-        };
+        ];
+        private readonly IntelArchitecture arch;
+
+        public X86Renderer(IntelArchitecture arch) 
+        {
+            this.arch = arch;
+        }
 
         public override string AdjustObjdump(string objdump)
         {
@@ -301,7 +306,7 @@ namespace RekoSifter
             {
                 sb.Append(mem.SegOverride is not null &&  mem.SegOverride != RegisterStorage.None 
                     ? mem.SegOverride
-                    : mem.DefaultSegment);
+                    : mem.DefaultSegment(this.arch));
                 sb.AppendFormat(":0x{0:x}", mem.Offset!.ToUInt64());
             }
         }

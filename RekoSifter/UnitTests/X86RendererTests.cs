@@ -25,7 +25,7 @@ namespace RekoSifter.UnitTests
             var bytes = BytePattern.FromHexBytes(hexString);
             var mem = new ByteMemoryArea(Address.Ptr64(0), bytes);
             var dasm = arch.CreateDisassemblerImpl(mem.CreateLeReader(0));
-            var renderer = new X86Renderer();
+            var renderer = new X86Renderer(arch);
             var sObjdump = renderer.RenderAsObjdump(dasm.First());
             Assert.That(sObjdump, Is.EqualTo(sExp));
         }

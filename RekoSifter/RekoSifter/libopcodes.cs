@@ -17075,6 +17075,8 @@ namespace libopcodes
         }
     }
 
+#pragma warning disable CS8981
+
     public unsafe partial class bfd
     {
         public partial struct __Internal

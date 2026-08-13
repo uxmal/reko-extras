@@ -41,7 +41,7 @@ namespace Reko.Database.UnitTests
         [Test]
         public void TyrefDes_Ptr_Int32()
         {
-            RunTest("['p',16,'i32']", new Pointer(PrimitiveType.Int32, 16));
+            RunTest("['p',16,'i32']", new PointerType(PrimitiveType.Int32, 16));
         }
     }
 }

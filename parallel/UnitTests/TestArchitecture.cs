@@ -28,7 +28,7 @@ namespace ParallelScan.UnitTests
             return new TestDisassembler(imageReader);
         }
 
-        public override IProcessorEmulator CreateEmulator(SegmentMap segmentMap,  IPlatformEmulator envEmulator)
+        public override IProcessorEmulator CreateEmulator(IMemory memory, IPlatformEmulator envEmulator)
         {
             throw new NotImplementedException();
         }

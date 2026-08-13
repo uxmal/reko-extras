@@ -69,7 +69,7 @@ namespace Reko.Database.UnitTests.Mocks
             throw new NotImplementedException();
         }
 
-        public IProcessorEmulator CreateEmulator(SegmentMap segmentMap, IPlatformEmulator envEmulator)
+        public IProcessorEmulator CreateEmulator(IMemory memory, IPlatformEmulator envEmulator)
         {
             throw new NotImplementedException();
         }
