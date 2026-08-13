@@ -358,7 +358,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (subcNode.Inputs[3] is ConstantNode cZeroRight &&
             cZeroRight.Value.IsZero)
         {
-            OperationNode opCy;
+            OperationNode? opCy;
             if (IsCarryNe0(subcNode, carry, out hiNegNode, out opCy))
             {
                 var loNegNode2 = FindNegation(opCy.Inputs[1]!);
@@ -382,7 +382,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return null;
     }
 
-    private bool IsCarryNe0(ApplicationNode subcNode, Node carry, out Node? hiNegNode, out OperationNode? opCy)
+    private bool IsCarryNe0(
+        ApplicationNode subcNode,
+        Node carry,
+        [MaybeNullWhen(false)] out Node hiNegNode,
+        [MaybeNullWhen(false)] out OperationNode opCy)
     {
         hiNegNode = null;
         opCy = null;
@@ -405,6 +409,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
     private Node? FindNegation(Node node)
     {
+        if (node is OperationNode o && o.Operator == Operator.Neg)
+            return o;
         foreach (var use in node.Outputs)
         {
             if (use is OperationNode op && op.Operator == Operator.Neg)
@@ -708,10 +714,13 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return null;
     }
 
-    private static DataType CombineTypes(DataType lower, DataType upper)
+    private static PrimitiveType CombineTypes(DataType lower, DataType upper)
     {
         var totalBits = lower.BitSize + upper.BitSize;
-        return PrimitiveType.Create(upper.Domain, totalBits);
+        if (upper.IsWord)
+            return PrimitiveType.CreateWord(totalBits);
+        else
+            return PrimitiveType.Create(upper.Domain, totalBits);
     }
 
     public Node? VisitAddressNode(AddressNode node) => null;

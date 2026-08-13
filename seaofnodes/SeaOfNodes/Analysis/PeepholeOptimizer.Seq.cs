@@ -1,4 +1,5 @@
-﻿using Reko.Core.Expressions;
+﻿using Reko.Core;
+using Reko.Core.Expressions;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
 using System.Diagnostics;
@@ -14,12 +15,17 @@ public partial class PeepholeOptimizer
 
         nodes = FuseAdjacentSlices(nodes);
 
+        if (nodes.Count == 1)
+            return nodes[0];
+
         var cnode = FuseAdjacentConstants(dt, nodes);
         if (cnode is not null)
             return cnode;
 
-        if (nodes.Count == 1)
-            return nodes[0];
+        var def = FuseDefs(dt, nodes);
+        if (def is not null)
+            return def;
+
         return m.Seq(dt, nodes.ToArray());
     }
 
@@ -123,5 +129,54 @@ public partial class PeepholeOptimizer
         return
             hi.Inputs[1] == lo.Inputs[1] &&
             hi.Offset == lo.Offset + lo.DataType.BitSize;
+    }
+
+    private DefNode? FuseDefs(DataType dt, List<Node> newSeq)
+    {
+        if (!newSeq.All(e => e is DefNode))
+            return null;
+        var cfNode = newSeq[0].Inputs[0];
+        if (!newSeq.All(e => e.Inputs[0] == cfNode))
+            return null;
+        var def = (DefNode)newSeq[0];
+        var storages = new List<Storage>();
+        Debug.Assert(def.Storage is not null, "Def nodes should always have a storage.");
+        storages.Add(def.Storage);
+        for (int i = 1; i < newSeq.Count; ++i)
+        {
+            var d = (DefNode)newSeq[i];
+            if (d.Inputs[0] != def.Inputs[0])
+                return null;
+            Debug.Assert(d.Storage is not null, "Def nodes should always have a storage.");
+            storages.Add(d.Storage);
+        }
+        var fusedStorage = MakeSequenceStorage(dt, storages);
+        var fusedDef = m.Def(def.Inputs[0]!, fusedStorage, dt);
+        int bitOffset = 0;
+        for (int i = newSeq.Count - 1; i >= 0; --i)
+        {
+            var d = newSeq[i];
+            var slice = this.Slice(d.DataType, fusedDef, bitOffset);
+            Node.Replace(d, slice);
+            bitOffset += d.DataType.BitSize;
+        }
+        return fusedDef;
+    }
+
+    private Storage MakeSequenceStorage(DataType dt, List<Storage> storages)
+    {
+        var elements = new List<Storage>();
+        foreach (var s in storages)
+        {
+            if (s is SequenceStorage seq)
+            {
+                elements.AddRange(seq.Elements);
+            }
+            else
+            {
+                elements.Add(s);
+            }
+        }
+        return new SequenceStorage(dt, elements.ToArray());
     }
 }

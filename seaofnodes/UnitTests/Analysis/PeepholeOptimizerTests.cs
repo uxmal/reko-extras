@@ -120,4 +120,15 @@ public class PeepholeOptimizerTests
 
         Assert.That(result.ToString(), Is.EqualTo("v4 = r3 & 0xFFFE<16>"));
     }
+
+    [Test]
+    public void Peep_Fuse_SequenceOfDefs()
+    {
+        var dx = m.Def(block, RegisterStorage.Reg16("dx", 2));
+        var ax = m.Def(block, RegisterStorage.Reg16("ax", 0));
+
+        var result = peep.Seq(PrimitiveType.Word32, dx, ax);
+
+        Assert.That(result.ToString(), Is.EqualTo("def dx_ax:word32"));
+    }
 }

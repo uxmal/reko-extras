@@ -161,17 +161,13 @@ public class LongAddRewriterTests
     {
         var sExp =
 @"ProcedureBuilder_entry:
-    def ax:word16
-    def cx:word16
-    def dx:word16
-    def bx:word16
+    def dx_ax:word32
+    def bx_cx:word32
 l1:
-    v22 = SEQ(dx, ax)
-    v23 = SEQ(bx, cx)
-    v24 = v22 + v23
-    ax_9 = SLICE(v24, word16, 0)
-    dx_16 = SLICE(v24, word16, 16)
-    CZS_17 = cond(v24)
+    v28 = dx_ax + bx_cx
+    ax_9 = SLICE(v28, word16, 0)
+    dx_16 = SLICE(v28, word16, 16)
+    CZS_17 = cond(v28)
     CZS_10 = cond(ax_9)
     C_15 = CZS_10 & 1<32>
     return
@@ -195,27 +191,23 @@ ProcedureBuilder_exit:
     {
         var sExp =
 @"ProcedureBuilder_entry:
-    def ax:word16 # [ v42, v47, v52 ]
-    def dx:word16 # [ v42, v47, v52 ]
-    def bx:word16 # [ v47, v52 ]
-    def cx:word16 # [ v52 ]
+    def cx_bx_dx_ax:word64 # [ bx_dx_ax_49, cx_29, v60 ]
 l1:
-    v9 = Mem6[0x1234<32>:word16] # [ v43, v48, v53 ]
-    v15 = Mem6[0x1236<32>:word16] # [ v43, v48, v53 ]
-    v23 = Mem6[0x1238<32>:word16] # [ v48, v53 ]
-    v31 = Mem6[0x123A<32>:word16] # [ v53 ]
-    v52 = SEQ(cx, bx, dx, ax) # [ v54 ]
-    v53 = SEQ(v31, v23, v15, v9) # [ v54 ]
-    v54 = v52 + v53 # [ v49, cx_34, CZS_35 ]
-    v49 = SLICE(v54, cuiposr48, 0) # [ v44, bx_26, CZS_27 ]
-    v44 = SLICE(v49, uipr32, 0) # [ ax_10, dx_18, CZS_19 ]
-    ax_10 = SLICE(v44, word16, 0) # [ CZS_11, ax_37 ]
-    bx_26 = SLICE(v49, word16, 32) # [ bx_38 ]
-    cx_34 = SLICE(v54, word16, 48) # [ cx_39 ]
-    dx_18 = SLICE(v44, word16, 16) # [ dx_40 ]
-    CZS_35 = cond(v54) # [ CZS_41 ]
-    CZS_27 = cond(v49) # [ C_33 ]
-    CZS_19 = cond(v44) # [ C_25 ]
+    v9 = Mem6[0x1234<32>:word16] # [ v45, v52, v59 ]
+    v15 = Mem6[0x1236<32>:word16] # [ v45, v52, v59 ]
+    v23 = Mem6[0x1238<32>:word16] # [ v52, v59 ]
+    v31 = Mem6[0x123A<32>:word16] # [ v59 ]
+    v59 = SEQ(v31, v23, v15, v9) # [ v60 ]
+    v60 = cx_bx_dx_ax + v59 # [ v53, cx_34, CZS_35 ]
+    v53 = SLICE(v60, word48, 0) # [ v46, bx_26, CZS_27 ]
+    v46 = SLICE(v53, word32, 0) # [ ax_10, dx_18, CZS_19 ]
+    ax_10 = SLICE(v46, word16, 0) # [ CZS_11, ax_37 ]
+    bx_26 = SLICE(v53, word16, 32) # [ bx_38 ]
+    cx_34 = SLICE(v60, word16, 48) # [ cx_39 ]
+    dx_18 = SLICE(v46, word16, 16) # [ dx_40 ]
+    CZS_35 = cond(v60) # [ CZS_41 ]
+    CZS_27 = cond(v53) # [ C_33 ]
+    CZS_19 = cond(v46) # [ C_25 ]
     CZS_11 = cond(ax_10) # [ C_17 ]
     C_33 = CZS_27 & 1<32> # [  ]
     C_25 = CZS_19 & 1<32> # [  ]
@@ -248,13 +240,11 @@ ProcedureBuilder_exit:
     {
         var sExp =
 @"ProcedureBuilder_entry:
-    def ax:word16
-    def dx:word16
+    def dx_ax:word32
 l1:
-    v19 = SEQ(dx, ax)
-    v21 = v19 + 0x12345678<32>
-    ax_9 = SLICE(v21, word16, 0)
-    dx_14 = SLICE(v21, word16, 16)
+    v23 = dx_ax + 0x12345678<32>
+    ax_9 = SLICE(v23, word16, 0)
+    dx_14 = SLICE(v23, word16, 16)
     C_10 = cond(ax_9)
     return
 ProcedureBuilder_exit:
@@ -276,13 +266,11 @@ ProcedureBuilder_exit:
     {
         var sExp =
 @"ProcedureBuilder_entry:
-    def ax:word16
-    def dx:word16
+    def dx_ax:word32
 l1:
-    v19 = SEQ(dx, ax)
-    v21 = v19 + 1<32>
-    ax_9 = SLICE(v21, word16, 0)
-    dx_14 = SLICE(v21, word16, 16)
+    v23 = dx_ax + 1<32>
+    ax_9 = SLICE(v23, word16, 0)
+    dx_14 = SLICE(v23, word16, 16)
     C_10 = cond(ax_9)
     return
 ProcedureBuilder_exit:
@@ -304,20 +292,18 @@ ProcedureBuilder_exit:
     {
         var sExp =
 @"ProcedureBuilder_entry:
-    def ax:word16
     def bx:word16
-    def dx:word16
+    def dx_ax:word32
 l1:
     v10 = bx + 0x300<16>
     v11 = Mem6[v10:word16]
     v17 = bx + 0x302<16>
     v18 = Mem6[v17:word16]
-    v25 = SEQ(dx, ax)
-    v26 = SEQ(v18, v11)
-    v27 = v25 + v26
-    ax_12 = SLICE(v27, word16, 0)
-    dx_19 = SLICE(v27, word16, 16)
-    C_20 = cond(v27)
+    v28 = SEQ(v18, v11)
+    v29 = dx_ax + v28
+    ax_12 = SLICE(v29, word16, 0)
+    dx_19 = SLICE(v29, word16, 16)
+    C_20 = cond(v29)
     C_13 = cond(ax_12)
     return
 ProcedureBuilder_exit:
@@ -520,9 +506,8 @@ ProcedureBuilder_exit:
         var sExp =
         #region Expected
 @"ProcedureBuilder_entry:
-    def ax:word16
     def bx:word16
-    def dx:word16
+    def dx_ax:word32
 l1:
     v10 = bx + 2<16>
     v11 = Mem6[v10:word16]
@@ -530,16 +515,15 @@ l1:
     v22 = Mem6[v21:word16]
     v27 = bx + 8<16>
     v28 = Mem6[v27:word16]
-    v37 = SEQ(dx, ax)
-    v38 = SEQ(0<16>, v11)
-    v39 = v37 + v38
-    v42 = SEQ(v28, v22)
-    v43 = v39 + v42
-    ax_23 = SLICE(v43, word16, 0)
-    dx_31 = SLICE(v43, word16, 16)
-    CZS_32 = cond(v43)
-    ax_12 = SLICE(v39, word16, 0)
-    dx_19 = SLICE(v39, word16, 16)
+    v40 = SEQ(0<16>, v11)
+    v41 = dx_ax + v40
+    v44 = SEQ(v28, v22)
+    v45 = v41 + v44
+    ax_23 = SLICE(v45, word16, 0)
+    dx_31 = SLICE(v45, word16, 16)
+    CZS_32 = cond(v45)
+    ax_12 = SLICE(v41, word16, 0)
+    dx_19 = SLICE(v41, word16, 16)
     CZS_24 = cond(ax_23)
     CZS_13 = cond(ax_12)
     C_30 = CZS_24 & 1<32>
@@ -572,17 +556,13 @@ ProcedureBuilder_exit:
         var sExp =
         #region Expected
 @"ProcedureBuilder_entry:
-    def ax:word16
-    def cx:word16
-    def dx:word16
-    def bx:word16
+    def dx_ax:word32
+    def bx_cx:word32
 l1:
-    v24 = SEQ(dx, ax)
-    v25 = SEQ(bx, cx)
-    v26 = v24 + v25
-    ax_9 = SLICE(v26, word16, 0)
-    dx_19 = SLICE(v26, word16, 16)
-    CZS_17 = cond(v26)
+    v30 = dx_ax + bx_cx
+    ax_9 = SLICE(v30, word16, 0)
+    dx_19 = SLICE(v30, word16, 16)
+    CZS_17 = cond(v30)
     CZS_10 = cond(ax_9)
     C_15 = CZS_10 & 1<32>
     return
@@ -696,15 +676,18 @@ ProcedureBuilder_exit:
         var sExp =
         #region Expected
 @"ProcedureBuilder_entry:
-    def dx_ax:word32
+    def dx_ax:word32 # [ ax_12, dx_7, v27 ]
 l1:
-    v12 = -dx_ax
-    dx_15 = SLICE(v12, word16, 16)
-    ax_13 = SLICE(v12, word16, 0)
-    return
+    v27 = -dx_ax # [ ax_13, dx_19 ]
+    ax_13 = SLICE(v27, word16, 0) # [ v15, ax_21 ]
+    dx_19 = SLICE(v27, word16, 16) # [ dx_22 ]
+    v15 = ax_13 != 0<16> # [ C_16 ]
+    C_16 = cond(v15) # [ C_23 ]
+    return # [  ]
 ProcedureBuilder_exit:
-    use dx:dx_15
-    use ax:ax_13
+    use ax:ax_13 # [  ]
+    use dx:dx_19 # [  ]
+    use C:C_16 # [  ]
 ";
         #endregion
 
@@ -729,14 +712,13 @@ ProcedureBuilder_exit:
         var sExp =
         #region Expected
 @"ProcedureBuilder_entry:
-    def dx:word16
-    def ax:word16
+    def dx_ax:word32
 l1:
-    v22 = SEQ(dx, ax)
-    v23 = -v22
-    ax_14 = SLICE(v23, word16, 0)
-    dx_17 = SLICE(v23, word16, 16)
-    C_13 = ax != 0<16>
+    v25 = -dx_ax
+    ax_14 = SLICE(v25, word16, 0)
+    dx_17 = SLICE(v25, word16, 16)
+    ax_11 = SLICE(dx_ax, word16, 0)
+    C_13 = ax_11 != 0<16>
     return
 ProcedureBuilder_exit:
     use ax:ax_14
@@ -804,19 +786,18 @@ ProcedureBuilder_exit:
         var sExp =
         #region Expected
 @"ProcedureBuilder_entry:
-    def dx:word16
-    def ax:word16
     def cl:byte
+    def dx_ax:word32
 l1:
-    v26 = SEQ(dx, ax)
-    v27 = v26 >>u32 cl
-    ax_16 = SLICE(v27, word16, 0)
+    v29 = dx_ax >>u32 cl
+    ax_16 = SLICE(v29, word16, 0)
     Mem18[0x1234<16>:word16] = ax_16
-    dx_11 = SLICE(v27, word16, 16)
+    dx_11 = SLICE(v29, word16, 16)
     Mem20[0x1236<16>:word16] = dx_11
+    dx_7 = SLICE(dx_ax, word16, 16)
     cl_12 = -cl
     cl_14 = cl_12 + 0x10<8>
-    bx_15 = dx <<16 cl_14
+    bx_15 = dx_7 <<16 cl_14
     return
 ProcedureBuilder_exit:
     use ax:ax_16
@@ -913,14 +894,12 @@ NZC = cond(r11)
         var sExpected =
         #region Expected
 @"ProcedureBuilder_entry:
-    def r4:word32
-    def r5:word32
+    def r5_r4:word64
 l1:
-    v25 = SEQ(r5, r4)
-    v26 = -v25
-    r4_8 = SLICE(v26, word32, 0)
+    v28 = -r5_r4
+    r4_8 = SLICE(v28, word32, 0)
     Mem17[0x123400<32>:word32] = r4_8
-    r5_15 = SLICE(v26, word32, 32)
+    r5_15 = SLICE(v28, word32, 32)
     Mem19[0x123404<32>:word32] = r5_15
     v12 = r4_8 <u 0<32>
     r9_13 = CONVERT(v12, bool, word32)
@@ -958,14 +937,12 @@ ProcedureBuilder_exit:
         var sExpected =
         #region Expected
 @"ProcedureBuilder_entry:
-    def d0:word32
-    def d1:word32
+    def d1_d0:word64
 l1:
-    v21 = SEQ(d1, d0)
-    v22 = -v21
-    d0_8 = SLICE(v22, word32, 0)
-    d1_15 = SLICE(v22, word32, 32)
-    CZS_16 = cond(v22)
+    v24 = -d1_d0
+    d0_8 = SLICE(v24, word32, 0)
+    d1_15 = SLICE(v24, word32, 32)
+    CZS_16 = cond(v24)
     CZS_9 = cond(d0_8)
     C_11 = CZS_9 & 4<32>
     return
