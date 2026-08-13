@@ -26,9 +26,12 @@ public class GvnEqualityComparer : IEqualityComparer<Node>, INodeVisitor<int>
         {
             (ConstantNode cx, ConstantNode cy) =>
                 ecmp.Equals(cx.Value, cy.Value),
-            (OperationNode bx, OperationNode by) =>
+            (BinaryNode bx, BinaryNode by) =>
                 bx.Operator == by.Operator &&
                 ValueEquals(bx.Inputs, by.Inputs),
+            (UnaryNode ux, UnaryNode uy) =>
+                ux.Operator == uy.Operator &&
+                Equals(ux.Expression, uy.Expression, false),
             (Node nnx, Node nny) =>
                 throw new NotImplementedException($"Equality comparison not implemented for {nnx.GetType().Name} and {nny.GetType().Name}."),
             _ => false
@@ -72,6 +75,11 @@ public class GvnEqualityComparer : IEqualityComparer<Node>, INodeVisitor<int>
     }
 
     public int VisitApplicationNode(ApplicationNode node)
+    {
+        throw new NotImplementedException();
+    }
+
+    public int VisitBinaryNode(BinaryNode node)
     {
         throw new NotImplementedException();
     }
@@ -122,11 +130,6 @@ public class GvnEqualityComparer : IEqualityComparer<Node>, INodeVisitor<int>
     }
 
     public int VisitMemoryNode(MemoryNode node)
-    {
-        throw new NotImplementedException();
-    }
-
-    public int VisitOperationNode(OperationNode node)
     {
         throw new NotImplementedException();
     }
@@ -187,6 +190,11 @@ public class GvnEqualityComparer : IEqualityComparer<Node>, INodeVisitor<int>
     }
 
     public int VisitTestNode(TestNode node)
+    {
+        throw new NotImplementedException();
+    }
+
+    public int VisitUnaryNode(UnaryNode node)
     {
         throw new NotImplementedException();
     }

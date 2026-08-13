@@ -80,10 +80,10 @@ public partial class PeepholeOptimizer
 
     public Node Neg(DataType dt, Node node)
     {
-        if (node is OperationNode op)
+        if (node is UnaryNode op)
         {
             if (op.Operator.Type == OperatorType.Neg)
-                return node.Inputs[1]!;
+                return op.Expression;
         }
         return m.Neg(dt, node);
     }
@@ -99,7 +99,7 @@ public partial class PeepholeOptimizer
     }
 
 
-    private bool IsSymmetric(Operator op)
+    private static bool IsSymmetric(Operator op)
     {
         return op.Type switch
         {

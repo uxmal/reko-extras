@@ -201,7 +201,7 @@ public partial class NodeValuePropagator
 
     private Node RewriteCondToComparison(TestNode testNode, CondNode cond)
     {
-        if (AsISub(cond.Inputs[1]) is not OperationNode sub)
+        if (AsISub(cond.Inputs[1]) is not BinaryNode sub)
             throw new NotImplementedException($"Condition node {cond} is not supported.");
 
         if (!cCodesToOperators.TryGetValue(testNode.ConditionCode, out var ccOp))

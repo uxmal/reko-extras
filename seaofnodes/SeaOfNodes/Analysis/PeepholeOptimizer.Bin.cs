@@ -31,15 +31,15 @@ public partial class PeepholeOptimizer
         case OperatorType.IAdd:
             if (cRight is not null)
             {
-                if (left is OperationNode inner)
+                if (left is BinaryNode inner)
                 {
                     if (inner.Operator.Type.IsAddOrSub())
                     {
-                        if (inner.Inputs[2] is ConstantNode cInnerRight)
+                        if (inner.Right is ConstantNode cInnerRight)
                         {
                             // (+ (+/- x C1) C@) => (+/- x (C1 + C2))
                             cRight = m.Const(inner.Operator.ApplyConstants(dt, cRight.Value, cInnerRight.Value));
-                            left = inner.Inputs[1]!;
+                            left = inner.Left;
                         }
                     }
                 }
@@ -61,18 +61,18 @@ public partial class PeepholeOptimizer
                 return m.Const(Constant.Zero(dt));
             if (cRight is not null)
             {
-                if (left is OperationNode inner)
+                if (left is BinaryNode inner)
                 {
                     if (inner.Operator.Type.IsAddOrSub())
                     {
-                        if (inner.Inputs[2] is ConstantNode cInnerRight)
+                        if (inner.Right is ConstantNode cInnerRight)
                         {
                             var opInv = inner.Operator.Type == OperatorType.IAdd
                                 ? Operator.ISub
                                 : Operator.IAdd;
                             cRight = m.Const(opInv.ApplyConstants(dt, cRight.Value, cInnerRight.Value));
                             right = cRight;
-                            left = inner.Inputs[1]!;
+                            left = inner.Left;
                         }
                     }
                 }

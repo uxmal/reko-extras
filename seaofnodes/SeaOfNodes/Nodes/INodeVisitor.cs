@@ -4,6 +4,7 @@ public interface INodeVisitor<T>
 {
     T VisitAddressNode(AddressNode node);
     T VisitApplicationNode(ApplicationNode node);
+    T VisitBinaryNode(BinaryNode node);
     T VisitBlockNode(BlockNode node);
     T VisitCallNode(CallNode node);
     T VisitCondNode(CondNode node);
@@ -14,7 +15,6 @@ public interface INodeVisitor<T>
     T VisitIfNode(IfNode node);
     T VisitLoadNode(LoadNode node);
     T VisitMemoryNode(MemoryNode node);
-    T VisitOperationNode(OperationNode node);
     T VisitOutArgumentNode(OutArgumentNode outArgumentNode);
     T VisitPhiNode(PhiNode node);
     T VisitProcedureConstantNode(ProcedureConstantNode node);
@@ -27,6 +27,7 @@ public interface INodeVisitor<T>
     T VisitStringNode(StringNode node);
     T VisitSwitchNode(SwitchNode node);
     T VisitTestNode(TestNode node);
+    T VisitUnaryNode(UnaryNode node);
     T VisitUseNode(UseNode node);
 }
 
@@ -34,6 +35,7 @@ public interface INodeVisitor<T, C>
 {
     T VisitAddressNode(AddressNode node, C context);
     T VisitApplicationNode(ApplicationNode node, C context);
+    T VisitBinaryNode(BinaryNode node, C context);
     T VisitBlockNode(BlockNode node, C context);
     T VisitCallNode(CallNode node, C context);
     T VisitCondNode(CondNode node, C context);
@@ -44,7 +46,6 @@ public interface INodeVisitor<T, C>
     T VisitIfNode(IfNode node, C context);
     T VisitLoadNode(LoadNode node, C context);
     T VisitMemoryNode(MemoryNode node, C context);
-    T VisitOperationNode(OperationNode node, C context);
     T VisitOutArgumentNode(OutArgumentNode outArgumentNode, C? context);
     T VisitPhiNode(PhiNode node, C context);
     T VisitProcedureConstantNode(ProcedureConstantNode node, C context);
@@ -57,5 +58,6 @@ public interface INodeVisitor<T, C>
     T VisitStringNode(StringNode node, C context);
     T VisitSwitchNode(SwitchNode node, C context);
     T VisitTestNode(TestNode node, C context);
+    T VisitUnaryNode(UnaryNode node, C context);
     T VisitUseNode(UseNode node, C context);
 }

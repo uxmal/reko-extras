@@ -75,16 +75,14 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
 
     public Node? VisitMemoryNode(MemoryNode n) => null;
 
-    public Node? VisitOperationNode(OperationNode n)
+    public Node? VisitBinaryNode(BinaryNode n)
     {
-        if (n.Inputs.Count == 3
-            && n.Inputs[1] is OperationNode oLeft
-            && n.Inputs[2] is ConstantNode cRight)
+        if (n.Left is BinaryNode oLeft &&
+            n.Right is ConstantNode cRight)
         {
             if (oLeft.Operator.Type == OperatorType.IAdd
-                && oLeft.Inputs.Count == 3
-                && oLeft.Inputs[1] is Node nLeftLeft
-                && oLeft.Inputs[2] is ConstantNode cLeftRight)
+                && oLeft.Left is Node nLeftLeft
+                && oLeft.Right is ConstantNode cLeftRight)
             if (n.Operator.Type == OperatorType.IAdd)
             {
                 var cNew = n.Operator.ApplyConstants(n.DataType, cLeftRight.Value, cRight.Value);
@@ -151,11 +149,16 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
         return result;
     }
 
+    public Node? VisitUnaryNode(UnaryNode node)
+    {
+        return null;
+    }
+
     public Node? VisitUseNode(UseNode n) => null;
 
-    private static OperationNode? AsISub(Node? node)
+    private static BinaryNode? AsISub(Node? node)
     {
-        if (node is OperationNode op && op.Operator.Type == OperatorType.ISub)
+        if (node is BinaryNode op && op.Operator.Type == OperatorType.ISub)
             return op;
         return null;
     }

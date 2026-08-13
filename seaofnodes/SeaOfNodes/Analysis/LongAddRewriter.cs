@@ -51,12 +51,12 @@ public class LongAddRewriter : INodeVisitor<Node?>
         {
             if (replacements.ContainsKey(node))
                 continue;
-            if (node is OperationNode opNode)
+            if (node is BinaryNode bin)
             {
-                switch (opNode.Operator.Type)
+                switch (bin.Operator.Type)
                 {
                 case OperatorType.ISub:
-                    var newNode = TryFuseNegation(opNode);
+                    var newNode = TryFuseNegation(bin);
                     if (newNode is not null)
                     {
                         Debug.WriteLine($"== {newNode.Label}{newNode.Number} =======");
@@ -67,9 +67,9 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     }
                     break;
                 case OperatorType.Or:
-                    if (TryFuseLongShiftRight(opNode))
+                    if (TryFuseLongShiftRight(bin))
                     {
-                        wl.AddRange(node.Outputs.OfType<OperationNode>());
+                        wl.AddRange(node.Outputs.OfType<BinaryNode>());
                     }
                     break;
                 }
@@ -182,7 +182,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
     private static bool IsCarryAddSub(Node node)
     {
         var inputs = node.Inputs;
-        return node is OperationNode opNode &&
+        return node is BinaryNode opNode &&
              IsAddOrSub(opNode) &&
              IsMaybeMaskedCondNode(inputs[2]!, out _);
     }
@@ -221,12 +221,10 @@ public class LongAddRewriter : INodeVisitor<Node?>
     {
         left = null;
         right = null;
-        if (node is not OperationNode op || op.Operator.Type != OperatorType.And || op.Inputs.Count != 3)
+        if (node is not BinaryNode op || op.Operator.Type != OperatorType.And)
             return false;
-        if (op.Inputs[1] is null || op.Inputs[2] is null)
-            return false;
-        left = op.Inputs[1]!;
-        right = op.Inputs[2]!;
+        left = op.Left;
+        right = op.Right;
         return true;
     }
 
@@ -239,23 +237,19 @@ public class LongAddRewriter : INodeVisitor<Node?>
         opType = default;
         left = null;
         right = null;
-        if (node is not OperationNode op || (op.Operator.Type != OperatorType.IAdd && op.Operator.Type != OperatorType.ISub) || op.Inputs.Count != 3)
-            return false;
-        if (op.Inputs.Count != 3)
-            return false;
-        if (op.Inputs[1] is null || op.Inputs[2] is null)
+        if (node is not BinaryNode op || (!op.Operator.Type.IsAddOrSub()))
             return false;
         opType = op.Operator.Type;
-        left = op.Inputs[1]!;
-        right = op.Inputs[2]!;
+        left = op.Left;
+        right = op.Right;
         return true;
     }
 
 
-    private static bool IsAddOrSub(OperationNode node)
-        => node.Operator.Type == OperatorType.IAdd || node.Operator.Type == OperatorType.ISub;
+    private static bool IsAddOrSub(BinaryNode node)
+        => node.Operator.Type.IsAddOrSub();
 
-    private bool TryFuseLongOperation(OperationNode highOp)
+    private bool TryFuseLongOperation(BinaryNode highOp)
     {
         // Pattern: high = high_part (+|-) carry; carry = cond(low)
         if (highOp.Inputs.Count != 3)
@@ -264,7 +258,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (highOp.Inputs[2] is not CondNode carryGen || carryGen.Inputs.Count < 2)
             return false;
 
-        if (carryGen.Inputs[1] is not OperationNode lowOp || !IsAddOrSub(lowOp))
+        if (carryGen.Inputs[1] is not BinaryNode lowOp || !IsAddOrSub(lowOp))
             return false;
 
         if (lowOp.Operator.Type != highOp.Operator.Type)
@@ -317,7 +311,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (cZeroLeft is not null && 
             cZeroLeft.Value.IsZero &&
             IsMaybeMaskedCondNode(carry, out var cond) &&
-            cond.Inputs[1] is OperationNode loNegNode &&
+            cond.Inputs[1] is UnaryNode loNegNode &&
             loNegNode.Operator == Operator.Neg)
         {
             var dtLo = loNegNode.DataType;
@@ -336,7 +330,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (subcNode.Inputs[3] is ConstantNode cZeroRight &&
             cZeroRight.Value.IsZero)
         {
-            OperationNode? opCy;
+            BinaryNode? opCy;
             if (IsCarryNe0(subcNode, carry, out hiNegNode, out opCy))
             {
                 var loNegNode2 = FindNegation(opCy.Inputs[1]!);
@@ -364,7 +358,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         ApplicationNode subcNode,
         Node carry,
         [MaybeNullWhen(false)] out Node hiNegNode,
-        [MaybeNullWhen(false)] out OperationNode opCy)
+        [MaybeNullWhen(false)] out BinaryNode opCy)
     {
         hiNegNode = null;
         opCy = null;
@@ -374,7 +368,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         {
             carry = cn.Inputs[1]!;
         }
-        if (carry is not OperationNode op)
+        if (carry is not BinaryNode op)
             return false;
         if (op.Operator != Operator.Ne ||
             op.Inputs[2] is not ConstantNode cCy ||
@@ -387,11 +381,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
     private Node? FindNegation(Node node)
     {
-        if (node is OperationNode o && o.Operator == Operator.Neg)
+        if (node is UnaryNode o && o.Operator == Operator.Neg)
             return o;
         foreach (var use in node.Outputs)
         {
-            if (use is OperationNode op && op.Operator == Operator.Neg)
+            if (use is UnaryNode op && op.Operator == Operator.Neg)
                 return op;
         }
         return null;
@@ -400,7 +394,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
     private bool IsNeg(Node? node, [MaybeNullWhen(false)] out Node negatedNode)
     {
-        if (node is OperationNode o &&
+        if (node is UnaryNode o &&
             o.Operator == Operator.Neg)
         {
             negatedNode = o.Inputs[1]!;
@@ -410,7 +404,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return false;
     }
 
-    private Node? TryFuseNegation(OperationNode subNode)
+    private Node? TryFuseNegation(BinaryNode subNode)
     {
         //     d0_8 = -d0
         //    n13 = -d1
@@ -420,9 +414,9 @@ public class LongAddRewriter : INodeVisitor<Node?>
         // CZ_15 = cond(d1_14)
         var subLeft = subNode.Inputs[1]!;
         var subRight = subNode.Inputs[2]!;
-        if (subLeft is OperationNode opLeft && opLeft.Operator == Operator.Neg)
+        if (subLeft is UnaryNode opLeft && opLeft.Operator == Operator.Neg)
         {
-            if (subRight is OperationNode andNode &&
+            if (subRight is BinaryNode andNode &&
                 andNode.Operator == Operator.And &&
                 andNode.Inputs[2] is ConstantNode)
             {
@@ -430,7 +424,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
             }
             if (subRight is CondNode cond)
             {
-                if (cond.Inputs[1] is OperationNode negLo && negLo.Operator == Operator.Neg)
+                if (cond.Inputs[1] is UnaryNode negLo && negLo.Operator == Operator.Neg)
                 {
                     var lo = negLo.Inputs[1]!;
                     var hi = opLeft.Inputs[1]!;
@@ -448,14 +442,14 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     return wideNeg;
                 }
             }
-            if (subLeft is OperationNode negHi && 
+            if (subLeft is UnaryNode negHi && 
                 negHi.Operator == Operator.Neg &&
                 subRight is ConversionNode conv &&
-                conv.Inputs[1] is OperationNode ucmp &&
+                conv.Inputs[1] is BinaryNode ucmp &&
                 ucmp.Operator == Operator.Ult &&
                 ucmp.Inputs[2] is ConstantNode zero &&
                 zero.Value.IsZero &&
-                ucmp.Inputs[1] is OperationNode negLo2 &&
+                ucmp.Inputs[1] is UnaryNode negLo2 &&
                 negLo2.Operator == Operator.Neg)
             {
                 var lo = negLo2.Inputs[1]!;
@@ -477,13 +471,13 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return null;
     }
 
-    private bool TryFuseLongShiftRight(OperationNode orNode)
+    private bool TryFuseLongShiftRight(BinaryNode orNode)
     {
         if (orNode.Inputs.Count != 3 || orNode.Operator.Type != OperatorType.Or)
             return false;
 
-        var left = orNode.Inputs[1];
-        var right = orNode.Inputs[2];
+        var left = orNode.Left;
+        var right = orNode.Right;
         if (left is null || right is null)
             return false;
 
@@ -523,11 +517,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return true;
     }
 
-    private static bool TryGetLowShiftAndSpill(Node candidateLow, Node candidateSpill, out OperationNode lowShift, out OperationNode spillShift)
+    private static bool TryGetLowShiftAndSpill(Node candidateLow, Node candidateSpill, out BinaryNode lowShift, out BinaryNode spillShift)
     {
         lowShift = null!;
         spillShift = null!;
-        if (candidateLow is not OperationNode lowOp || candidateSpill is not OperationNode spillOp)
+        if (candidateLow is not BinaryNode lowOp || candidateSpill is not BinaryNode spillOp)
             return false;
         if (lowOp.Operator.Type != OperatorType.Shr && lowOp.Operator.Type != OperatorType.Sar)
             return false;
@@ -540,28 +534,26 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
     private static bool MatchesComplementaryShiftAmount(Node spillAmount, Node shiftAmount, int bitSize)
     {
-        if (spillAmount is not OperationNode add || add.Operator.Type != OperatorType.IAdd || add.Inputs.Count != 3)
+        if (spillAmount is not BinaryNode add || add.Operator.Type != OperatorType.IAdd)
             return false;
-        if (add.Inputs[1] is not OperationNode neg || neg.Operator.Type != OperatorType.Neg || neg.Inputs.Count != 2)
+        if (add.Left is not UnaryNode neg || neg.Operator.Type != OperatorType.Neg)
             return false;
-        if (!ReferenceEquals(neg.Inputs[1], shiftAmount))
+        if (!ReferenceEquals(neg.Expression, shiftAmount))
             return false;
-        if (add.Inputs[2] is not ConstantNode c)
+        if (add.Right is not ConstantNode c)
             return false;
         return c.Value.ToUInt64() == (ulong)bitSize;
     }
 
-    private OperationNode? FindMatchingHighShift(Node highInput, Node shiftAmount, OperationNode lowShift)
+    private BinaryNode? FindMatchingHighShift(Node highInput, Node shiftAmount, BinaryNode lowShift)
     {
         foreach (var user in highInput.Outputs)
         {
             if (ReferenceEquals(user, lowShift))
                 continue;
-            if (user is not OperationNode op)
+            if (user is not BinaryNode op)
                 continue;
             if (op.Operator.Type != lowShift.Operator.Type)
-                continue;
-            if (op.Inputs.Count != 3)
                 continue;
             if (!ReferenceEquals(op.Inputs[1], highInput))
                 continue;
@@ -574,11 +566,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
     private static (Node highReg, Node? highImm) ExtractHighRegAndImm(Node highLeft)
     {
-        if (highLeft is OperationNode highLeftOp
-            && (highLeftOp.Operator.Type == OperatorType.IAdd || highLeftOp.Operator.Type == OperatorType.ISub)
-            && highLeftOp.Inputs.Count == 3
-            && highLeftOp.Inputs[1] is not null
-            && highLeftOp.Inputs[2] is not null)
+        if (highLeft is BinaryNode highLeftOp
+            && highLeftOp.Operator.Type.IsAddOrSub())
         {
             return (highLeftOp.Inputs[1]!, highLeftOp.Inputs[2]);
         }
@@ -635,17 +624,17 @@ public class LongAddRewriter : INodeVisitor<Node?>
     {
         baseNode = null!;
         offset = 0;
-        if (ea is OperationNode add && add.Operator.Type == OperatorType.IAdd && add.Inputs.Count == 3)
+        if (ea is BinaryNode add && add.Operator.Type == OperatorType.IAdd)
         {
-            if (add.Inputs[1] is not null && add.Inputs[2] is ConstantNode c)
+            if (add.Left is not null && add.Right is ConstantNode c)
             {
-                baseNode = add.Inputs[1]!;
+                baseNode = add.Left;
                 offset = unchecked((long)c.Value.ToUInt64());
                 return true;
             }
-            if (add.Inputs[2] is not null && add.Inputs[1] is ConstantNode c2)
+            if (add.Right is not null && add.Left is ConstantNode c2)
             {
-                baseNode = add.Inputs[2]!;
+                baseNode = add.Right;
                 offset = unchecked((long)c2.Value.ToUInt64());
                 return true;
             }
@@ -703,6 +692,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
     public Node? VisitAddressNode(AddressNode node) => null;
     public Node? VisitApplicationNode(ApplicationNode node) => null;
+    public Node? VisitBinaryNode(BinaryNode node) => null;
     public Node? VisitBlockNode(BlockNode node) => null;
     public Node? VisitCallNode(CallNode node) => null;
     public Node? VisitCondNode(CondNode node) => null;
@@ -713,7 +703,6 @@ public class LongAddRewriter : INodeVisitor<Node?>
     public Node? VisitIfNode(IfNode node) => null;
     public Node? VisitLoadNode(LoadNode node) => null;
     public Node? VisitMemoryNode(MemoryNode node) => null;
-    public Node? VisitOperationNode(OperationNode node) => null;
     public Node? VisitOutArgumentNode(OutArgumentNode outArgumentNode) => null;
     public Node? VisitPhiNode(PhiNode node) => null;
     public Node? VisitProcedureConstantNode(ProcedureConstantNode node) => null;
@@ -726,5 +715,6 @@ public class LongAddRewriter : INodeVisitor<Node?>
     public Node? VisitStringNode(StringNode node) => null;
     public Node? VisitSwitchNode(SwitchNode node) => null;
     public Node? VisitTestNode(TestNode node) => null;
+    public Node? VisitUnaryNode(UnaryNode node) => null;
     public Node? VisitUseNode(UseNode node) => null;
 }

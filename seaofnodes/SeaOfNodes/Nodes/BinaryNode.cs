@@ -3,7 +3,7 @@ using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
-public sealed class OperationNode : Node
+public sealed class BinaryNode : Node
 {
     private static readonly Dictionary<OperatorType, string> operatorName = new()
     {
@@ -48,15 +48,11 @@ public sealed class OperationNode : Node
         { OperatorType.Uge, " >=u" },
         { OperatorType.Eq, " ==" },
         { OperatorType.Ne, " !=" },
-        { OperatorType.Not, "!" },
-        { OperatorType.Neg, "-" },
-        { OperatorType.Comp, "~" },
-        { OperatorType.AddrOf, "&" },
         { OperatorType.Comma, "," }
     };
 
-    public OperationNode(int number, DataType dt, Operator op, params Node?[] inputs)
-        : base(number, dt, inputs)
+    public BinaryNode(int number, DataType dt, Operator op, Node? cfNode, Node left, Node right)
+        : base(number, dt,  cfNode, left, right)
     {
         this.Operator = op;
     }
@@ -73,16 +69,6 @@ public sealed class OperationNode : Node
         this.RenderReference(sw);
         sw.Write(" = ");
         string opName = operatorName[this.Operator.Type];
-        if (Inputs.Count == 2)
-        {
-            // Unary prefix operator
-            sw.Write(opName);
-            var input = Inputs[1];
-            if (input is null)
-                throw new InvalidOperationException();
-            input.RenderReference(sw);
-        }
-        else
         {
             for (int i = 1; i < Inputs.Count; i++)
             {
@@ -112,9 +98,9 @@ public sealed class OperationNode : Node
     }
 
     public override T Accept<T>(INodeVisitor<T> visitor)
-        => visitor.VisitOperationNode(this);
+        => visitor.VisitBinaryNode(this);
 
     public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
-        => visitor.VisitOperationNode(this, context);
+        => visitor.VisitBinaryNode(this, context);
 
 }

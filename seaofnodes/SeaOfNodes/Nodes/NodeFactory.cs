@@ -28,9 +28,9 @@ public class NodeFactory
         return number;
     }
 
-    public OperationNode Bin(DataType dt, Operator op, Node? cfNode, Node left, Node right)
+    public BinaryNode Bin(DataType dt, Operator op, Node? cfNode, Node left, Node right)
     {
-        return new OperationNode(
+        return new BinaryNode(
             NextId(),
             dt,
             op,
@@ -127,32 +127,32 @@ public class NodeFactory
         return node;
     }
 
-    public OperationNode Eq(Node left, Node right)
+    public BinaryNode Eq(Node left, Node right)
     {
         return Bin(PrimitiveType.Bool, Operator.Eq, null, left, right);
     }
 
-    public OperationNode IAdd(Node left, Node right)
+    public BinaryNode IAdd(Node left, Node right)
     {
         return Bin(left.DataType, Operator.IAdd, null, left, right);
     }
 
-    public OperationNode ISub(Node left, long right)
+    public BinaryNode ISub(Node left, long right)
     {
         return Bin(left.DataType, Operator.ISub, null, left, this.Const(Constant.Create(left.DataType, right)));
     }
 
-    public OperationNode ISub(Node left, ulong right)
+    public BinaryNode ISub(Node left, ulong right)
     {
         return Bin(left.DataType, Operator.ISub, null, left, this.Const(Constant.Create(left.DataType, right)));
     }
 
-    public OperationNode IAdd(Node left, long right)
+    public BinaryNode IAdd(Node left, long right)
     {
         return Bin(left.DataType, Operator.IAdd, null, left, this.Const(Constant.Create(left.DataType, right)));
     }
 
-    public OperationNode IAdd(Node left, ulong right)
+    public BinaryNode IAdd(Node left, ulong right)
     {
         return Bin(left.DataType, Operator.IAdd, null, left, this.Const(Constant.Create(left.DataType, right)));
     }
@@ -248,9 +248,9 @@ public class NodeFactory
         return new TestNode(NextId(), dt, conditionCode, cfNode, input);
     }
 
-    public OperationNode Unary(DataType dt, Operator op, Node? cfNode, Node operand)
+    public UnaryNode Unary(DataType dt, UnaryOperator op, Node? cfNode, Node operand)
     {
-        return new OperationNode(NextId(), dt, op, cfNode, operand);
+        return new UnaryNode(NextId(), dt, op, cfNode, operand);
     }
 
     public Node Use(Node? cfNode, Storage stg, BitRange bitRange)
