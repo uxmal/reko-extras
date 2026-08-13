@@ -35,33 +35,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
         Dump(graph);
 
         // Collect all reachable nodes
-        var reachable = CollectReachable(graph);
+        var reachable = graph.CollectReachableNodes();
 
         // Find and fuse long operation patterns
         ProcessGraph(graph, reachable);
         return graph;
-    }
-
-    private HashSet<Node> CollectReachable(Node start)
-    {
-        var reachable = new HashSet<Node>();
-        var stack = new Stack<Node>();
-        stack.Push(start);
-        while (stack.TryPop(out var node))
-        {
-            if (!reachable.Add(node))
-                continue;
-            foreach (var output in node.Outputs)
-            {
-                stack.Push(output);
-            }
-            foreach (var input in node.Inputs)
-            {
-                if (input is not null)
-                    stack.Push(input);
-            }
-        }
-        return reachable;
     }
 
     private void ProcessGraph(StartNode graph, IEnumerable<Node> reachable)

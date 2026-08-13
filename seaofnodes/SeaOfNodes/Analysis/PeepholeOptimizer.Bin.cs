@@ -1,4 +1,6 @@
-﻿using Reko.Core.Expressions;
+﻿using Reko.Core;
+using Reko.Core.Analysis;
+using Reko.Core.Expressions;
 using Reko.Core.Operators;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;

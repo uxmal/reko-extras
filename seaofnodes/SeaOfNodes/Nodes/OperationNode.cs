@@ -64,6 +64,9 @@ public sealed class OperationNode : Node
     public override string Label => operatorName[this.Operator.Type].Trim();
 
     public Operator Operator { get; }
+    public Node Left => Inputs[1]!;
+    public Node Right => Inputs[2]!;
+
 
     public override void Render(TextWriter sw)
     {

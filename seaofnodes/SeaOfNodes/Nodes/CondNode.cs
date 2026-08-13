@@ -11,6 +11,8 @@ public class CondNode : Node
 
     public override string Label => "Cond";
 
+    public Node Expression => Inputs[1]!;
+
     public override void Render(TextWriter sw)
     {
         this.RenderReference(sw);

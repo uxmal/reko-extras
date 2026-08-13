@@ -14,6 +14,8 @@ public sealed class ConversionNode : Node
 
     public DataType SourceDataType { get; }
 
+    public Node Expression => Inputs[1]!;
+
     public override void Render(TextWriter sw)
     {
         this.RenderReference(sw);

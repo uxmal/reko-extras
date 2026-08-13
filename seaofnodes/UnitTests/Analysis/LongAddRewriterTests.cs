@@ -19,7 +19,6 @@
 #endregion
 
 using Moq;
-using NUnit.Framework;
 using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Types;
@@ -35,7 +34,6 @@ namespace Reko.Extras.SeaOfNodes.UnitTests.Analysis;
 [TestFixture]
 public class LongAddRewriterTests
 {
-    private IStorageBinder binder;
     private LongAddRewriter? rw;
     private IProcessorArchitecture arch;
     private Program program;
@@ -58,7 +56,8 @@ public class LongAddRewriterTests
     [SetUp]
     public void Setup()
     {
-        arch = new FakeArchitecture(new ServiceContainer());
+        sc = new ServiceContainer();
+        arch = new FakeArchitecture(sc);
         var platform = new FakePlatform(sc, arch);
         program = new Program()
         {
@@ -66,9 +65,8 @@ public class LongAddRewriterTests
             Platform = platform,
             SegmentMap = new SegmentMap(Address.Ptr32(0))
         };
-        sc = new ServiceContainer();
         m = new ProcedureBuilder(arch);
-        binder = m.Frame;
+        var binder = m.Frame;
         ax = binder.EnsureRegister(RegisterStorage.Reg16("ax", 0));
         bx = binder.EnsureRegister(RegisterStorage.Reg16("bx", 3));
         cx = binder.EnsureRegister(RegisterStorage.Reg16("cx", 1));

@@ -14,6 +14,7 @@ public sealed class SliceNode : Node
 
     public override string Label => "Slice";
 
+    public Node Expression => Inputs[1]!;
     public int Offset { get; }
 
     public override void Render(TextWriter sw)

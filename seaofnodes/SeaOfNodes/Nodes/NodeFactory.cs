@@ -1,25 +1,30 @@
-using System.Diagnostics;
+using Reko.Arch.Arm.AArch64;
 using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Lib;
 using Reko.Core.Operators;
 using Reko.Core.Types;
+using System.Diagnostics;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
+/// <summary>
+/// A factory for creating nodes. No attempt at optimization is made here, the nodes are created as-is.
+/// However, see <see cref="Reko.Extras.SeaOfNodes.Analysis.PeepholeOptimizer"/> for a class
+/// with the same interface, which performs peephole optimizations on nodes as they are created.
+/// </summary>
 public class NodeFactory
 {
     private int number;
 
-    public NodeFactory() {
+    public NodeFactory()
+    {
         this.number = 0;
     }
 
     private int NextId()
     {
         ++this.number;
-        if (number == 25)
-            _ = this; //$DEBUG
         return number;
     }
 
@@ -39,6 +44,43 @@ public class NodeFactory
     public ApplicationNode Apply(DataType dataType, Node? cfNode, Node fn, params Node[] args)
     {
         return new ApplicationNode(NextId(), dataType, cfNode, fn, args);
+    }
+
+    public ApplicationNode Apply(DataType dataType, Node? cfNode, IntrinsicProcedure intrinsic, params Node[] args)
+    {
+        //$TODO: move to IntrinsicProcedure.Concretize?
+        if (intrinsic.IsGeneric && !intrinsic.IsConcreteGeneric)
+        {
+            var types = new DataType[args.Length];
+            for (int i = 0; i < types.Length; ++i)
+            {
+                types[i] = args[i].DataType;
+            }
+            intrinsic = intrinsic.MakeInstance(types);
+        }
+        var sig = intrinsic.Signature;
+        if (sig is not null && !HasCorrectNumberOfParameters(sig, args))
+            throw new InvalidOperationException(
+                $"Parameter count for {intrinsic.Name} must match argument count. " +
+                $"Expected: {sig!.Parameters!.Length}. " +
+                $"But was: {args.Length}.");
+
+        //$TODO: all the above should be in Reko IntrisicProcedure.Concretize.
+
+        return new ApplicationNode(
+            NextId(),
+            dataType,
+            cfNode,
+            this.ProcedureConstant(PrimitiveType.Ptr32, intrinsic),
+            args);
+    }
+
+    private static bool HasCorrectNumberOfParameters(FunctionType sig, Node[] args)
+    {
+        if (sig.IsVariadic)
+            return sig.Parameters!.Length <= args.Length;
+        else
+            return sig.Parameters!.Length == args.Length;
     }
 
     public BlockNode Block(Block block)
@@ -120,9 +162,9 @@ public class NodeFactory
         return new MemoryNode(NextId(), new UnknownType(), cfNode);
     }
 
-    public PhiNode Phi(DataType dt, Node? cfNode)
+    public PhiNode Phi(DataType dt, Node cfNode, params Node[] nodes)
     {
-        return new PhiNode(NextId(), dt, cfNode);
+        return new PhiNode(NextId(), dt, cfNode, nodes);
     }
 
     public IfNode If(Node? cfNode, Node predicate)
@@ -153,6 +195,11 @@ public class NodeFactory
     public Node Neg(DataType dt, Node node)
     {
         return Unary(dt, Operator.Neg, null, node);
+    }
+
+    public Node Not(Node node)
+    {
+        return Unary(PrimitiveType.Bool, Operator.Not, null, node);
     }
 
     public Node Return(Node cfNode)

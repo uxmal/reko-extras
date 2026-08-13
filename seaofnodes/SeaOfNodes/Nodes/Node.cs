@@ -228,4 +228,26 @@ public abstract class Node
         this.Render(sw);
         return sw.ToString();
     }
+
+    public HashSet<Node> CollectReachableNodes()
+    {
+        var reachable = new HashSet<Node>();
+        var stack = new Stack<Node>();
+        stack.Push(this);
+        while (stack.TryPop(out var node))
+        {
+            if (!reachable.Add(node))
+                continue;
+            foreach (var output in node.Outputs)
+            {
+                stack.Push(output);
+            }
+            foreach (var input in node.Inputs)
+            {
+                if (input is not null)
+                    stack.Push(input);
+            }
+        }
+        return reachable;
+    }
 }
