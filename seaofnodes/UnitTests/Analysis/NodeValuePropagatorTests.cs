@@ -48,10 +48,10 @@ public class NodeValuePropagatorTests
 ProcedureBuilder_entry:
     def r1:word32
 l1:
-    r1_11 = r1 + 5<32>
+    r1_10 = r1 + 5<32>
     return
 ProcedureBuilder_exit:
-    use r1:r1_11
+    use r1:r1_10
 ";
         #endregion
 
@@ -74,8 +74,8 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r:word32
 l1:
-    v13 = r == 3<32>
-    if (v13) goto m_skip
+    v12 = r == 3<32>
+    if (v12) goto m_skip
 l2:
     return
 m_skip:
@@ -109,24 +109,24 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1:word32
 l1:
-    v12 = r1 < 0<32>
-    if (v12) goto m2_skip
+    v11 = r1 < 0<32>
+    if (v11) goto m2_skip
 m1:
-    v18 = r1 - 3<32>
-    Z_19 = cond(v18)
-    v26 = r1 == 3<32>
+    v17 = r1 - 3<32>
+    Z_18 = cond(v17)
+    v25 = r1 == 3<32>
     goto m3_join
 m2_skip:
-    v15 = r1 - 0xFFFFFFFC<32>
-    Z_16 = cond(v15)
-    v27 = r1 == 0xFFFFFFFC<32>
+    v14 = r1 - 0xFFFFFFFC<32>
+    Z_15 = cond(v14)
+    v26 = r1 == 0xFFFFFFFC<32>
 m3_join:
-    Z_20 = PHI(Z_19, Z_16)
-    r2_21 = PHI(v26, v27)
+    Z_19 = PHI(Z_18, Z_15)
+    r2_20 = PHI(v25, v26)
     return
 ProcedureBuilder_exit:
-    use r2:r2_21
-    use Z:Z_20
+    use r2:r2_20
+    use Z:Z_19
 ";
         #endregion
 
@@ -161,32 +161,32 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1:word32
 l1:
-    v14 = r1 < 0<32>
-    if (v14) goto m3_skip
+    v13 = r1 < 0<32>
+    if (v13) goto m3_skip
 l2:
-    v20 = r1 < 0xA<32>
-    if (v20) goto m2
+    v19 = r1 < 0xA<32>
+    if (v19) goto m2
 m1:
-    v26 = r1 - 0xF<32>
-    Z_27 = cond(v26)
-    v34 = r1 == 0xF<32>
+    v25 = r1 - 0xF<32>
+    Z_26 = cond(v25)
+    v33 = r1 == 0xF<32>
     goto m4_join
 m2:
-    v23 = r1 - 3<32>
-    Z_24 = cond(v23)
-    v35 = r1 == 3<32>
+    v22 = r1 - 3<32>
+    Z_23 = cond(v22)
+    v34 = r1 == 3<32>
     goto m4_join
 m3_skip:
-    v17 = r1 - 0xFFFFFFFC<32>
-    Z_18 = cond(v17)
-    v36 = r1 == 0xFFFFFFFC<32>
+    v16 = r1 - 0xFFFFFFFC<32>
+    Z_17 = cond(v16)
+    v35 = r1 == 0xFFFFFFFC<32>
 m4_join:
-    Z_28 = PHI(Z_27, Z_24, Z_18)
-    r2_29 = PHI(v34, v35, v36)
+    Z_27 = PHI(Z_26, Z_23, Z_17)
+    r2_28 = PHI(v33, v34, v35)
     return
 ProcedureBuilder_exit:
-    use r2:r2_29
-    use Z:Z_28
+    use r2:r2_28
+    use Z:Z_27
 ";
         #endregion
 

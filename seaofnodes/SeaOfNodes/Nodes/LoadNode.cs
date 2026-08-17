@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Reko.Core.Expressions;
 using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
@@ -20,12 +21,14 @@ public sealed class LoadNode : Node
 
     public override string Label => "Load";
 
+    public Node MemoryId => Inputs[1]!;
+
     public override void Render(TextWriter sw)
     {
         this.RenderReference(sw);
         sw.Write(" = ");
         Debug.Assert(Inputs.Count == 3);
-        sw.Write($"Mem{Inputs[1]!.Number}[");
+        sw.Write($"Mem{MemoryId.Number}[");
         var ea = EffectiveAddress;
         ea.RenderReference(sw);
         sw.Write($":{DataType}]");

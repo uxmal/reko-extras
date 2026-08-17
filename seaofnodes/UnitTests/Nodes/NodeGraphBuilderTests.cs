@@ -21,7 +21,7 @@ public class NodeRepresentationBuilderTests
     }
 
     private void RunTest(
-        string sExpected, 
+        string sExpected,
         Action<ProcedureBuilder> testCodeBuilder,
         bool includeOutputRefs = false)
     {
@@ -166,8 +166,8 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    v9 = r1 + r2
-    return v9
+    v8 = r1 + r2
+    return v8
 ProcedureBuilder_exit:
 ";
         #endregion
@@ -190,10 +190,10 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    r1_9 = r1 + r2
-    return r1_9
+    r1_8 = r1 + r2
+    return r1_8
 ProcedureBuilder_exit:
-    use r1:r1_9
+    use r1:r1_8
 ";
         #endregion
 
@@ -213,12 +213,14 @@ ProcedureBuilder_exit:
         #region Expected
 @"
 ProcedureBuilder_entry:
+    def Mem6
     def r1:word32
     def r2:word32
 l1:
     Mem9[r1:word32] = r2
     return
 ProcedureBuilder_exit:
+    use Mem:Mem_9
 ";
         #endregion
 
@@ -240,18 +242,21 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
+    def Mem14
 l1:
-    r1_11 = r1 + r2
-    v13 = r1_11 >= 0<32>
-    if (v13) goto m2_nonneg
+    r1_10 = r1 + r2
+    v12 = r1_10 >= 0<32>
+    if (v12) goto m2_nonneg
 m1_neg:
-    Mem19[0x123400<32>:word32] = r1_11
+    Mem19[0x123400<32>:word32] = r1_10
     return
 m2_nonneg:
-    Mem16[0x123404<32>:word32] = r1_11
+    Mem16[0x123404<32>:word32] = r1_10
     return
 ProcedureBuilder_exit:
-    use r1:r1_11
+    Mem_23 = PHI(Mem_19, Mem_16)
+    use r1:r1_10
+    use Mem:Mem_23
 ";
         #endregion
 
@@ -282,18 +287,18 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    v12 = r1 >= r2
-    if (v12) goto m2_ge
+    v11 = r1 >= r2
+    if (v11) goto m2_ge
 m1_lt:
-    r1_17 = r2 + 1<32>
+    r1_16 = r2 + 1<32>
     goto m3_done
 m2_ge:
-    r1_15 = r1 - 1<32>
+    r1_14 = r1 - 1<32>
 m3_done:
-    r1_18 = PHI(r1_17, r1_15)
-    return r1_18
+    r1_17 = PHI(r1_16, r1_14)
+    return r1_17
 ProcedureBuilder_exit:
-    use r1:r1_18
+    use r1:r1_17
 ";
         #endregion
 
@@ -322,22 +327,21 @@ ProcedureBuilder_exit:
         #region Expected
 @"
 ProcedureBuilder_entry:
+    def Mem9
 l1:
     r2_11 = Mem9[0x123400<32>:word32]
     v13 = r2_11 >= 0<32>
     if (v13) goto m2_ge
-    // succ: m1_lt, m2_ge
 m1_lt:
     r1_15 = -r2_11
     goto m3_done
-    // succ: m3_done
 m2_ge:
 m3_done:
     r1_16 = PHI(r1_15, r2_11)
     return r1_16
-    // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
     use r1:r1_16
+    use Mem:Mem9
 ";
         #endregion
 
@@ -369,18 +373,21 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r2:word32
     def r1:word32
+    def Mem21
 l1:
-    r1_8 = PHI(r1, r1_10)
-    r1_10 = r1_8 + 1<32>
-    v17 = r1_10 < r2
-    v13 = r1_10 * 8<32>
+    r1_7 = PHI(r1, r1_9)
+    Mem_10 = PHI(Mem21, Mem_16)
+    r1_9 = r1_7 + 1<32>
+    v17 = r1_9 < r2
+    v13 = r1_9 * 8<32>
     v14 = 0x123400<32> + v13
     Mem16[v14:word32] = r2
     if (v17) goto l1
 l2:
-    return r1_10
+    return r1_9
 ProcedureBuilder_exit:
-    use r1:r1_10
+    use r1:r1_9
+    use Mem:Mem_16
 ";
         #endregion
 
@@ -404,6 +411,7 @@ ProcedureBuilder_exit:
         #region Expected
 @"
 ProcedureBuilder_entry:
+    def Mem6
     def r2:word32
 l1:
     v9 = SLICE(r2, byte, 0)
@@ -411,6 +419,7 @@ l1:
     Mem11[0x123400<32>:uint64] = v10
     return
 ProcedureBuilder_exit:
+    use Mem:Mem_11
 ";
         #endregion
 
@@ -429,12 +438,14 @@ ProcedureBuilder_exit:
         #region Expected
 @"
 ProcedureBuilder_entry:
+    def Mem6
     def r1:word32
 l1:
     v9 = SLICE(r1, byte, 0)
     Mem10[0x123400<32>:byte] = v9
     return
 ProcedureBuilder_exit:
+    use Mem:Mem_10
 ";
         #endregion
 
@@ -473,15 +484,17 @@ ProcedureBuilder_exit:
         #region Expected
 @"
 ProcedureBuilder_entry:
+    def Mem13
 l1:
     call procSub
         uses: r1:3<32> r2:4<32>
-        defs: r1:r1_13
-    Mem15[0x12300<32>:word32] = r1_13
+        defs: r1:r1_12
+    Mem15[0x12300<32>:word32] = r1_12
     return
 ProcedureBuilder_exit:
-    use r1:r1_13
+    use r1:r1_12
     use r2:4<32>
+    use Mem:Mem_15
 ";
         #endregion
 
@@ -493,7 +506,7 @@ ProcedureBuilder_exit:
             // Simulate the creation of a subroutine.
             var procSub = Procedure.Create(
                 m.Architecture,
-                "procSub", 
+                "procSub",
                 Address.Ptr32(0x12380),
                 m.Architecture.CreateFrame());
             var procSubFlow = new ProcedureFlow(m.Procedure)
@@ -523,14 +536,16 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
+    def Mem10
 l1:
-    v9 = r1 - r2
-    CZ_10 = cond(v9)
-    v12 = TEST(LE, CZ_10)
+    v8 = r1 - r2
+    CZ_9 = cond(v8)
+    v12 = TEST(LE, CZ_9)
     Mem13[0x123400<32>:bool] = v12
     return
 ProcedureBuilder_exit:
-    use CZ:CZ_10
+    use CZ:CZ_9
+    use Mem:Mem_13
 ";
         #endregion
 
@@ -556,10 +571,10 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1:word32
 l1:
-    r1_9 = abs<word32>(r1)
-    return r1_9
+    r1_8 = abs<word32>(r1)
+    return r1_8
 ProcedureBuilder_exit:
-    use r1:r1_9
+    use r1:r1_8
 ";
         #endregion
 
@@ -579,34 +594,38 @@ ProcedureBuilder_exit:
 @"
 ProcedureBuilder_entry:
     def fp:ptr32
+    def Mem11
     def stack:int32
 l1:
     v13 = fp + 4<32>
-    r1_14 = Mem10[v13:word32]
+    r1_14 = Mem11[v13:word32]
     v16 = r1_14 >u 5<32>
     if (v16) goto m4_default
 m1:
     switch (r1_14) goto m2, m2, m3, m3, m2, m3
 m2:
     sp_21 = fp - 4<32>
-    Mem23[sp_21:word32] = 0x42<32>
+    Mem24[sp_21:word32] = 0x42<32>
     foo(stack)
-    sp_30 = sp_21 + 4<32>
+    sp_31 = sp_21 + 4<32>
 m3:
-    sp_31 = PHI(fp, fp, fp, sp_30)
-    sp_33 = sp_31 - 4<32>
-    Mem35[sp_33:word32] = 0x2A<32>
+    sp_32 = PHI(fp, fp, fp, sp_31)
+    Mem_35 = PHI(Mem11, Mem11, Mem11, Mem_24)
+    sp_34 = sp_32 - 4<32>
+    Mem37[sp_34:word32] = 0x2A<32>
     foo(stack)
-    sp_41 = sp_33 + 4<32>
+    sp_43 = sp_34 + 4<32>
 m4_default:
-    sp_42 = PHI(fp, sp_41)
-    sp_44 = sp_42 - 4<32>
-    Mem46[sp_44:word32] = 0<32>
+    sp_44 = PHI(fp, sp_43)
+    Mem_47 = PHI(Mem11, Mem_37)
+    sp_46 = sp_44 - 4<32>
+    Mem49[sp_46:word32] = 0<32>
     foo(stack)
-    sp_52 = sp_44 + 4<32>
+    sp_55 = sp_46 + 4<32>
     return
 ProcedureBuilder_exit:
-    use sp:sp_52
+    use sp:sp_55
+    use Mem:Mem_49
 ";
         #endregion
 
@@ -655,13 +674,14 @@ ProcedureBuilder_entry:
     def r1:word32
     def r2:word32
 l1:
-    v9 = r1 - r2
-    CZ_10 = cond(v9)
-    C_12 = CZ_10 & 1<32>
-    v13 = TEST(ULT, C_12)
-    return v13
+    v8 = r1 - r2
+    CZ_9 = cond(v8)
+    v10 = TEST(ULT, CZ_9)
+    C_13 = CZ_9 & 3<32>
+    CZ_14 = C_13 | CZ_9
+    return v10
 ProcedureBuilder_exit:
-    use CZ:CZ_10
+    use CZ:CZ_14
 ";
         #endregion
 
@@ -669,8 +689,8 @@ ProcedureBuilder_exit:
         {
             var r1 = m.Reg32("r1", 1);
             var r2 = m.Reg32("r2", 2);
-            var arch = (FakeArchitecture) pb.Program.Architecture;
-            var _cz =  arch.GetFlagGroup(arch.Status, 3)!;
+            var arch = (FakeArchitecture)pb.Program.Architecture;
+            var _cz = arch.GetFlagGroup(arch.Status, 3)!;
             var _c = arch.GetFlagGroup(arch.Status, 1)!;
             var CZ = m.Frame.EnsureFlagGroup(_cz);
             var C = m.Frame.EnsureFlagGroup(_c);
@@ -686,6 +706,7 @@ ProcedureBuilder_exit:
         #region Expected
         @"
 ProcedureBuilder_entry:
+    def Mem6
 l1:
     r2_8 = Mem6[0x123400<32>:word32]
     r1_10 = Mem6[0x123404<32>:word32]
@@ -701,12 +722,12 @@ l1:
     r1_16 = SLICE(r1_r2_15, word32, 32)
     r2_17 = SLICE(r1_r2_15, word32, 0)
     return
-    // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
     use r1:r1_22
     use r2:r2_23
     use r3:r3_19
     use r4:r4_20
+    use Mem:Mem6
 ";
         #endregion
 
@@ -721,7 +742,7 @@ ProcedureBuilder_exit:
                 PrimitiveType.Word64, r1.Storage, r2.Storage);
             var r3_r4 = m.Frame.EnsureSequence(
                 PrimitiveType.Word64, r3.Storage, r4.Storage);
-            
+
             m.Assign(r2, m.Mem32(m.Word32(0x123400)));
             m.Assign(r1, m.Mem32(m.Word32(0x123404)));
             m.Assign(r4, m.Mem32(m.Word32(0x123408)));
@@ -742,21 +763,21 @@ ProcedureBuilder_exit:
 ProcedureBuilder_entry:
     def r1_r2:word64
 l1:
-    r1_9 = SLICE(r1_r2, word32, 32)
-    v11 = r1_9 >= 0<32>
-    r2_15 = SLICE(r1_r2, word32, 0)
-    if (v11) goto m2_done
+    r1_8 = SLICE(r1_r2, word32, 32)
+    v10 = r1_8 >= 0<32>
+    r2_14 = SLICE(r1_r2, word32, 0)
+    if (v10) goto m2_done
 m1_negative:
-    r1_r2_16 = -r1_r2
-    r1_17 = SLICE(r1_r2_16, word32, 32)
-    r2_18 = SLICE(r1_r2_16, word32, 0)
+    r1_r2_15 = -r1_r2
+    r1_16 = SLICE(r1_r2_15, word32, 32)
+    r2_17 = SLICE(r1_r2_15, word32, 0)
 m2_done:
-    r1_20 = PHI(r1_9, r1_17)
-    r2_22 = PHI(r2_15, r2_18)
+    r1_19 = PHI(r1_8, r1_16)
+    r2_21 = PHI(r2_14, r2_17)
     return
 ProcedureBuilder_exit:
-    use r1:r1_20
-    use r2:r2_22
+    use r1:r1_19
+    use r2:r2_21
 ";
         #endregion
 
@@ -786,6 +807,7 @@ ProcedureBuilder_exit:
         #region Expected
             @"
 ProcedureBuilder_entry:
+    def Mem6
     def r2:word32
 l1:
     r1_8 = Mem6[00123400:word32]
@@ -794,6 +816,7 @@ l1:
     return
 ProcedureBuilder_exit:
     use r1:r1_12
+    use Mem:Mem6
 ";
         #endregion
 
@@ -816,6 +839,7 @@ ProcedureBuilder_exit:
         #region Expected    
             @"
 ProcedureBuilder_entry:
+    def Mem6
 l1:
     rax_8 = Mem6[00123400:word64]
     eax_10 = Mem6[00123408:word32]
@@ -825,10 +849,10 @@ l1:
     v15 = SLICE(eax_10, word16, 16)
     rax_17 = SEQ(v16, v15, ah_12, al_14)
     return
-    // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
     use rax:rax_17
     use rbx:rax_17
+    use Mem:Mem6
 ";
         #endregion
 
@@ -883,6 +907,7 @@ ProcedureBuilder_exit:
         #region Expected
 @"
 ProcedureBuilder_entry:
+    def Mem6
 l1:
     rax_8 = Mem6[00123400:word64]
     ah_10 = SLICE(rax_8, byte, 8)
@@ -892,9 +917,9 @@ l1:
     v15 = SLICE(rax_8, byte, 0)
     rax_17 = SEQ(v16, ah_10, v15)
     return
-    // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
     use rax:rax_17
+    use Mem:Mem_13
 ";
         #endregion
 
@@ -917,18 +942,18 @@ ProcedureBuilder_exit:
         #region Expected
             @"
 ProcedureBuilder_entry:
+    def Mem7
 l1:
     rax_9 = Mem7[0000000000123400:word64]
-    // succ: m1
 m1:
     ah_11 = Mem7[0000000000123408:byte]
     v14 = SLICE(rax_9, word48, 16)
     v13 = SLICE(rax_9, byte, 0)
     rax_15 = SEQ(v14, ah_11, v13)
     return
-    // succ: ProcedureBuilder_exit
 ProcedureBuilder_exit:
     use rax:rax_15
+    use Mem:Mem7
 ";
         #endregion
 
@@ -944,4 +969,53 @@ ProcedureBuilder_exit:
             m.Return();
         });
     }
+
+    [Test]
+    public void Ngb_MemoryNodes_from_different_blocks()
+    {
+        string sExpected =
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def rax:word64
+    def Mem13
+    def rbx:word64
+l1:
+    v11 = rax == 0<64>
+    if (v11) goto m2
+m1:
+    Mem17[rbx:word64] = rax
+    goto m3
+m2:
+    Mem16[rbx:word64] = 0xFFFFFFFFFFFFFFFF<64>
+m3:
+    Mem_18 = PHI(Mem_17, Mem_16)
+    v21 = rbx + 8<64>
+    rax_22 = Mem18[v21:word64]
+    return
+ProcedureBuilder_exit:
+    use rax:rax_22
+    use Mem:Mem_18
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var rax = m.Reg64("rax", 0);
+            var rbx = m.Reg64("rbx", 3);
+
+            m.BranchIf(m.Eq0(rax), "m2");
+            m.Label("m1");
+            m.MStore(rbx, rax);
+            m.Goto("m3");
+
+            m.Label("m2");
+            m.MStore(rbx, m.Word64(~0ul));
+
+            m.Label("m3");
+            m.Assign(rax, m.Mem64(m.IAdd(rbx, 8)));
+            m.Return();
+        });
+    }
 }
+

@@ -92,6 +92,14 @@ public class LongAddRewriter : INodeVisitor<Node?>
                             newNode = this.TryFuseNegation(appl);
                         }
                     }
+                    else if (name == CommonOps.RorC.Name)
+                    {
+                        newNode = TryFuseSarRorC(appl);
+                    }
+                    else if (name == CommonOps.RolC.Name)
+                    {
+                        newNode = TryFuseShlRolC(appl);
+                    }
                     if (newNode is not null)
                     {
                         Debug.WriteLine($"== {newNode.Label}{newNode.Number} =======");
@@ -104,6 +112,79 @@ public class LongAddRewriter : INodeVisitor<Node?>
             }
         }
     }
+
+    private Node? TryFuseSarRorC(ApplicationNode rorc)
+    {
+        var cy = rorc.Inputs[4]!;
+        if (IsAnd(cy, out var andLeft, out var andRight) &&
+            andRight is ConstantNode)
+        {
+            cy = andLeft;
+        }
+        if (cy is CondNode { Expression: BinaryNode shift })
+        {
+            if (shift.Operator == Operator.Sar || shift.Operator == Operator.Shr)
+            {
+                if (IsOne(shift.Right) && IsOne(rorc.Inputs[3]!))
+                {
+                    var dtNew = CombineTypes(shift.DataType, rorc.DataType);
+                    var seqNode = m.Seq(dtNew, shift.Left, rorc.Inputs[2]!);
+                    var newNode = m.Bin(dtNew, shift.Operator, null, seqNode, shift.Right);
+                    var loSlice = m.Slice(rorc.DataType, newNode, 0);
+                    var hiSlice = m.Slice(shift.DataType, newNode, rorc.DataType.BitSize);
+                    ReplaceCondOfs(rorc, newNode);
+                    Node.Replace(rorc, loSlice);
+                    Node.Replace(shift, hiSlice);
+                    replacements[rorc] = loSlice;
+                    replacements[shift] = hiSlice;
+                    Node.RemoveFromInputs(rorc);
+                    Node.RemoveFromInputs(shift);
+                    return newNode;
+                }
+            }
+        }
+        return null;
+    }
+
+    private Node? TryFuseShlRolC(ApplicationNode rolc)
+    {
+        var cy = rolc.Inputs[4]!;
+        if (IsAnd(cy, out var andLeft, out var andRight) &&
+            andRight is ConstantNode)
+        {
+            cy = andLeft;
+        }
+        if (cy is CondNode { Expression: BinaryNode shift })
+        {
+            if (shift.Operator == Operator.Shl)
+            {
+                if (IsOne(shift.Right) && IsOne(rolc.Inputs[3]!))
+                {
+                    var dtNew = CombineTypes(rolc.DataType, shift.DataType);
+                    var seqNode = m.Seq(dtNew, rolc.Inputs[2]!, shift.Left);
+                    var newNode = m.Bin(dtNew, shift.Operator, null, seqNode, shift.Right);
+                    var loSlice = m.Slice(shift.DataType, newNode, 0);
+                    var hiSlice = m.Slice(rolc.DataType, newNode, shift.DataType.BitSize);
+                    ReplaceCondOfs(rolc, newNode);
+                    Node.Replace(shift, loSlice);
+                    Node.Replace(rolc, hiSlice);
+                    replacements[shift] = loSlice;
+                    replacements[rolc] = hiSlice;
+                    Node.RemoveFromInputs(shift);
+                    Node.RemoveFromInputs(rolc);
+                    return newNode;
+                }
+            }
+        }
+        return null;
+    }
+
+
+    private static bool IsOne(Node node)
+    {
+        return node is ConstantNode c && c.Value.ToInt64() == 1;
+    }
+
 
     private void Dump(StartNode graph)
     {
@@ -160,7 +241,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
             var dtLo = loLeft.DataType;
             var dtHi = hiLeft.DataType;
-            var dt = CombineTypes(dtLo, dtHi);
+            var dt = CombineTypes(dtHi, dtLo);
             var seqLeft = m.Seq(dt, hiLeft, loLeft);
             var seqRight = m.Seq(dt, hiRight, loRight);
             var wideSum = m.Bin(dt, opType, null, seqLeft, seqRight);
@@ -274,7 +355,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (lowLeft is null || lowRight is null || highLeft is null)
             return false;
 
-        var combinedType = CombineTypes(lowOp.DataType, highOp.DataType);
+        var combinedType = CombineTypes(highOp.DataType, lowOp.DataType);
 
         var (highReg, highImm) = ExtractHighRegAndImm(highLeft);
 
@@ -316,7 +397,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         {
             var dtLo = loNegNode.DataType;
             var dtHi = hiNegNode.DataType;
-            var dt = CombineTypes(dtLo, dtHi);
+            var dt = CombineTypes(dtHi, dtLo);
             var seq = m.Seq(dt, hiNegNode, loNegNode.Inputs[1]!);
             var wideNeg = m.Neg(dt, seq);
             var sliceLo = m.Slice(dtLo, wideNeg, 0);
@@ -338,7 +419,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     return null;
                 var dtLo = loNegNode2.DataType;
                 var dtHi = hiNegNode.DataType;
-                var dt = CombineTypes(dtLo, dtHi);
+                var dt = CombineTypes(dtHi, dtLo);
                 var seq = m.Seq(dt, hiNegNode, loNegNode2.Inputs[1]!);
                 var wideNeg = m.Neg(dt, seq);
                 var sliceLo = m.Slice(dtLo, wideNeg, 0);
@@ -430,7 +511,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     var hi = opLeft.Inputs[1]!;
                     var dtLo = lo.DataType;
                     var dtHi = hi.DataType;
-                    var dt = CombineTypes(dtLo, dtHi);
+                    var dt = CombineTypes(dtHi, dtLo);
                     var seq = m.Seq(dt, hi, lo);
                     var wideNeg = m.Neg(dt, seq);
                     var sliceLo = m.Slice(dtLo, wideNeg, 0);
@@ -456,7 +537,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
                 var hi = negHi.Inputs[1]!;
                 var dtLo = lo.DataType;
                 var dtHi = hi.DataType;
-                var dt = CombineTypes(dtLo, dtHi);
+                var dt = CombineTypes(dtHi, dtLo);
                 var seq = m.Seq(dt, hi, lo);
                 var wideNeg = m.Neg(dt, seq);
                 var sliceLo = m.Slice(dtLo, wideNeg, 0);
@@ -502,7 +583,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (highShift is null)
             return false;
 
-        var combinedType = CombineTypes(lowExpr.DataType, highExpr.DataType);
+        var combinedType = CombineTypes(highExpr.DataType, lowExpr.DataType);
         var seq = m.Seq(combinedType, highInput, lowInput);
         var wideShift = m.Bin(combinedType, lowShift.Operator, null, seq, shiftAmount);
         var sliceLow = m.Slice(lowExpr.DataType, wideShift, 0);
@@ -681,7 +762,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return null;
     }
 
-    private static PrimitiveType CombineTypes(DataType lower, DataType upper)
+    private static PrimitiveType CombineTypes(DataType upper, DataType lower)
     {
         var totalBits = lower.BitSize + upper.BitSize;
         if (upper.IsWord)

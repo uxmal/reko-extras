@@ -15,6 +15,7 @@ public sealed class TestNode : Node
 
     public override string Label => "Test";
 
+    public Node Expression => Inputs[1]!;
 
     public override void Render(TextWriter sw)
     {

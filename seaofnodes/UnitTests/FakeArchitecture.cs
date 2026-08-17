@@ -172,6 +172,7 @@ public class FakeArchitecture : IProcessorArchitecture
         if ((grf & 1) != 0) sb.Append('C');
         if ((grf & 2) != 0) sb.Append('Z');
         if ((grf & 4) != 0) sb.Append('S');
+        if ((grf & 8) != 0) sb.Append('O');
         return new FlagGroupStorage(flagRegister, grf, sb.ToString());
     }
 
@@ -183,9 +184,16 @@ public class FakeArchitecture : IProcessorArchitecture
             return GetFlagGroup(this.Status, 2);
         if (name == "S")
             return GetFlagGroup(this.Status, 4);
-
+        if (name == "O")
+            return GetFlagGroup(this.Status, 8);
+        if (name == "CZ")
+            return GetFlagGroup(this.Status, 3);
         if (name == "SCZ")
             return GetFlagGroup(this.Status, 7); // 0x07 = 0b0111
+        if (name == "SZO")
+            return GetFlagGroup(this.Status, 14);
+        if (name == "SCZO")
+            return GetFlagGroup(this.Status, 15);
         if (name == "CF")
             return GetFlagGroup(this.Status, 1);
 

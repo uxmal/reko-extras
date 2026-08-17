@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Reko.Core.Types;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;

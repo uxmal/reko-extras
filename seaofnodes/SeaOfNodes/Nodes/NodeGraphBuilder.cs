@@ -12,6 +12,13 @@ using System.Diagnostics;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
+/// <summary>
+/// Transforms the basic blocks of a <see cref="Procedure"/> into a graph of <see cref="Node"/>s.
+/// The transformation is identical to the classical SSA transformation, except that the
+/// result is a graph which more easily manipulated and transformed than a control flow graph. 
+/// The graph is a directed acyclic graph (DAG) of nodes, where each node represents an operation or a value.
+/// The nodes are connected by edges that represent data dependencies between the operations.
+/// </summary>
 public partial class NodeGraphBuilder
     : InstructionVisitor<Node>
     , ExpressionVisitor<Node>
@@ -30,7 +37,6 @@ public partial class NodeGraphBuilder
     private Node? cfNode;
     private Block? currentBlock;
     private Block? entryBlock;
-    private MemoryNode? memNode;
 
     public NodeGraphBuilder(NodeFactory factory, ProgramDataFlow programFlow, IProcessorArchitecture arch)
     {
@@ -52,19 +58,21 @@ public partial class NodeGraphBuilder
     /// <param name="RegisterDefs">Reaching definitions for registers.</param>
     /// <param name="FlagGroupDefs">Reaching definitions for flag groups.</param>
     /// <param name="TemporaryDefs">Reaching definitions for temporaries.</param>
+    /// 
     private class BlockState { 
 
         public BlockState(BlockNode node)
         {
-            this.Node = node;
+            this.Block = node;
             this.RegisterDefs = [];
             this.FlagGroupDefs = [];
             this.SequenceDefs = [];
             this.TemporaryDefs = [];
             this.StackDefs = [];
+            this.MemoryNode = null;
         }
 
-        public BlockNode Node { get; }
+        public BlockNode Block { get; }
 
         public bool IsVisited { get; set; }
 
@@ -80,10 +88,32 @@ public partial class NodeGraphBuilder
         /// </code>
         /// </summary>
         public Dictionary<StorageDomain, List<(RegisterStorage, Node)>> RegisterDefs { get; }
+
+        /// <summary>
+        /// For each flag or status register, stores a list of reaching definitions in the current block,
+        /// orderd from oldest to most recent.
+        /// </summary>
         public Dictionary<RegisterStorage, List<(FlagGroupStorage, Node)>> FlagGroupDefs { get; }
+
+        /// <summary>
+        /// Reaching definitions of value node sequences.
+        /// </summary>
         public Dictionary<SequenceStorage, Node> SequenceDefs { get; }
+
+        /// <summary>
+        /// Reaching definitions of temporary variables.
+        /// </summary>
         public Dictionary<TemporaryStorage, Node> TemporaryDefs { get; }
+
+        /// <summary>
+        /// Reaching definitions of stack values, indexed by stack offset..
+        /// </summary>
         public IntervalTree<int, Node> StackDefs { get; }
+
+        /// <summary>
+        /// The reaching definition of the memory node in this block.
+        /// </summary>
+        public Node? MemoryNode { get; set; }
     }
 
     private enum ReadStoragePhase
@@ -109,9 +139,9 @@ public partial class NodeGraphBuilder
         entryBlock = proc.EntryBlock;
         CreateEmptyBlocks(proc);
         LinkBlocks(proc);
-        this.memNode = factory.Mem(start);
-        Node.AddEdge(start, blocks[proc.EntryBlock].Node);
-        Node.AddEdge(blocks[proc.ExitBlock].Node, end);
+        var entryNode = blocks[proc.EntryBlock];
+        Node.AddEdge(start, entryNode.Block);
+        Node.AddEdge(blocks[proc.ExitBlock].Block, end);
 
         var rpo = new DfsIterator<Block>(proc.ControlGraph);
         foreach (var block in rpo.ReversePostOrder())
@@ -190,7 +220,7 @@ public partial class NodeGraphBuilder
                 var value = ReadStorage(exitBlock, storage, storage.DataType);
                 if (!ShouldEmitExitUse(storage, value))
                     continue;
-                var use = factory.Use(exitState.Node, storage, default);
+                var use = factory.Use(exitState.Block, storage, default);
                 Node.AddEdge(value, use);
             }
         }
@@ -223,7 +253,7 @@ public partial class NodeGraphBuilder
             var value = ReadStorage(exitBlock, reg, reg.DataType);
             if (!ShouldEmitExitUse(reg, value))
                 continue;
-            var use = factory.Use(exitState.Node, reg, default);
+            var use = factory.Use(exitState.Block, reg, default);
             Node.AddEdge(value, use);
         }
 
@@ -244,8 +274,21 @@ public partial class NodeGraphBuilder
             var value = ReadStorage(exitBlock, flagGroup, flagGroup.DataType);
             if (!ShouldEmitExitUse(flagGroup, value))
                 continue;
-            var use = factory.Use(exitState.Node, flagGroup, default);
+            var use = factory.Use(exitState.Block, flagGroup, default);
             Node.AddEdge(value, use);
+        }
+
+        var memAccessed = blocks.Values.Any(b => b.MemoryNode is not null);
+        var x = string.Join("; ", blocks.Values
+            .Where(b => b.MemoryNode is not null)
+            .Select(b => $"{b.Block.Block.Id}: {b.MemoryNode}"));
+        if (memAccessed)
+        {
+            var memStg = MemoryStorage.Instance;
+            var dtMem = MemoryStorage.Instance.DataType;
+            var m = ReadStorage(exitBlock, memStg, dtMem);
+            var useMem = factory.Use(exitState.Block, memStg, default);
+            Node.AddEdge(m, useMem);
         }
     }
 
@@ -294,10 +337,10 @@ public partial class NodeGraphBuilder
     {
         foreach (var block in proc.ControlGraph.Blocks)
         {
-            var from = blocks[block].Node;
+            var from = blocks[block].Block;
             foreach (var succ in block.Succ)
             {
-                Node.AddEdge(from, blocks[succ].Node);
+                Node.AddEdge(from, blocks[succ].Block);
             }
         }
     }
@@ -305,7 +348,7 @@ public partial class NodeGraphBuilder
     private BlockState TranslateBlock(Block block, BlockState state)
     {
         this.currentBlock = block;
-        this.cfNode = state.Node;
+        this.cfNode = state.Block;
         foreach (var stmt in block.Statements)
         {
             stmt.Instruction.Accept(this);
@@ -340,8 +383,8 @@ public partial class NodeGraphBuilder
         var predicate = branch.Condition.Accept(this);
         IfNode ifNode = factory.If(this.cfNode, predicate);
         Debug.Assert(this.currentBlock is not null);
-        var falseBranch = this.blocks[currentBlock].Node;
-        var trueBranch = this.blocks[branch.Target].Node;
+        var falseBranch = this.blocks[currentBlock].Block;
+        var trueBranch = this.blocks[branch.Target].Block;
         Node.AddEdge(ifNode, falseBranch);
         Node.AddEdge(ifNode, trueBranch);
         this.cfNode = ifNode;
@@ -395,14 +438,14 @@ public partial class NodeGraphBuilder
     {
         if (cfNode is null)
             throw new InvalidOperationException();
-        if (memNode is null)
-            throw new InvalidOperationException();
         if (store.Dst is not MemoryAccess access)
             throw new NotImplementedException();
+        var memNode = ReadStorage(currentBlock!, access.MemoryId.Storage, access.MemoryId.DataType);
+        Debug.Assert(memNode is not null);
         var ea = access.EffectiveAddress.Accept(this);
         var value = store.Src.Accept(this);
         var storeNode = factory.Store(cfNode, memNode, access.DataType, ea, value);
-        memNode = storeNode;
+        WriteStorage(blocks[currentBlock!], access.MemoryId.Storage, storeNode);
         return storeNode;
     }
 
@@ -417,7 +460,7 @@ public partial class NodeGraphBuilder
         {
             if (blocks.TryGetValue(target, out var targetState))
             {
-                Node.AddEdge(switchNode, targetState.Node);
+                Node.AddEdge(switchNode, targetState.Block);
             }
         }
         cfNode = switchNode;
@@ -584,7 +627,7 @@ public partial class NodeGraphBuilder
                 if (frame.Block.Pred.Any(b => !blocks[b].IsVisited))
                 {
                     // Incomplete CFG.
-                    var incompletePhi = factory.Phi(dt, state.Node);
+                    var incompletePhi = factory.Phi(dt, state.Block);
                     incompletePhi.Storage = storage;
                     WriteStorage(state, storage, incompletePhi);
                     this.incompletePhis.Add(incompletePhi);
@@ -609,7 +652,7 @@ public partial class NodeGraphBuilder
                     break;
                 }
 
-                var phi = factory.Phi(dt, state.Node);
+                var phi = factory.Phi(dt, state.Block);
                 phi.Storage = storage;
                 WriteStorage(state, storage, phi);
 
@@ -665,9 +708,9 @@ public partial class NodeGraphBuilder
         return lastResult;
     }
 
-    private Node CreateDefNode(BlockState state, Storage storage, DataType dt)
+    private DefNode CreateDefNode(BlockState state, Storage storage, DataType dt)
     {
-        var defNode = factory.Def(state.Node, storage, dt);
+        var defNode = factory.Def(state.Block, storage, dt);
         WriteStorage(state, storage, defNode);
         return defNode;
     }
@@ -778,6 +821,8 @@ public partial class NodeGraphBuilder
                 return ResolveCanonical(stackNode);
             }
             return null;
+        case MemoryStorage mem:
+            return state.MemoryNode;
         default: throw new NotImplementedException(storage.GetType().Name);
         }
         return null;
@@ -899,7 +944,7 @@ public partial class NodeGraphBuilder
             return ReadStorage(block.Pred[0], storage, dt);
 
         var state = blocks[block];
-        var phi = factory.Phi(dt, state.Node);
+        var phi = factory.Phi(dt, state.Block);
         phi.Storage = storage;
         foreach (var pred in block.Pred)
         {
@@ -943,22 +988,44 @@ public partial class NodeGraphBuilder
             return null;
 
         var requestedMask = storage.FlagGroupBits;
-        for (int i = defs.Count - 1; i >= 0; --i)
+        List<Node> fragments = [];
+        for (int i = defs.Count - 1; requestedMask != 0 && i >= 0; --i)
         {
             var (candidateStorage, candidateNode) = defs[i];
-            if (candidateStorage.FlagGroupBits == requestedMask)
-                return ResolveCanonical(candidateNode);
 
-            if (!candidateStorage.Covers(storage))
+            if (!candidateStorage.OverlapsWith(storage))
                 continue;
 
             candidateNode = ResolveCanonical(candidateNode);
-            var andNode = factory.Bin(storage.DataType, Operator.And, null, candidateNode, factory.Word32((uint) requestedMask));
-            andNode.Storage = storage;
-            WriteStorage(state, storage, andNode);
-            return andNode;
+            ulong interSection = candidateStorage.FlagGroupBits & requestedMask;
+            if (interSection != requestedMask)
+            {
+                candidateNode = factory.And(candidateNode, requestedMask);
+                candidateNode.Storage = candidateStorage;
+            }
+            fragments.Add(candidateNode);
+            requestedMask &= ~interSection;
         }
-        return null;
+        if (fragments.Count == 0)
+            return null;
+        if (requestedMask != 0)
+        {
+            // Some bits left to read, but we don't have a definition
+            // in this block. Seek backwards into predecessors.
+            var newStg = arch.GetFlagGroup(storage.FlagRegister, requestedMask);
+            Debug.Assert(newStg is not null);
+            var predNode = this.ReadStorageFromPredecessors(block, newStg, storage.DataType);
+            if (predNode is not null)
+                fragments.Add(predNode);
+        }
+        Node result;
+        result = fragments[0];
+        for (int i = 1; i < fragments.Count; ++i)
+        {
+            result = factory.Or(result, fragments[i]);
+        }
+        WriteStorage(state, storage, result);
+        return result;
     }
 
     private void WriteStorage(BlockState state, Storage stgDst, Node value)
@@ -1013,6 +1080,9 @@ public partial class NodeGraphBuilder
         case StackStorage stk:
             state.StackDefs.Add(CreateBitInterval(stk.StackOffset, value.DataType), value);
             break;
+        case MemoryStorage mem:
+            state.MemoryNode = value;
+            break;
         default:  
             throw new NotImplementedException(stgDst.GetType().Name);
         }
@@ -1038,8 +1108,8 @@ public partial class NodeGraphBuilder
     {
         if (cfNode is null)
             throw new InvalidOperationException();
-        if (memNode is null)
-            throw new InvalidOperationException();
+
+        var memNode = ReadStorage(currentBlock!, access.MemoryId.Storage, access.MemoryId.DataType);
         var ea = access.EffectiveAddress.Accept(this);
         return factory.Load(cfNode, memNode, access.DataType, ea);
     }
@@ -1083,8 +1153,9 @@ public partial class NodeGraphBuilder
 
     public Node VisitSegmentedAddress(SegmentedPointer address)
     {
-        Console.Out.WriteLine("NYI: {0}", address.GetType());
-        throw new NotImplementedException();
+        var seg = address.BasePointer.Accept(this);
+        var off = address.Offset.Accept(this);
+        return factory.SegPtr(address.DataType, seg, off);
     }
 
     public Node VisitSlice(Slice slice)

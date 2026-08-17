@@ -17,6 +17,8 @@ public sealed class ApplicationNode : Node
 
     public override string Label => "Apply";
 
+    public Node Procedure => Inputs[1]!;
+
     public override void Render(TextWriter sw)
     {
         Debug.Assert(Inputs.Count >= 2);

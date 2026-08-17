@@ -28,6 +28,16 @@ public class NodeFactory
         return number;
     }
 
+    public BinaryNode And(Node left, Node right)
+    {
+        return Bin(left.DataType, Operator.And, null, left, right);
+    }
+
+    public BinaryNode And(Node left, ulong right)
+    {
+        return Bin(left.DataType, Operator.And, null, left, Const(left.DataType, right));
+    }
+
     public BinaryNode Bin(DataType dt, Operator op, Node? cfNode, Node left, Node right)
     {
         return new BinaryNode(
@@ -202,6 +212,11 @@ public class NodeFactory
         return Unary(PrimitiveType.Bool, Operator.Not, null, node);
     }
 
+    public Node Or(Node left, Node right)
+    {
+        return Bin(left.DataType, Operator.Or, null, left, right);
+    }
+
     public Node Return(Node cfNode)
     {
         var node = new ReturnNode(NextId(), cfNode);
@@ -214,14 +229,19 @@ public class NodeFactory
         return node;
     }
 
-    public Node SideEffect(Node cfNode, Node expNode)
+    public Node SegPtr(DataType dataType, Node seg, Node off)
     {
-        return new SideEffectNode(NextId(), cfNode, expNode);
+        return new SegmentedPointerNode(NextId(), dataType, null, seg, off);
     }
 
     public SeqNode Seq(DataType dt, params Node[] inputs)
     {
         return new SeqNode(NextId(), dt, null, inputs);
+    }
+
+    public Node SideEffect(Node cfNode, Node expNode)
+    {
+        return new SideEffectNode(NextId(), cfNode, expNode);
     }
 
     public SliceNode Slice(DataType dt, Node input, int offset)
@@ -233,7 +253,7 @@ public class NodeFactory
         return node;
     }
 
-    public StoreNode Store(Node cfNode, MemoryNode memNode, DataType dt, Node ea, Node value)
+    public StoreNode Store(Node cfNode, Node memNode, DataType dt, Node ea, Node value)
     {
         return new StoreNode(NextId(), cfNode, memNode, dt, ea, value);
     }

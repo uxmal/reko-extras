@@ -9,12 +9,14 @@ public class ReturnNode : CfNode
 
     public override string Label => "Return";
 
+    public Node? Expression => Inputs.Count == 2 ? Inputs[1]! : null;
+
     public override void Render(TextWriter sw)
     {
         sw.Write($"return");
-        if (Inputs.Count == 2)
+        var exp = Expression;
+        if (exp is not null)
         {
-            var exp = Inputs[1]!;
             sw.Write(' ');
             exp.RenderReference(sw);
         }

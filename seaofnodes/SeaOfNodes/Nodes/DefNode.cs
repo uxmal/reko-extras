@@ -17,8 +17,11 @@ public sealed class DefNode : Node
     {
         w.Write("def ");
         this.RenderReference(w);
-        w.Write(':');
-        w.Write(DataType);
+        if (this.Storage is not MemoryStorage)
+        {
+            w.Write(':');
+            w.Write(DataType);
+        }
     }
 
     public override void RenderReference(TextWriter w)
@@ -30,6 +33,10 @@ public sealed class DefNode : Node
             {
                 var seqId = string.Join("_", seq.Elements.Select(e => e.Name));
                 w.Write(seqId);
+            }
+            else if (Storage is MemoryStorage)
+            {
+                w.Write($"Mem{this.Number}");
             }
             else
             {

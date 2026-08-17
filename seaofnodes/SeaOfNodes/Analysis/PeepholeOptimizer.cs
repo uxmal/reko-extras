@@ -1,15 +1,8 @@
 ﻿using Reko.Core;
-using Reko.Core.Analysis;
 using Reko.Core.Expressions;
 using Reko.Core.Operators;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Reko.Extras.SeaOfNodes.Analysis;
 
@@ -27,9 +20,14 @@ public partial class PeepholeOptimizer
         return m.Address(address);
     }
 
-    public Node And(DefNode left, ulong right)
+    public Node And(Node left, ulong right)
     {
         return Bin(left.DataType, Operator.And, null, left, m.Const(left.DataType, right));
+    }
+
+    public Node Eq(Node left, Node right)
+    {
+        return Bin(left.DataType, Operator.Eq, null, left, right);
     }
 
     public Node ISub(Node left, Node right)
@@ -76,6 +74,11 @@ public partial class PeepholeOptimizer
     public Node Load(Node cfNode, Node memNode, DataType dt, Node ea)
     {
         return m.Load(cfNode, memNode, dt, ea);
+    }
+
+    public Node Ne(Node left, Node right)
+    {
+        return Bin(left.DataType, Operator.Ne, null, left, right);
     }
 
     public Node Neg(DataType dt, Node node)
