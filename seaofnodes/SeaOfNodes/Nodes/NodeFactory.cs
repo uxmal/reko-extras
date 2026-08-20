@@ -1,10 +1,8 @@
-using Reko.Arch.Arm.AArch64;
 using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Lib;
 using Reko.Core.Operators;
 using Reko.Core.Types;
-using System.Diagnostics;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
@@ -142,10 +140,20 @@ public class NodeFactory
         return Bin(PrimitiveType.Bool, Operator.Eq, null, left, right);
     }
 
+
+    public BinaryNode Eq0(Node value)
+    {
+        return Bin(PrimitiveType.Bool, Operator.Eq, null, value, Zero(value.DataType));
+    }
+
     public BinaryNode IAdd(Node left, Node right)
     {
         return Bin(left.DataType, Operator.IAdd, null, left, right);
     }
+
+    public BinaryNode ISub(Node left, Node right)
+        => Bin(left.DataType, Operator.ISub, null, left, right);
+
 
     public BinaryNode ISub(Node left, long right)
     {

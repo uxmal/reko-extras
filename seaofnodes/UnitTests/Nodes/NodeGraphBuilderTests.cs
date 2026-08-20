@@ -378,10 +378,10 @@ l1:
     r1_7 = PHI(r1, r1_9)
     Mem_10 = PHI(Mem21, Mem_16)
     r1_9 = r1_7 + 1<32>
-    v17 = r1_9 < r2
     v13 = r1_9 * 8<32>
     v14 = 0x123400<32> + v13
     Mem16[v14:word32] = r2
+    v17 = r1_9 < r2
     if (v17) goto l1
 l2:
     return r1_9
@@ -1017,5 +1017,77 @@ ProcedureBuilder_exit:
             m.Return();
         });
     }
+
+    [Test]
+    public void NgbGithub1168()
+    {
+        var sExp =
+        #region Expected
+@"
+ProcedureBuilder_entry:
+    def r2:word32
+    def Mem24
+    def ctr:word32
+m1:
+    r2_13 = r2 & 0x7F<32>
+    SCZO_14 = cond(r2_13)
+m2C:
+    r2_15 = PHI(r2_13, r2_17, r2_38)
+    r2_17 = r2_15 >>u32 1<8>
+    v19 = r2_17 == 0<32>
+    SCZO_21 = PHI(SCZO_14, SCZO_21, SCZO_39)
+    ctr_30 = PHI(ctr, ctr_30, ctr_33)
+    if (v19) goto m2C
+m3:
+    v22 = TEST(EQ, SCZO_21)
+    if (v22) goto m80
+m4:
+    r2_26 = Mem24[0x123400<32>:word32]
+    r2_28 = r2_26 & 0x7F<32>
+    SCZO_29 = cond(r2_28)
+m80:
+    r2_38 = PHI(r2_17, r2_28)
+    SCZO_39 = PHI(SCZO_21, SCZO_29)
+    ctr_33 = ctr_30 - 1<i32>
+    v35 = ctr_33 != 0<32>
+    if (v35) goto m2C
+m9:
+    return
+ProcedureBuilder_exit:
+    use Mem:Mem24
+";
+        #endregion
+
+        RunTest(sExp, m =>
+        {
+            var r2 = m.Reg32("r2", 2);
+            var ctr = m.Reg32("ctr", 12);
+            var psw = RegisterStorage.Reg16("psw", 2);
+            var SCZO = m.Frame.EnsureFlagGroup(new FlagGroupStorage(psw, 0xF, "SCZO"));
+
+            m.Label("m1");
+            m.Assign(r2, m.And(r2, 0x7F));
+            m.Assign(SCZO, m.Cond(SCZO.DataType, r2));
+
+            m.Label("m2C");
+            m.Assign(r2, m.Shr(r2, 1));
+            m.BranchIf(m.Eq0(r2), "m2C");
+
+            m.Label("m3");
+            m.BranchIf(m.Test(ConditionCode.EQ, SCZO), "m80");
+
+            m.Label("m4");
+            m.Assign(r2, m.Mem32(m.Word32(0x00123400)));
+            m.Assign(r2, m.And(r2, 0x7F));
+            m.Assign(SCZO, m.Cond(SCZO.DataType, r2));
+
+            m.Label("m80");
+            m.Assign(ctr, m.ISubS(ctr, 1));
+            m.BranchIf(m.Ne0(ctr), "m2C");
+            m.Label("m9");
+            m.Return();
+        });
+    }
+
 }
 

@@ -118,6 +118,32 @@ public partial class PeepholeOptimizer
                     return left;
             }
             break;
+        case OperatorType.Eq:
+            if (cRight is not null && cRight.Value.IsZero)
+            {
+                if (left is BinaryNode b &&
+                    b.Operator.Type.IsIntComparison())
+                {
+                    var opNew = b.Operator.Invert();
+                    return Bin(b.DataType, opNew, b.Inputs[0], b.Left, b.Right);
+                }
+            }
+            break;
+        case OperatorType.Le:
+        case OperatorType.Lt:
+        case OperatorType.Ge:
+        case OperatorType.Gt:
+        case OperatorType.Ne:
+        case OperatorType.Ule:
+        case OperatorType.Ult:
+        case OperatorType.Uge:
+        case OperatorType.Ugt:
+            if (cRight is not null && cRight.Value.IsZero)
+            {
+                op = op.Invert();
+                break;
+            }
+            break;
         }
         return m.Bin(dt, op, cfNode, left, right);
     }

@@ -21,7 +21,6 @@
 using Moq;
 using Reko.Core;
 using Reko.Core.Expressions;
-using Reko.Core.Hll.Pascal;
 using Reko.Core.Intrinsics;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Analysis;
@@ -97,7 +96,8 @@ public class LongAddRewriterTests
             var vp = new NodeValuePropagator(factory);
             graph = vp.Transform(graph);
 
-            var larw = new LongAddRewriter(peep);
+            var ctx = new NodeAnalysisContext(program, peep, eventListener);
+            var larw = new LongAddRewriter(ctx);
             StartNode graphNew = larw.Transform(graph);
 
             new NodeGraphRenderer().Render(graphNew, writer);
@@ -116,8 +116,10 @@ public class LongAddRewriterTests
             program.Architecture);
         var graph = sst.Transform(m.Procedure);
 
+        var listener = new FakeDecompilerEventListener();
         var peep = new PeepholeOptimizer(factory);
-        rw = new LongAddRewriter(peep);
+        var ctx = new NodeAnalysisContext(program, peep, listener);
+        rw = new LongAddRewriter(ctx);
     }
 
     private void RunTest(
@@ -136,8 +138,11 @@ public class LongAddRewriterTests
         var sActual2 = writer2.ToString();
         Debug.WriteLine(sActual2);
 
+
+        var listener = new FakeDecompilerEventListener();
         var peep = new PeepholeOptimizer(factory);
-        rw = new LongAddRewriter(peep);
+        var ctx = new NodeAnalysisContext(program, peep, listener);
+        rw = new LongAddRewriter(ctx);
 
         var graphNew = rw.Transform(graph);
 
@@ -1079,4 +1084,40 @@ ProcedureBuilder_exit:
         });
     }
 
+    [Test(Description = "Avoid fusing subc instructions that subc themselves")]
+    public void Larw_Self_subc_avoid()
+    {
+        string sExpected =
+        #region Expected
+@"ProcedureBuilder_entry:
+    def ax:word16
+l1:
+    ax_7 = -ax
+    CZS_8 = cond(ax_7)
+    v9 = TEST(NE, CZS_8)
+    v11 = CONVERT(v9, bool, word16)
+    dx_12 = 0<16> - v11
+    CZS_13 = cond(dx_12)
+    return
+ProcedureBuilder_exit:
+    use ax:ax_7
+    use dx:dx_12
+    use CZS:CZS_13
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var ax = m.Reg16("ax", 0);
+            var dx = m.Reg16("dx", 2);
+            var psw = RegisterStorage.Reg16("psw", 2);
+            var C = m.Frame.EnsureFlagGroup(arch.GetFlagGroup("C")!);
+            var SCZ = m.Frame.EnsureFlagGroup(arch.GetFlagGroup("SCZ")!);
+            m.Assign(ax, m.Neg(ax));
+            m.Assign(SCZ, m.Cond(SCZ.DataType, ax));
+            m.Assign(dx, m.ISubC(dx, dx, C));
+            m.Assign(SCZ, m.Cond(SCZ.DataType, dx));
+            m.Return();
+        });
+    }
 }

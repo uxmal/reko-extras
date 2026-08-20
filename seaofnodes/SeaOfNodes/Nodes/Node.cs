@@ -159,7 +159,7 @@ public abstract class Node
                     this.Outputs[i] = this.Outputs[count - 1];
                 this.Outputs.RemoveAt(count - 1);
                 break;
-            }
+    }
         }
     }
 

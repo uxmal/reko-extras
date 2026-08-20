@@ -131,4 +131,15 @@ public class PeepholeOptimizerTests
 
         Assert.That(result.ToString(), Is.EqualTo("def dx_ax:word32"));
     }
+
+    [Test]
+    public void Peep_Eq0_of_comparison()
+    {
+        var dx = m.Def(block, RegisterStorage.Reg16("dx", 2));
+        var ax = m.Def(block, RegisterStorage.Reg16("ax", 0));
+
+        var result = peep.Eq0(m.Eq(dx, ax));
+
+        Assert.That(result.ToString(), Is.EqualTo("v6 = dx != ax"));
+    }
 }

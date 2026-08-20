@@ -27,7 +27,12 @@ public partial class PeepholeOptimizer
 
     public Node Eq(Node left, Node right)
     {
-        return Bin(left.DataType, Operator.Eq, null, left, right);
+        return Bin(PrimitiveType.Bool, Operator.Eq, null, left, right);
+    }
+
+    public object Eq0(Node value)
+    {
+        return Bin(PrimitiveType.Bool, Operator.Eq, null, value, m.Zero(value.DataType));
     }
 
     public Node ISub(Node left, Node right)

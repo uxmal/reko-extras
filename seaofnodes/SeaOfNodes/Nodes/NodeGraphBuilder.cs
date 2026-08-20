@@ -5,6 +5,7 @@ using Reko.Core.Collections;
 using Reko.Core.Diagnostics;
 using Reko.Core.Expressions;
 using Reko.Core.Graphs;
+using Reko.Core.Intrinsics;
 using Reko.Core.Lib;
 using Reko.Core.Operators;
 using Reko.Core.Types;
@@ -190,6 +191,7 @@ public partial class NodeGraphBuilder
 
         WriteStorage(blocks[block], phi.Storage, sameNode);
         ReplaceNode(phi, sameNode);
+      //  Node.RemoveFromInputs(phi);
     }
 
     /// <summary>
@@ -279,9 +281,6 @@ public partial class NodeGraphBuilder
         }
 
         var memAccessed = blocks.Values.Any(b => b.MemoryNode is not null);
-        var x = string.Join("; ", blocks.Values
-            .Where(b => b.MemoryNode is not null)
-            .Select(b => $"{b.Block.Block.Id}: {b.MemoryNode}"));
         if (memAccessed)
         {
             var memStg = MemoryStorage.Instance;
@@ -383,8 +382,9 @@ public partial class NodeGraphBuilder
         var predicate = branch.Condition.Accept(this);
         IfNode ifNode = factory.If(this.cfNode, predicate);
         Debug.Assert(this.currentBlock is not null);
-        var falseBranch = this.blocks[currentBlock].Block;
-        var trueBranch = this.blocks[branch.Target].Block;
+        Debug.Assert(this.currentBlock.Succ.Count == 2);
+        var falseBranch = this.blocks[currentBlock.Succ[0]].Block;
+        var trueBranch = this.blocks[currentBlock.Succ[1]].Block;
         Node.AddEdge(ifNode, falseBranch);
         Node.AddEdge(ifNode, trueBranch);
         this.cfNode = ifNode;
@@ -480,6 +480,22 @@ public partial class NodeGraphBuilder
 
     public Node VisitApplication(Application appl)
     {
+        if (appl.Procedure is ProcedureConstant pc)
+        {
+            if (pc.Procedure.Name == CommonOps.ISubC.Name &&
+                appl.Arguments[0] == appl.Arguments[1])
+            {
+                // subc x,x is never used in a sub-subc pair,
+                // so we immediate convert it to its equivalent
+                // 0 - Test(Cy)
+                var dt = appl.Arguments[0].DataType;
+                var cy = appl.Arguments[2].Accept(this);
+                var test = factory.Test(PrimitiveType.Bool, ConditionCode.NE, null, cy);
+                return factory.ISub(
+                    factory.Zero(dt),
+                    factory.Convert(null, dt, PrimitiveType.Bool, test));
+            }
+        }
         return applicationBuilder.Build(appl, cfNode, expr => expr.Accept(this));
     }
 
@@ -689,6 +705,7 @@ public partial class NodeGraphBuilder
                 {
                     WriteStorage(blocks[frame.Block], storage, sameNode);
                     ReplaceNode(frame.Phi, sameNode);
+                    Node.RemoveFromInputs(frame.Phi);
                     lastResult = ResolveCanonical(sameNode);
                 }
                 else
@@ -821,8 +838,10 @@ public partial class NodeGraphBuilder
                 return ResolveCanonical(stackNode);
             }
             return null;
-        case MemoryStorage mem:
-            return state.MemoryNode;
+        case MemoryStorage:
+            if (state.MemoryNode is not null)
+                return ResolveCanonical(state.MemoryNode);
+            return null;
         default: throw new NotImplementedException(storage.GetType().Name);
         }
         return null;

@@ -24,9 +24,9 @@ public class LongAddRewriter : INodeVisitor<Node?>
     private readonly PeepholeOptimizer m;
     private readonly Dictionary<Node, Node?> replacements;
 
-    public LongAddRewriter(PeepholeOptimizer m)
+    public LongAddRewriter(NodeAnalysisContext ctx)
     {
-        this.m = m;
+        this.m = ctx.PeepholeOptimizer;
         this.replacements = [];
     }
 
