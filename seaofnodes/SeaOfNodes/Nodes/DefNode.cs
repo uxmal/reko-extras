@@ -29,18 +29,24 @@ public sealed class DefNode : Node
         if (Storage is not null && 
             (Inputs.Count < 2 || Inputs[1] is not CallNode))
         {
-            if (Storage is SequenceStorage seq)
+            switch (Storage)
             {
+            case SequenceStorage seq:
                 var seqId = string.Join("_", seq.Elements.Select(e => e.Name));
                 w.Write(seqId);
-            }
-            else if (Storage is MemoryStorage)
-            {
+                break;
+            case MemoryStorage:
                 w.Write($"Mem{this.Number}");
-            }
-            else
-            {
+                break;
+            case FpuStackStorage fstack:
+                if (fstack.FpuStackOffset >= 0)
+                    w.Write($"rArg{fstack.FpuStackOffset}");
+                else
+                    w.Write($"rLoc{fstack.FpuStackOffset}");
+                break;
+            default:
                 w.Write(Storage.Name);
+                break;
             }
             return;
         }

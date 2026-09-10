@@ -20,6 +20,11 @@ public partial class PeepholeOptimizer
         return m.Address(address);
     }
 
+    public Node And(Node left, Node right)
+    {
+        return Bin(left.DataType, Operator.And, null, left, right);
+    }
+
     public Node And(Node left, ulong right)
     {
         return Bin(left.DataType, Operator.And, null, left, m.Const(left.DataType, right));
@@ -30,7 +35,7 @@ public partial class PeepholeOptimizer
         return Bin(PrimitiveType.Bool, Operator.Eq, null, left, right);
     }
 
-    public object Eq0(Node value)
+    public Node Eq0(Node value)
     {
         return Bin(PrimitiveType.Bool, Operator.Eq, null, value, m.Zero(value.DataType));
     }
@@ -65,6 +70,11 @@ public partial class PeepholeOptimizer
         return m.Const(dt, value);
     }
 
+    public Node Convert(Node exp, PrimitiveType dtSrc, DataType dtDst)
+    {
+        return m.Convert(null, dtDst, dtSrc, exp);
+    }
+
     public ApplicationNode Fn(DataType dt, Node? cfNode, Node fn, params Node[] args)
     {
         return m.Apply(dt, cfNode, fn, args);
@@ -75,6 +85,10 @@ public partial class PeepholeOptimizer
         return m.Apply(dt, cfNode, fn, args);
     }
 
+    public Node IAdd(Node left, Node right)
+    {
+        return Bin(left.DataType, Operator.IAdd, null, left, right);
+    }
 
     public Node Load(Node cfNode, Node memNode, DataType dt, Node ea)
     {
@@ -101,7 +115,12 @@ public partial class PeepholeOptimizer
         return m.Not(node);
     }
 
-    public Node Phi(DataType dt, Node cfNode, params Node[] args)
+    public Node Or(Node left, Node right)
+    {
+        return Bin(left.DataType, Operator.Or, null, left, right);
+    }
+
+    public PhiNode Phi(DataType dt, Node cfNode, params Node[] args)
     {
         return m.Phi(dt, cfNode, args);
     }

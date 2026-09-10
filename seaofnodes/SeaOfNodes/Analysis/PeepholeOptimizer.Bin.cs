@@ -129,21 +129,6 @@ public partial class PeepholeOptimizer
                 }
             }
             break;
-        case OperatorType.Le:
-        case OperatorType.Lt:
-        case OperatorType.Ge:
-        case OperatorType.Gt:
-        case OperatorType.Ne:
-        case OperatorType.Ule:
-        case OperatorType.Ult:
-        case OperatorType.Uge:
-        case OperatorType.Ugt:
-            if (cRight is not null && cRight.Value.IsZero)
-            {
-                op = op.Invert();
-                break;
-            }
-            break;
         }
         return m.Bin(dt, op, cfNode, left, right);
     }

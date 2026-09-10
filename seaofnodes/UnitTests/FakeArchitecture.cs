@@ -178,26 +178,21 @@ public class FakeArchitecture : IProcessorArchitecture
 
     public FlagGroupStorage? GetFlagGroup(string name)
     {
-        if (name == "C")
-            return GetFlagGroup(this.Status, 1);
-        if (name == "Z")
-            return GetFlagGroup(this.Status, 2);
-        if (name == "S")
-            return GetFlagGroup(this.Status, 4);
-        if (name == "O")
-            return GetFlagGroup(this.Status, 8);
-        if (name == "CZ")
-            return GetFlagGroup(this.Status, 3);
-        if (name == "SCZ")
-            return GetFlagGroup(this.Status, 7); // 0x07 = 0b0111
-        if (name == "SZO")
-            return GetFlagGroup(this.Status, 14);
-        if (name == "SCZO")
-            return GetFlagGroup(this.Status, 15);
-        if (name == "CF")
-            return GetFlagGroup(this.Status, 1);
-
-        throw new NotImplementedException();
+        ulong grf = 0;
+        foreach (var c in name)
+        {
+            grf |= c switch
+            {
+                'C' => 1,
+                'Z' => 2,
+                'S' => 4,
+                'O' => 8,
+                _ => throw new NotImplementedException($"Flag '{c}' is not implemented.")
+            };
+        }
+        if (grf == 0)
+            return null;
+        return GetFlagGroup(this.Status, grf);
     }
 
     public FlagGroupStorage[] GetFlags()

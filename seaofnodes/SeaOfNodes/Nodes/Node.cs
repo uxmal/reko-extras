@@ -170,7 +170,8 @@ public abstract class Node
     /// </summary>
     /// <param name="original">The node to be replaced.</param>
     /// <param name="substitute">The node to replace with.</param>
-    public static void Replace(Node original, Node substitute)
+    /// <returns>The substitute value.</returns>
+    public static Node Replace(Node original, Node substitute)
     {
         foreach (var consumer in original.Outputs.ToList())
         {
@@ -192,6 +193,7 @@ public abstract class Node
 
         substitute.Number = Math.Min(original.Number, substitute.Number);
         substitute.Storage ??= original.Storage;
+        return substitute;
     }
 
     public void ReplaceInput(int iInput, Node replacement)
@@ -205,15 +207,25 @@ public abstract class Node
 
     public virtual void RenderReference(TextWriter sw)
     {
-        if (this.Storage is SequenceStorage seq)
+        switch (this.Storage)
         {
+        case SequenceStorage seq:
             var seqId = string.Join("_", seq.Elements.Select(e => e.Name));
             sw.Write($"{seqId}_{this.Number}");
+            break;
+        case FpuStackStorage fstack:
+            if (fstack.FpuStackOffset >= 0)
+                sw.Write($"rArg{fstack.FpuStackOffset}_{this.Number}");
+            else
+                sw.Write($"rLoc{fstack.FpuStackOffset}_{this.Number}");
+            break;
+        default:
+            if (this.Storage is not null)
+                sw.Write($"{this.Storage.Name}_{this.Number}");
+            else
+                sw.Write($"v{this.Number}");
+            break;
         }
-        else if (this.Storage is not null)
-            sw.Write($"{this.Storage.Name}_{this.Number}");
-        else
-            sw.Write($"v{this.Number}");
     }
 
     public abstract T Accept<T>(INodeVisitor<T> visitor);

@@ -71,6 +71,7 @@ public partial class NodeGraphBuilder
             this.TemporaryDefs = [];
             this.StackDefs = [];
             this.MemoryNode = null;
+            this.FpuStackDefs = [];
         }
 
         public BlockNode Block { get; }
@@ -115,6 +116,11 @@ public partial class NodeGraphBuilder
         /// The reaching definition of the memory node in this block.
         /// </summary>
         public Node? MemoryNode { get; set; }
+
+        /// <summary>
+        /// Reaching definitions of FPU stack values.
+        /// </summary>
+        public Dictionary<FpuStackStorage, Node> FpuStackDefs { get; }
     }
 
     private enum ReadStoragePhase
@@ -490,7 +496,7 @@ public partial class NodeGraphBuilder
                 // 0 - Test(Cy)
                 var dt = appl.Arguments[0].DataType;
                 var cy = appl.Arguments[2].Accept(this);
-                var test = factory.Test(PrimitiveType.Bool, ConditionCode.NE, null, cy);
+                var test = factory.Test(PrimitiveType.Bool, ConditionCode.ULT, null, cy);
                 return factory.ISub(
                     factory.Zero(dt),
                     factory.Convert(null, dt, PrimitiveType.Bool, test));
@@ -507,13 +513,16 @@ public partial class NodeGraphBuilder
 
     public Node VisitBinaryExpression(BinaryExpression binExp)
     {
-        if (binExp.Operator.Type == OperatorType.ISub || binExp.Operator.Type == OperatorType.Xor)
+        switch (binExp.Operator.Type)
         {
+        case OperatorType.ISub:
+        case OperatorType.Xor:
             if (binExp.Left is Identifier id && binExp.Right == id)
             {
                 var c = factory.Const(Constant.Zero(id.DataType));
                 return c;
             }
+            break;
         }
         var left = binExp.Left.Accept(this);
         var right = binExp.Right.Accept(this);
@@ -842,6 +851,12 @@ public partial class NodeGraphBuilder
             if (state.MemoryNode is not null)
                 return ResolveCanonical(state.MemoryNode);
             return null;
+        case FpuStackStorage fpu:
+            if (state.FpuStackDefs.TryGetValue(fpu, out var fpuNode))
+            {
+                return ResolveCanonical(fpuNode);
+            }
+            break;
         default: throw new NotImplementedException(storage.GetType().Name);
         }
         return null;
@@ -1000,27 +1015,30 @@ public partial class NodeGraphBuilder
         return candidate;
     }
 
-    private Node? TryReadFlagGroupStorage(Block block, FlagGroupStorage storage)
+    private Node? TryReadFlagGroupStorage(Block block, FlagGroupStorage storageUse)
     {
+        trace.Verbose("  TryReadRegisterStorage: ({0}, {1})", block.DisplayName, storageUse);
         var state = blocks[block];
-        if (!state.FlagGroupDefs.TryGetValue(storage.FlagRegister, out var defs) || defs.Count == 0)
+        if (!state.FlagGroupDefs.TryGetValue(storageUse.FlagRegister, out var defs) || defs.Count == 0)
             return null;
 
-        var requestedMask = storage.FlagGroupBits;
+        var requestedMask = storageUse.FlagGroupBits;
         List<Node> fragments = [];
         for (int i = defs.Count - 1; requestedMask != 0 && i >= 0; --i)
         {
             var (candidateStorage, candidateNode) = defs[i];
 
-            if (!candidateStorage.OverlapsWith(storage))
+            if (!candidateStorage.OverlapsWith(storageUse))
                 continue;
 
+            trace.Verbose("      intersects with {0}, ({1})", candidateNode, candidateStorage);
             candidateNode = ResolveCanonical(candidateNode);
             ulong interSection = candidateStorage.FlagGroupBits & requestedMask;
-            if (interSection != requestedMask)
+            if (interSection != candidateStorage.FlagGroupBits)
             {
-                candidateNode = factory.And(candidateNode, requestedMask);
-                candidateNode.Storage = candidateStorage;
+                var grfSubset = arch.GetFlagGroup(storageUse.FlagRegister, interSection);
+                candidateNode = factory.And(candidateNode, interSection);
+                candidateNode.Storage = grfSubset;
             }
             fragments.Add(candidateNode);
             requestedMask &= ~interSection;
@@ -1031,9 +1049,9 @@ public partial class NodeGraphBuilder
         {
             // Some bits left to read, but we don't have a definition
             // in this block. Seek backwards into predecessors.
-            var newStg = arch.GetFlagGroup(storage.FlagRegister, requestedMask);
+            var newStg = arch.GetFlagGroup(storageUse.FlagRegister, requestedMask);
             Debug.Assert(newStg is not null);
-            var predNode = this.ReadStorageFromPredecessors(block, newStg, storage.DataType);
+            var predNode = this.ReadStorageFromPredecessors(block, newStg, storageUse.DataType);
             if (predNode is not null)
                 fragments.Add(predNode);
         }
@@ -1043,7 +1061,6 @@ public partial class NodeGraphBuilder
         {
             result = factory.Or(result, fragments[i]);
         }
-        WriteStorage(state, storage, result);
         return result;
     }
 
@@ -1101,6 +1118,9 @@ public partial class NodeGraphBuilder
             break;
         case MemoryStorage mem:
             state.MemoryNode = value;
+            break;
+        case FpuStackStorage fpu:
+            state.FpuStackDefs[fpu] = value;
             break;
         default:  
             throw new NotImplementedException(stgDst.GetType().Name);

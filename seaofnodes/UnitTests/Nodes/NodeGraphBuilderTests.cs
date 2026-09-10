@@ -2,7 +2,6 @@ using Reko.Analysis;
 using Reko.Core;
 using Reko.Core.Collections;
 using Reko.Core.Expressions;
-using Reko.Core.Operators;
 using Reko.Core.Types;
 using Reko.Extras.SeaOfNodes.Nodes;
 
@@ -378,10 +377,10 @@ l1:
     r1_7 = PHI(r1, r1_9)
     Mem_10 = PHI(Mem21, Mem_16)
     r1_9 = r1_7 + 1<32>
+    v17 = r1_9 < r2
     v13 = r1_9 * 8<32>
     v14 = 0x123400<32> + v13
     Mem16[v14:word32] = r2
-    v17 = r1_9 < r2
     if (v17) goto l1
 l2:
     return r1_9
@@ -676,12 +675,13 @@ ProcedureBuilder_entry:
 l1:
     v8 = r1 - r2
     CZ_9 = cond(v8)
-    v10 = TEST(ULT, CZ_9)
-    C_13 = CZ_9 & 3<32>
-    CZ_14 = C_13 | CZ_9
-    return v10
+    C_11 = CZ_9 & 1<32>
+    v12 = TEST(ULT, C_11)
+    Z_15 = CZ_9 & 2<32>
+    CZ_16 = C_11 | Z_15
+    return v12
 ProcedureBuilder_exit:
-    use CZ:CZ_14
+    use CZ:CZ_16
 ";
         #endregion
 
@@ -1089,5 +1089,30 @@ ProcedureBuilder_exit:
         });
     }
 
+    [Test(Description = "captures the output of an X86 SHRD / SHR sequence")]
+    public void NgbShrdSequence()
+    {
+        string sExpected =
+        #region Expected    
+            @"@@@";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var eax = m.Reg32("eax", 0);
+            var edx = m.Reg32("edx", 2);
+            var cl = m.Reg8("cl", 1);
+            var tmp = m.Temp(PrimitiveType.Word64, "v3");
+            var psw = RegisterStorage.Reg16("psw", 42);
+            var SCZO = m.Frame.EnsureFlagGroup(new FlagGroupStorage(psw, 0xF, "SCZO"));
+
+            m.Assign(tmp, m.Seq(edx, eax));
+            m.Assign(tmp, m.Shr(tmp, cl));
+            m.Assign(eax, m.Slice(tmp, PrimitiveType.Word32, 0));
+            m.Assign(edx, m.Shr(edx, cl));
+            m.Assign(SCZO, m.Cond(SCZO.DataType, edx));
+            m.Return();
+        });
+    }
 }
 

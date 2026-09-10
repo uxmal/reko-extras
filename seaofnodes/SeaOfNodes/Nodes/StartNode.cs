@@ -5,6 +5,9 @@ using System.Text;
 
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
+/// <summary>
+/// This class models the code of a procedure as a value node graph. The <see cref="StartNode"/> is the entry point of the graph, and the <see cref="EndNode"/> is the exit point of the graph.
+/// </summary>
 public class StartNode : Node
 {
 
