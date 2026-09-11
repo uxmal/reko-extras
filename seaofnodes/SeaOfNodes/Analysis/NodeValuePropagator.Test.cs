@@ -196,7 +196,7 @@ public partial class NodeValuePropagator
     {
         if (node.Inputs.Count == 0)
             return 0;
-        return node.Inputs[0] is CfNode or BlockNode or StartNode ? 1 : 0;
+        return node.Inputs[0] is CfNode or BlockNode or ProcedureNode ? 1 : 0;
     }
 
     private Node RewriteCondToComparison(TestNode testNode, CondNode cond)

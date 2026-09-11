@@ -129,7 +129,7 @@ public class NodeFactory
         return node;
     }
 
-    public EndNode End(StartNode start)
+    public EndNode End(ProcedureNode start)
     {
         var node = new EndNode(NextId());
         return node;
@@ -255,9 +255,9 @@ public class NodeFactory
     public SliceNode Slice(DataType dt, Node input, int offset)
         => new SliceNode(NextId(), dt, null, input, offset);
 
-    public StartNode Start(Procedure proc)
+    public ProcedureNode Start(Procedure proc)
     {
-        var node = new StartNode(NextId());
+        var node = new ProcedureNode(NextId());
         return node;
     }
 

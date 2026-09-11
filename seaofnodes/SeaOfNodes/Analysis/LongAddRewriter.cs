@@ -30,7 +30,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         this.replacements = [];
     }
 
-    public StartNode Transform(StartNode graph)
+    public ProcedureNode Transform(ProcedureNode graph)
     {
         Dump(graph);
 
@@ -42,7 +42,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         return graph;
     }
 
-    private void ProcessGraph(StartNode graph, IEnumerable<Node> reachable)
+    private void ProcessGraph(ProcedureNode graph, IEnumerable<Node> reachable)
     {
         var opNodes = reachable.OrderBy(n => n.Number).ToList();
         var wl = new WorkList<Node>();
@@ -186,7 +186,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
     }
 
 
-    private void Dump(StartNode graph)
+    private void Dump(ProcedureNode graph)
     {
         var sw = new StringWriter();
         var ngr = new NodeGraphRenderer();
@@ -791,7 +791,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
     public Node? VisitSeqNode(SeqNode node) => null;
     public Node? VisitSideEffectNode(SideEffectNode node) => null;
     public Node? VisitSliceNode(SliceNode node) => null;
-    public Node? VisitStartNode(StartNode node) => null;
+    public Node? VisitStartNode(ProcedureNode node) => null;
     public Node? VisitStoreNode(StoreNode node) => null;
     public Node? VisitStringNode(StringNode node) => null;
     public Node? VisitSwitchNode(SwitchNode node) => null;

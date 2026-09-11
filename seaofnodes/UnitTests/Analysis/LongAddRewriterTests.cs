@@ -98,7 +98,7 @@ public class LongAddRewriterTests
 
             var ctx = new NodeAnalysisContext(program, peep, eventListener);
             var larw = new LongAddRewriter(ctx);
-            StartNode graphNew = larw.Transform(graph);
+            ProcedureNode graphNew = larw.Transform(graph);
 
             new NodeGraphRenderer().Render(graphNew, writer);
             writer.WriteLine();

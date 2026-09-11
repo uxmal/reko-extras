@@ -6,12 +6,12 @@ using System.Text;
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
 /// <summary>
-/// This class models the code of a procedure as a value node graph. The <see cref="StartNode"/> is the entry point of the graph, and the <see cref="EndNode"/> is the exit point of the graph.
+/// This class models the code of a procedure as a value node graph. The <see cref="ProcedureNode"/> is the entry point of the graph, and the <see cref="EndNode"/> is the exit point of the graph.
 /// </summary>
-public class StartNode : Node
+public class ProcedureNode : Node
 {
 
-    public StartNode(int number, params Node?[] inputs) : base(number, VoidType.Instance, inputs)
+    public ProcedureNode(int number, params Node?[] inputs) : base(number, VoidType.Instance, inputs)
     {
         this.EndNode = null!;
     }

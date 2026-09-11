@@ -169,7 +169,7 @@ public class GvnEqualityComparer : IEqualityComparer<Node>, INodeVisitor<int>
         throw new NotImplementedException();
     }
 
-    public int VisitStartNode(StartNode node)
+    public int VisitStartNode(ProcedureNode node)
     {
         throw new NotImplementedException();
     }

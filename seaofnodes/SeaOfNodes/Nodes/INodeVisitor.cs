@@ -22,7 +22,7 @@ public interface INodeVisitor<T>
     T VisitSeqNode(SeqNode node);
     T VisitSideEffectNode(SideEffectNode node);
     T VisitSliceNode(SliceNode node);
-    T VisitStartNode(StartNode node);
+    T VisitStartNode(ProcedureNode node);
     T VisitStoreNode(StoreNode node);
     T VisitStringNode(StringNode node);
     T VisitSwitchNode(SwitchNode node);
@@ -53,7 +53,7 @@ public interface INodeVisitor<T, C>
     T VisitSeqNode(SeqNode node, C context);
     T VisitSideEffectNode(SideEffectNode node, C context);
     T VisitSliceNode(SliceNode node, C context);
-    T VisitStartNode(StartNode node, C context);
+    T VisitStartNode(ProcedureNode node, C context);
     T VisitStoreNode(StoreNode node, C context);
     T VisitStringNode(StringNode node, C context);
     T VisitSwitchNode(SwitchNode node, C context);

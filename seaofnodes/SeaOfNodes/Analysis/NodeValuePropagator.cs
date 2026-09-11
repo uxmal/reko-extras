@@ -13,7 +13,7 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
         this.m = factory;
     }
     
-    public StartNode Transform(StartNode start)
+    public ProcedureNode Transform(ProcedureNode start)
     {
         var workList = new WorkList<Node>();
 
@@ -110,7 +110,7 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
 
     public Node? VisitSliceNode(SliceNode n) => null;
 
-    public Node? VisitStartNode(StartNode n) => null;
+    public Node? VisitStartNode(ProcedureNode n) => null;
 
     public Node? VisitStoreNode(StoreNode n) => null;
 

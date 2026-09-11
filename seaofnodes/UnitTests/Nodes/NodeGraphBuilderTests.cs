@@ -47,7 +47,7 @@ public class NodeRepresentationBuilderTests
         }
     }
 
-    private void RenderGraph(NodeGraphRenderer renderer, StartNode graph, StringWriter sw)
+    private void RenderGraph(NodeGraphRenderer renderer, ProcedureNode graph, StringWriter sw)
     {
         try
         {

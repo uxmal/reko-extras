@@ -133,14 +133,14 @@ public partial class NodeGraphBuilder
     /// <summary>
     /// Transforms the IR in a <see cref="Procedure"/> to a
     /// sea-of-nodes representation, returning the
-    /// <see cref="StartNode"/> of the procedure.
+    /// <see cref="ProcedureNode"/> of the procedure.
     /// </summary>
     /// <param name="proc">Procedure to transform.</param>
-    /// <returns>The <see cref="StartNode"/> of the transformed procedure.
+    /// <returns>The <see cref="ProcedureNode"/> of the transformed procedure.
     /// </returns>
-    public StartNode Transform(Procedure proc)
+    public ProcedureNode Transform(Procedure proc)
     {
-        StartNode start = factory.Start(proc);
+        ProcedureNode start = factory.Start(proc);
         EndNode end = factory.End(start);
         start.EndNode = end;
         entryBlock = proc.EntryBlock;

@@ -2,7 +2,7 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public class NodeGraphRenderer
 {
-    public void Render(StartNode node, TextWriter sw, bool includeOutputRefs = false)
+    public void Render(ProcedureNode node, TextWriter sw, bool includeOutputRefs = false)
     {
         var reachable = CollectReachableNodes(node);
         var defMode = reachable.OfType<DefNode>().Any();
@@ -32,7 +32,7 @@ public class NodeGraphRenderer
         }
     }
 
-    private static HashSet<Node> CollectReachableNodes(StartNode start)
+    private static HashSet<Node> CollectReachableNodes(ProcedureNode start)
     {
         var reachable = new HashSet<Node>();
         var workList = new Stack<Node>();
@@ -100,7 +100,7 @@ public class NodeGraphRenderer
             {
                 if (!reachable.Contains(output))
                     continue;
-                if (output is StartNode or EndNode or BlockNode)
+                if (output is ProcedureNode or EndNode or BlockNode)
                     continue;
                 if (IsFloating(output))
                     continue; // floating node — not anchored to this CF position
@@ -303,7 +303,7 @@ public class NodeGraphRenderer
         {
             var input = node.Inputs[i];
             if (input is null || !reachable.Contains(input)) continue;
-            if (input is StartNode or EndNode or BlockNode) continue;
+            if (input is ProcedureNode or EndNode or BlockNode) continue;
             // Skip memory-chain inputs (index 1 on Load/Store/Memory nodes) to avoid
             // creating false cycles between loads and the stores that precede them.
             if (i == 1 && (node is LoadNode or StoreNode or MemoryNode)) continue;
@@ -337,7 +337,7 @@ public class NodeGraphRenderer
             if (input is null) continue;
             if (!reachable.Contains(input)) continue;
             if (scheduled.Contains(input)) continue;
-            if (input is StartNode or EndNode or BlockNode) continue;
+            if (input is ProcedureNode or EndNode or BlockNode) continue;
             if (!IsFloating(input)) continue; // CF-anchored globally — belongs to another block
 
             // Floating input: recurse to schedule its own inputs first.
@@ -374,7 +374,7 @@ public class NodeGraphRenderer
 
         foreach (var input in node.Inputs)
         {
-            if (input is null or StartNode or EndNode or BlockNode)
+            if (input is null or ProcedureNode or EndNode or BlockNode)
                 continue;
             if (input.IsFloating)
             {
@@ -462,7 +462,7 @@ public class NodeGraphRenderer
         return nextBlock is null || block.Block.Succ[0] != nextBlock.Block;
     }
 
-    public static string RenderToString(StartNode graph)
+    public static string RenderToString(ProcedureNode graph)
     {
         var writer2 = new StringWriter();
         new NodeGraphRenderer().Render(graph, writer2, false);
