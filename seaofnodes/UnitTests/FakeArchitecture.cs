@@ -242,7 +242,7 @@ public class FakeArchitecture : IProcessorArchitecture
 
     public bool IsStackArgumentOffset(long frameOffset)
     {
-        throw new NotImplementedException();
+        return frameOffset >= 0;
     }
 
     public void LoadUserOptions(Dictionary<string, object>? options)

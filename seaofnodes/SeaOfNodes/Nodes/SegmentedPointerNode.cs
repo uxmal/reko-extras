@@ -14,26 +14,25 @@ public class SegmentedPointerNode : Node
     {
     }
 
-    public Node Segment => Inputs[1]!;
+    public Node Base => Inputs[1]!;
     public Node Offset => Inputs[2]!;
 
     public override string Label => "SegPtr";
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitSegmentedPointerNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
-    {
-        throw new NotImplementedException();
-    }
+        => visitor.VisitSegmentedPointerNode(this);
 
     public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
-    {
-        throw new NotImplementedException();
-    }
+        => visitor.VisitSegmentedPointerNode(this, context);
 
     public override void Render(TextWriter writer)
     {
         this.RenderReference(writer);
         writer.Write(" = ");
-        Segment.RenderReference(writer);
+        Base.RenderReference(writer);
         writer.Write(':');
         Offset.RenderReference(writer);
     }

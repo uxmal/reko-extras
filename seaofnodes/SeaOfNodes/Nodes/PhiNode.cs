@@ -24,11 +24,14 @@ public sealed class PhiNode : Node
             if (input is null)
                 throw new InvalidOperationException();
             sw.Write(sep);
-            input.RenderReference(sw);
+            input.RenderAsIdentifier(sw);
             sep = ", ";
         }
         sw.Write(")");
     }
+
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitPhiNode(this);
 
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitPhiNode(this);

@@ -22,6 +22,9 @@ public class ReturnNode : CfNode
         }
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitReturnNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitReturnNode(this);
 

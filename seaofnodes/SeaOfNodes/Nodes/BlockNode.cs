@@ -18,6 +18,9 @@ public class BlockNode : CfNode
         sw.Write("block");
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitBlockNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitBlockNode(this);
 

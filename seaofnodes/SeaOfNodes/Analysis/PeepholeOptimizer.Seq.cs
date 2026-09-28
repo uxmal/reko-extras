@@ -89,8 +89,8 @@ public partial class PeepholeOptimizer
                 {
                     Debug.Assert(slicedNode is not null);
                     nodes[j++] = this.Slice(
-                        PrimitiveType.Create(dom, bitsize),
                         slicedNode,
+                        PrimitiveType.Create(dom, bitsize),
                         offset);
                     curSlice = null;
                 }
@@ -101,8 +101,8 @@ public partial class PeepholeOptimizer
                 {
                     Debug.Assert(slicedNode is not null);
                     nodes[j++] = this.Slice(
-                        PrimitiveType.Create(dom, bitsize),
                         slicedNode,
+                        PrimitiveType.Create(dom, bitsize),
                         offset);
                     curSlice = null;
                 }
@@ -116,8 +116,8 @@ public partial class PeepholeOptimizer
         {
             Debug.Assert(slicedNode is not null);
             nodes[j++] = this.Slice(
-                PrimitiveType.Create(dom, bitsize),
                 slicedNode,
+                PrimitiveType.Create(dom, bitsize),
                 offset);
         }
         nodes.RemoveRange(j, nodes.Count - j);
@@ -156,7 +156,7 @@ public partial class PeepholeOptimizer
         for (int i = newSeq.Count - 1; i >= 0; --i)
         {
             var d = newSeq[i];
-            var slice = this.Slice(d.DataType, fusedDef, bitOffset);
+            var slice = this.Slice(fusedDef, d.DataType, bitOffset);
             Node.Replace(d, slice);
             bitOffset += d.DataType.BitSize;
         }

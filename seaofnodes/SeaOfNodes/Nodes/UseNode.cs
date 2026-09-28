@@ -28,6 +28,9 @@ public sealed class UseNode : Node
         input.RenderReference(sw);
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitUseNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitUseNode(this);
 

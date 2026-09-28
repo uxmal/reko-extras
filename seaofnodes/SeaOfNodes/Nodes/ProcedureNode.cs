@@ -1,3 +1,4 @@
+using Reko.Core;
 using Reko.Core.Collections;
 using Reko.Core.Types;
 using System.Diagnostics;
@@ -6,24 +7,30 @@ using System.Text;
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
 /// <summary>
-/// This class models the code of a procedure as a value node graph. The <see cref="ProcedureNode"/> is the entry point of the graph, and the <see cref="EndNode"/> is the exit point of the graph.
+/// This class models the code of a procedure as a value node graph.
 /// </summary>
 public class ProcedureNode : Node
 {
 
-    public ProcedureNode(int number, params Node?[] inputs) : base(number, VoidType.Instance, inputs)
+    public ProcedureNode(int number, Procedure proc, params Node?[] inputs) 
+        : base(number, VoidType.Instance, inputs)
     {
+        this.Procedure = proc;
         this.EndNode = null!;
     }
     
     public EndNode EndNode { get; internal set; }
+    public Procedure Procedure { get; }
 
-    public override string Label => "Start";
+    public override string Label => "Proc";
 
     public override void Render(TextWriter sw)
     {
         sw.Write($"start{base.Number}");
     }
+
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitStartNode(this);
 
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitStartNode(this);

@@ -16,6 +16,9 @@ public sealed class SideEffectNode : Node
         this.Inputs[1]!.Render(sw);
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitSideEffectNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitSideEffectNode(this);
 

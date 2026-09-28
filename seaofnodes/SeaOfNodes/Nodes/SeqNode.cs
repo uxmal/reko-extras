@@ -42,6 +42,9 @@ public sealed class SeqNode : Node
         sw.Write(')');
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitSeqNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitSeqNode(this);
 

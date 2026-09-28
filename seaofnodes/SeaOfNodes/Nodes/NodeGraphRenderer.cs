@@ -425,10 +425,16 @@ public class NodeGraphRenderer
 
     private static bool IsSuppressed(Node node)
     {
-        if (node is ApplicationNode applicationNode &&
-            applicationNode.Outputs.Count == 1 &&
-            applicationNode.Outputs[0] is SideEffectNode)
-            return true;
+        if (node is ApplicationNode applicationNode)
+        {
+            if (applicationNode.Outputs.Count == 1 &&
+                applicationNode.Outputs[0] is SideEffectNode)
+                return true;
+            if (applicationNode.Outputs.Count == 0 &&
+                applicationNode.Inputs[1] is ProcedureConstantNode pc &&
+                !pc.Procedure.HasSideEffect)
+                return true;
+        }
 
         // Don't render def subnodes of call nodes; CallNode
         // already renders them as part of its output.

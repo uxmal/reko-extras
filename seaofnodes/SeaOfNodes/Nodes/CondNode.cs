@@ -21,6 +21,10 @@ public class CondNode : Node
         sw.Write(')');
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitCondNode(this);
+
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitCondNode(this);
 

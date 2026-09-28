@@ -28,6 +28,9 @@ public sealed class ConversionNode : Node
         sw.Write(')');
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitConversionNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitConversionNode(this);
 

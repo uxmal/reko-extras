@@ -90,12 +90,18 @@ public sealed class BinaryNode : Node
         sw.Write(opName);
         var dtResult = this.DataType;
         if (this.Operator is not ConditionalOperator &&
-            dtResult.BitSize != ((Node)input).DataType.BitSize)
+            this.Operator is not ShlOperator &&
+            this.Operator is not ShrOperator &&
+            this.Operator is not SarOperator &&
+            dtResult.BitSize != input.DataType.BitSize)
         {
             sw.Write(dtResult.BitSize);
         }
         sw.Write(' ');
     }
+
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitBinaryNode(this);
 
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitBinaryNode(this);

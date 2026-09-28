@@ -24,15 +24,14 @@ public class UnaryNode : Node
 
     public override string Label => operatorName[this.Operator.Type].Trim();
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitUnaryNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
-    {
-        return visitor.VisitUnaryNode(this);
-    }
+        => visitor.VisitUnaryNode(this);
 
     public override T Accept<T, C>(INodeVisitor<T, C> visitor, C context)
-    {
-        return visitor.VisitUnaryNode(this, context);
-    }
+        => visitor.VisitUnaryNode(this, context);
 
     public override void Render(TextWriter sw)
     {

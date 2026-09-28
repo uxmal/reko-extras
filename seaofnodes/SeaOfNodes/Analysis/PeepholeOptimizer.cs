@@ -70,10 +70,16 @@ public partial class PeepholeOptimizer
         return m.Const(dt, value);
     }
 
-    public Node Convert(Node exp, PrimitiveType dtSrc, DataType dtDst)
+    public Node Convert(Node exp, DataType dtSrc, DataType dtDst)
     {
         return m.Convert(null, dtDst, dtSrc, exp);
     }
+
+    public DefNode Def(Node cfNode, Storage stg)
+    {
+        return m.Def(cfNode, stg);
+    }
+
 
     public ApplicationNode Fn(DataType dt, Node? cfNode, Node fn, params Node[] args)
     {

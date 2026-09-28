@@ -49,6 +49,9 @@ public class CallNode : CfNode
         }
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitCallNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitCallNode(this);
 

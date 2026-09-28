@@ -1,5 +1,40 @@
 namespace Reko.Extras.SeaOfNodes.Nodes;
 
+public interface INodeVisitor
+{
+    void VisitAddressNode(AddressNode node);
+    void VisitApplicationNode(ApplicationNode node);
+    void VisitBinaryNode(BinaryNode node);
+    void VisitBlockNode(BlockNode node);
+    void VisitCallNode(CallNode node);
+    void VisitCastNode(CastNode node);
+    void VisitCondNode(CondNode node);
+    void VisitConstantNode(ConstantNode node);
+    void VisitConversionNode(ConversionNode node);
+    void VisitDefNode(DefNode node);
+    void VisitDereferenceNode(DereferenceNode node);
+    void VisitEndNode(EndNode node);
+    void VisitIfNode(IfNode node);
+    void VisitLoadNode(LoadNode node);
+    void VisitMemberPointerSelectorNode(MemberPointerSelectorNode node);
+    void VisitMemoryNode(MemoryNode node);
+    void VisitOutArgumentNode(OutArgumentNode node);
+    void VisitPhiNode(PhiNode node);
+    void VisitProcedureConstantNode(ProcedureConstantNode node);
+    void VisitReturnNode(ReturnNode node);
+    void VisitSegmentedPointerNode(SegmentedPointerNode node);
+    void VisitSeqNode(SeqNode node);
+    void VisitSideEffectNode(SideEffectNode node);
+    void VisitSliceNode(SliceNode node);
+    void VisitStartNode(ProcedureNode node);
+    void VisitStoreNode(StoreNode node);
+    void VisitStringNode(StringNode node);
+    void VisitSwitchNode(SwitchNode node);
+    void VisitTestNode(TestNode node);
+    void VisitUnaryNode(UnaryNode node);
+    void VisitUseNode(UseNode node);
+}
+
 public interface INodeVisitor<T>
 {
     T VisitAddressNode(AddressNode node);
@@ -7,18 +42,22 @@ public interface INodeVisitor<T>
     T VisitBinaryNode(BinaryNode node);
     T VisitBlockNode(BlockNode node);
     T VisitCallNode(CallNode node);
+    T VisitCastNode(CastNode node);
     T VisitCondNode(CondNode node);
     T VisitConstantNode(ConstantNode node);
     T VisitConversionNode(ConversionNode node);
     T VisitDefNode(DefNode node);
+    T VisitDereferenceNode(DereferenceNode node);
     T VisitEndNode(EndNode node);
     T VisitIfNode(IfNode node);
     T VisitLoadNode(LoadNode node);
+    T VisitMemberPointerSelectorNode(MemberPointerSelectorNode node);
     T VisitMemoryNode(MemoryNode node);
     T VisitOutArgumentNode(OutArgumentNode outArgumentNode);
     T VisitPhiNode(PhiNode node);
     T VisitProcedureConstantNode(ProcedureConstantNode node);
     T VisitReturnNode(ReturnNode node);
+    T VisitSegmentedPointerNode(SegmentedPointerNode node);
     T VisitSeqNode(SeqNode node);
     T VisitSideEffectNode(SideEffectNode node);
     T VisitSliceNode(SliceNode node);
@@ -38,18 +77,22 @@ public interface INodeVisitor<T, C>
     T VisitBinaryNode(BinaryNode node, C context);
     T VisitBlockNode(BlockNode node, C context);
     T VisitCallNode(CallNode node, C context);
+    T VisitCastNode(CastNode node, C context);
     T VisitCondNode(CondNode node, C context);
     T VisitConstantNode(ConstantNode node, C context);
     T VisitConversionNode(ConversionNode node, C context);
     T VisitDefNode(DefNode node, C context);
+    T VisitDereferenceNode(DereferenceNode node, C context);
     T VisitEndNode(EndNode node, C context);
     T VisitIfNode(IfNode node, C context);
     T VisitLoadNode(LoadNode node, C context);
+    T VisitMemberPointerSelectorNode(MemberPointerSelectorNode node, C context);
     T VisitMemoryNode(MemoryNode node, C context);
     T VisitOutArgumentNode(OutArgumentNode outArgumentNode, C? context);
     T VisitPhiNode(PhiNode node, C context);
     T VisitProcedureConstantNode(ProcedureConstantNode node, C context);
     T VisitReturnNode(ReturnNode node, C context);
+    T VisitSegmentedPointerNode(SegmentedPointerNode node, C context);
     T VisitSeqNode(SeqNode node, C context);
     T VisitSideEffectNode(SideEffectNode node, C context);
     T VisitSliceNode(SliceNode node, C context);

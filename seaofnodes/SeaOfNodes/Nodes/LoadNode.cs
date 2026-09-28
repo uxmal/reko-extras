@@ -34,6 +34,9 @@ public sealed class LoadNode : Node
         sw.Write($":{DataType}]");
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitLoadNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitLoadNode(this);
 

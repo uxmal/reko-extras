@@ -24,6 +24,9 @@ public class StringNode : Node
         this.RenderReference(sw);
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitStringNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitStringNode(this);
 

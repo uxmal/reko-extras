@@ -29,6 +29,9 @@ public sealed class SliceNode : Node
         sw.Write(')');
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitSliceNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitSliceNode(this);
 

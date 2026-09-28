@@ -94,6 +94,11 @@ public class GvnEqualityComparer : IEqualityComparer<Node>, INodeVisitor<int>
         throw new NotImplementedException();
     }
 
+    public int VisitCastNode(CastNode node)
+    {
+        throw new NotImplementedException();
+    }
+
     public int VisitCondNode(CondNode node)
     {
         throw new NotImplementedException();
@@ -114,6 +119,11 @@ public class GvnEqualityComparer : IEqualityComparer<Node>, INodeVisitor<int>
         throw new NotImplementedException();
     }
 
+    public int VisitDereferenceNode(DereferenceNode node)
+    {
+        throw new NotImplementedException();
+    }
+
     public int VisitEndNode(EndNode node)
     {
         throw new NotImplementedException();
@@ -125,6 +135,11 @@ public class GvnEqualityComparer : IEqualityComparer<Node>, INodeVisitor<int>
     }
 
     public int VisitLoadNode(LoadNode node)
+    {
+        throw new NotImplementedException();
+    }
+
+    public int VisitMemberPointerSelectorNode(MemberPointerSelectorNode node)
     {
         throw new NotImplementedException();
     }
@@ -150,6 +165,11 @@ public class GvnEqualityComparer : IEqualityComparer<Node>, INodeVisitor<int>
     }
 
     public int VisitReturnNode(ReturnNode node)
+    {
+        throw new NotImplementedException();
+    }
+
+    public int VisitSegmentedPointerNode(SegmentedPointerNode node)
     {
         throw new NotImplementedException();
     }

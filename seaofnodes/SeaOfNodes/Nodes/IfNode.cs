@@ -17,6 +17,10 @@ public sealed class IfNode : CfNode
         sw.Write(((BlockNode)this.Outputs[1]).Block.DisplayName);
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitIfNode(this);
+
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitIfNode(this);
 

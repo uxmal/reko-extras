@@ -24,34 +24,39 @@ public sealed class DefNode : Node
         }
     }
 
-    public override void RenderReference(TextWriter w)
+    public override void RenderAsIdentifier(TextWriter w)
     {
-        if (Storage is not null && 
-            (Inputs.Count < 2 || Inputs[1] is not CallNode))
+        if (Storage is null ||
+            (Inputs.Count >= 2 && Inputs[1] is CallNode))
         {
-            switch (Storage)
-            {
-            case SequenceStorage seq:
-                var seqId = string.Join("_", seq.Elements.Select(e => e.Name));
-                w.Write(seqId);
-                break;
-            case MemoryStorage:
-                w.Write($"Mem{this.Number}");
-                break;
-            case FpuStackStorage fstack:
-                if (fstack.FpuStackOffset >= 0)
-                    w.Write($"rArg{fstack.FpuStackOffset}");
-                else
-                    w.Write($"rLoc{fstack.FpuStackOffset}");
-                break;
-            default:
-                w.Write(Storage.Name);
-                break;
-            }
+            base.RenderAsIdentifier(w);
             return;
         }
-        base.RenderReference(w);
+
+        switch (Storage)
+        {
+        case SequenceStorage seq:
+            var seqId = string.Join("_", seq.Elements.Select(e => e.Name));
+            w.Write(seqId);
+            break;
+        case MemoryStorage:
+            w.Write($"Mem{this.Number}");
+            break;
+        case FpuStackStorage fstack:
+            if (fstack.FpuStackOffset >= 0)
+                w.Write($"rArg{fstack.FpuStackOffset}");
+            else
+                w.Write($"rLoc{fstack.FpuStackOffset}");
+            break;
+        default:
+            w.Write(Storage.Name);
+            break;
+        }
+        return;
     }
+
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitDefNode(this);
 
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitDefNode(this);

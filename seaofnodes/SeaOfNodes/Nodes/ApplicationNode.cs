@@ -46,6 +46,9 @@ public sealed class ApplicationNode : Node
         sw.Write(')');
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitApplicationNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitApplicationNode(this);
 

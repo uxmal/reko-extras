@@ -11,6 +11,9 @@ public class OutArgumentNode : Node
 
     public override string Label => "Out";
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitOutArgumentNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
     {
         return visitor.VisitOutArgumentNode(this);

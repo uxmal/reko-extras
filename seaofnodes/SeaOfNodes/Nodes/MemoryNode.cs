@@ -16,6 +16,9 @@ public class MemoryNode : Node
         sw.Write($"Mem{Number}");
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitMemoryNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitMemoryNode(this);
 

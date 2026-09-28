@@ -818,7 +818,7 @@ ProcedureBuilder_exit:
     def Mem16
     def dx_ax:word32
 l1:
-    v30 = dx_ax >>u32 cl
+    v30 = dx_ax >>u cl
     ax_15 = SLICE(v30, word16, 0)
     Mem18[0x1234<16>:word16] = ax_15
     dx_10 = SLICE(v30, word16, 16)
@@ -826,7 +826,7 @@ l1:
     dx_6 = SLICE(dx_ax, word16, 16)
     cl_11 = -cl
     cl_13 = cl_11 + 0x10<8>
-    bx_14 = dx_6 <<16 cl_13
+    bx_14 = dx_6 << cl_13
     return
 ProcedureBuilder_exit:
     use ax:ax_15
@@ -1009,7 +1009,7 @@ ProcedureBuilder_exit:
     def Mem17
     def dx_ax:word32
 l1:
-    v30 = dx_ax >>32 1<16>
+    v30 = dx_ax >> 1<16>
     ax_15 = SLICE(v30, word16, 0)
     Mem19[0x1234<16>:word16] = ax_15
     dx_8 = SLICE(v30, word16, 16)
@@ -1053,7 +1053,7 @@ ProcedureBuilder_exit:
 @"ProcedureBuilder_entry:
     def bx_cx_dx_ax:word64
 l1:
-    v52 = bx_cx_dx_ax <<64 1<8>
+    v52 = bx_cx_dx_ax << 1<8>
     v46 = SLICE(v52, word48, 0)
     v40 = SLICE(v46, word32, 0)
     ax_8 = SLICE(v40, word16, 0)
@@ -1137,4 +1137,98 @@ ProcedureBuilder_exit:
             m.Return();
         });
     }
+
+
+    [Test(Description = "captures the output of an X86 SHRD / SHR sequence")]
+    public void LarwShrdSequence()
+    {
+        string sExpected =
+        #region Expected    
+@"ProcedureBuilder_entry:
+    def edx:word32
+    def eax:word32
+    def cl:byte
+l1:
+    v3_8 = SEQ(edx, eax)
+    v3_10 = v3_8 >>u cl
+    eax_11 = SLICE(v3_10, word32, 0)
+    edx_12 = SLICE(v3_10, word32, 32)
+    SCZO_13 = cond(v3_10)
+    return
+ProcedureBuilder_exit:
+    use eax:eax_11
+    use edx:edx_12
+    use CZSO:SCZO_13
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var eax = m.Reg32("eax", 0);
+            var edx = m.Reg32("edx", 2);
+            var cl = m.Reg8("cl", 1);
+            var tmp = m.Temp(PrimitiveType.Word64, "v3");
+            var psw = RegisterStorage.Reg16("psw", 42);
+            var SCZO = m.Frame.EnsureFlagGroup(new FlagGroupStorage(psw, 0xF, "SCZO"));
+
+            m.Assign(tmp, m.Seq(edx, eax));
+            m.Assign(tmp, m.Shr(tmp, cl));
+            m.Assign(eax, m.Slice(tmp, PrimitiveType.Word32, 0));
+            m.Assign(edx, m.Shr(edx, cl));
+            m.Assign(SCZO, m.Cond(SCZO.DataType, edx));
+            m.Return();
+        });
+    }
+
+    [Test(Description = "captures the output of an X86 SHRD / SHRD / SHR sequence")]
+    public void LarwShrdShdrSequence()
+    {
+        string sExpected =
+        #region Expected    
+@"ProcedureBuilder_entry:
+    def edx:word32
+    def eax:word32
+    def cl:byte
+    def ebx:word32
+l1:
+    v3_8 = SEQ(edx, eax)
+    v3_10 = v3_8 >>u cl
+    eax_11 = SLICE(v3_10, word32, 0)
+    v3_13 = SEQ(ebx, edx)
+    v3_14 = v3_13 >>u cl
+    ebx_16 = SLICE(v3_14, word32, 32)
+    edx_15 = SLICE(v3_14, word32, 0)
+    SCZO_17 = cond(edx_15)
+    return
+ProcedureBuilder_exit:
+    use eax:eax_11
+    use ebx:ebx_16
+    use edx:edx_15
+    use CZSO:SCZO_17
+";
+        #endregion
+
+        RunTest(sExpected, m =>
+        {
+            var eax = m.Reg32("eax", 0);
+            var edx = m.Reg32("edx", 2);
+            var ebx = m.Reg32("ebx", 3);
+            var cl = m.Reg8("cl", 1);
+            var tmp = m.Temp(PrimitiveType.Word64, "v3");
+            var psw = RegisterStorage.Reg16("psw", 42);
+            var SCZO = m.Frame.EnsureFlagGroup(new FlagGroupStorage(psw, 0xF, "SCZO"));
+
+            m.Assign(tmp, m.Seq(edx, eax));
+            m.Assign(tmp, m.Shr(tmp, cl));
+            m.Assign(eax, m.Slice(tmp, PrimitiveType.Word32, 0));
+            m.Assign(tmp, m.Seq(ebx, edx));
+            m.Assign(tmp, m.Shr(tmp, cl));
+            m.Assign(edx, m.Slice(tmp, PrimitiveType.Word32, 0));
+
+            m.Assign(ebx, m.Shr(ebx, cl));
+            m.Assign(SCZO, m.Cond(SCZO.DataType, edx));
+            m.Return();
+        });
+    }
+
 }

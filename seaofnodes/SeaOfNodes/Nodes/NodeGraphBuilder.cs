@@ -208,6 +208,9 @@ public partial class NodeGraphBuilder
     /// </summary>
     private void PopulateExitUses(Block exitBlock, IProcessorArchitecture arch)
     {
+        if (exitBlock.Pred.Count == 0)
+            return;
+
         var exitState = blocks[exitBlock];
 
         var emittedStorages = new HashSet<Storage>();
@@ -560,8 +563,8 @@ public partial class NodeGraphBuilder
 
     public Node VisitDereference(Dereference deref)
     {
-        Console.Out.WriteLine("NYI: {0}", deref.GetType());
-        throw new NotImplementedException();
+        var input = deref.Expression.Accept(this);
+        return factory.Deref(deref.DataType, null, input);
     }
 
     public Node VisitFieldAccess(FieldAccess acc)
@@ -1139,8 +1142,9 @@ public partial class NodeGraphBuilder
 
     public Node VisitMemberPointerSelector(MemberPointerSelector mps)
     {
-        Console.Out.WriteLine("NYI: {0}", mps.GetType());
-        throw new NotImplementedException();
+        var b = mps.BasePointer.Accept(this);
+        var o = mps.MemberPointer.Accept(this);
+        return factory.MemberPointerSelector(mps.DataType, b, o);
     }
 
     public Node VisitMemoryAccess(MemoryAccess access)

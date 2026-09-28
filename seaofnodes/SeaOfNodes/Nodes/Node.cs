@@ -207,6 +207,11 @@ public abstract class Node
 
     public virtual void RenderReference(TextWriter sw)
     {
+        RenderAsIdentifier(sw);
+    }
+
+    public virtual void RenderAsIdentifier(TextWriter sw)
+    {
         switch (this.Storage)
         {
         case SequenceStorage seq:
@@ -227,6 +232,8 @@ public abstract class Node
             break;
         }
     }
+
+    public abstract void Accept(INodeVisitor visitor);
 
     public abstract T Accept<T>(INodeVisitor<T> visitor);
 

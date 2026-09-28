@@ -23,6 +23,9 @@ public sealed class AddressNode : Node
         sw.Write(Value.ToString());
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitAddressNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitAddressNode(this);
 

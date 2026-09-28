@@ -59,6 +59,8 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
 
     public Node? VisitCallNode(CallNode n) => null;
 
+    public Node? VisitCastNode(CastNode n) => null;
+
     public Node? VisitCondNode(CondNode n) => null;
 
     public Node? VisitConstantNode(ConstantNode n) => null;
@@ -66,6 +68,7 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
     public Node? VisitConversionNode(ConversionNode n) => null;
 
     public Node? VisitDefNode(DefNode n) => null;
+    public Node? VisitDereferenceNode(DereferenceNode node) => null;
 
     public Node? VisitEndNode(EndNode n) => null;
 
@@ -92,6 +95,7 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
         return null;
     }
 
+    public Node? VisitMemberPointerSelectorNode(MemberPointerSelectorNode node) => null;
 
     public Node? VisitOutArgumentNode(OutArgumentNode outArgumentNode)
     {
@@ -104,6 +108,7 @@ public partial class NodeValuePropagator : INodeVisitor<Node?>
 
     public Node? VisitReturnNode(ReturnNode n) => null;
 
+    public Node? VisitSegmentedPointerNode(SegmentedPointerNode n) => null;
     public Node? VisitSeqNode(SeqNode n) => null;
 
     public Node? VisitSideEffectNode(SideEffectNode n) => null;

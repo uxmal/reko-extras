@@ -39,6 +39,9 @@ public sealed class ProcedureConstantNode : Node
         }
     }
 
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitProcedureConstantNode(this);
+
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitProcedureConstantNode(this);
 

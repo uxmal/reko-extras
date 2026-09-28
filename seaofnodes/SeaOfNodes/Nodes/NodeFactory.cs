@@ -129,6 +129,12 @@ public class NodeFactory
         return node;
     }
 
+    public DereferenceNode Deref(DataType dataType, CfNode? cfNode, Node pointer)
+    {
+        var node = new DereferenceNode(NextId(), dataType, cfNode, pointer);
+        return node;
+    }
+
     public EndNode End(ProcedureNode start)
     {
         var node = new EndNode(NextId());
@@ -178,6 +184,11 @@ public class NodeFactory
     public MemoryNode Mem(Node cfNode)
     {
         return new MemoryNode(NextId(), new UnknownType(), cfNode);
+    }
+
+    public Node MemberPointerSelector(DataType dataType, Node basePtr, Node memberPointer)
+    {
+        return new MemberPointerSelectorNode(NextId(), dataType, null, basePtr, memberPointer);
     }
 
     public PhiNode Phi(DataType dt, Node cfNode, params Node[] nodes)
@@ -257,7 +268,7 @@ public class NodeFactory
 
     public ProcedureNode Start(Procedure proc)
     {
-        var node = new ProcedureNode(NextId());
+        var node = new ProcedureNode(NextId(), proc);
         return node;
     }
 

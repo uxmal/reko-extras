@@ -53,6 +53,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
                 continue;
             if (node is BinaryNode bin)
             {
+                if (bin.Inputs.Count == 0)
+                    continue;
                 switch (bin.Operator.Type)
                 {
                 case OperatorType.ISub:
@@ -70,6 +72,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     if (TryFuseLongShiftRight(bin))
                     {
                         wl.AddRange(node.Outputs.OfType<BinaryNode>());
+                    }
+                    break;
+                case OperatorType.Shr:
+                    if (TryFuseShrd(bin))
+                    {
                     }
                     break;
                 }
@@ -130,8 +137,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     var dtNew = CombineTypes(shift.DataType, rorc.DataType);
                     var seqNode = m.Seq(dtNew, shift.Left, rorc.Inputs[2]!);
                     var newNode = m.Bin(dtNew, shift.Operator, null, seqNode, shift.Right);
-                    var loSlice = m.Slice(rorc.DataType, newNode, 0);
-                    var hiSlice = m.Slice(shift.DataType, newNode, rorc.DataType.BitSize);
+                    var loSlice = m.Slice(newNode, rorc.DataType, 0);
+                    var hiSlice = m.Slice(newNode, shift.DataType, rorc.DataType.BitSize);
                     ReplaceCondOfs(rorc, newNode);
                     Node.Replace(rorc, loSlice);
                     Node.Replace(shift, hiSlice);
@@ -163,8 +170,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     var dtNew = CombineTypes(rolc.DataType, shift.DataType);
                     var seqNode = m.Seq(dtNew, rolc.Inputs[2]!, shift.Left);
                     var newNode = m.Bin(dtNew, shift.Operator, null, seqNode, shift.Right);
-                    var loSlice = m.Slice(shift.DataType, newNode, 0);
-                    var hiSlice = m.Slice(rolc.DataType, newNode, shift.DataType.BitSize);
+                    var loSlice = m.Slice(newNode, shift.DataType, 0);
+                    var hiSlice = m.Slice(newNode, rolc.DataType, shift.DataType.BitSize);
                     ReplaceCondOfs(rolc, newNode);
                     Node.Replace(shift, loSlice);
                     Node.Replace(rolc, hiSlice);
@@ -245,8 +252,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
             var seqLeft = m.Seq(dt, hiLeft, loLeft);
             var seqRight = m.Seq(dt, hiRight, loRight);
             var wideSum = m.Bin(dt, opType, null, seqLeft, seqRight);
-            var sumLo = m.Slice(dtLo, wideSum, 0);
-            var sumHi = m.Slice(dtHi, wideSum, dtLo.BitSize);
+            var sumLo = m.Slice(wideSum, dtLo, 0);
+            var sumHi = m.Slice(wideSum, dtHi, dtLo.BitSize);
             ReplaceCondOfs(addcSubc, wideSum);
             Node.Replace(hiToReplace, sumHi);
             Node.Replace(loAddSub!, sumLo);
@@ -296,7 +303,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
     }
 
     private static bool IsAnd(
-        Node node, 
+        Node node,
         [MaybeNullWhen(false)] out Node left,
         [MaybeNullWhen(false)] out Node right)
     {
@@ -369,8 +376,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
             seqLeft,
             seqRight);
 
-        var sliceLow = m.Slice(lowOp.DataType, wideOp, 0);
-        var sliceHigh = m.Slice(highOp.DataType, wideOp, lowOp.DataType.BitSize);
+        var sliceLow = m.Slice(wideOp, lowOp.DataType, 0);
+        var sliceHigh = m.Slice(wideOp, highOp.DataType, lowOp.DataType.BitSize);
 
         replacements[lowOp] = sliceLow;
         replacements[highOp] = sliceHigh;
@@ -389,7 +396,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         var cZeroLeft = subcNode.Inputs[2] as ConstantNode;
         var hiNegNode = subcNode.Inputs[3]!;
         var carry = subcNode.Inputs[4]!;
-        if (cZeroLeft is not null && 
+        if (cZeroLeft is not null &&
             cZeroLeft.Value.IsZero &&
             IsMaybeMaskedCondNode(carry, out var cond) &&
             cond.Inputs[1] is UnaryNode loNegNode &&
@@ -400,8 +407,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
             var dt = CombineTypes(dtHi, dtLo);
             var seq = m.Seq(dt, hiNegNode, loNegNode.Inputs[1]!);
             var wideNeg = m.Neg(dt, seq);
-            var sliceLo = m.Slice(dtLo, wideNeg, 0);
-            var sliceHi = m.Slice(dtHi, wideNeg, dtLo.BitSize);
+            var sliceLo = m.Slice(wideNeg, dtLo, 0);
+            var sliceHi = m.Slice(wideNeg, dtHi, dtLo.BitSize);
             ReplaceCondOfs(subcNode, wideNeg);
             Node.Replace(subcNode, sliceHi);
             Node.Replace(loNegNode, sliceLo);
@@ -422,8 +429,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
                 var dt = CombineTypes(dtHi, dtLo);
                 var seq = m.Seq(dt, hiNegNode, loNegNode2.Inputs[1]!);
                 var wideNeg = m.Neg(dt, seq);
-                var sliceLo = m.Slice(dtLo, wideNeg, 0);
-                var sliceHi = m.Slice(dtHi, wideNeg, dtLo.BitSize);
+                var sliceLo = m.Slice(wideNeg, dtLo, 0);
+                var sliceHi = m.Slice(wideNeg, dtHi, dtLo.BitSize);
                 ReplaceCondOfs(subcNode, wideNeg);
                 Node.Replace(loNegNode2, sliceLo);
                 Node.Replace(subcNode, sliceHi);
@@ -514,8 +521,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     var dt = CombineTypes(dtHi, dtLo);
                     var seq = m.Seq(dt, hi, lo);
                     var wideNeg = m.Neg(dt, seq);
-                    var sliceLo = m.Slice(dtLo, wideNeg, 0);
-                    var sliceHi = m.Slice(dtHi, wideNeg, dtLo.BitSize);
+                    var sliceLo = m.Slice(wideNeg, dtLo, 0);
+                    var sliceHi = m.Slice(wideNeg, dtHi, dtLo.BitSize);
                     ReplaceCondOfs(subNode, wideNeg);
                     Node.Replace(subNode, sliceHi);
                     Node.Replace(negLo, sliceLo);
@@ -523,7 +530,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
                     return wideNeg;
                 }
             }
-            if (subLeft is UnaryNode negHi && 
+            if (subLeft is UnaryNode negHi &&
                 negHi.Operator == Operator.Neg &&
                 subRight is ConversionNode conv &&
                 conv.Inputs[1] is BinaryNode ucmp &&
@@ -540,8 +547,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
                 var dt = CombineTypes(dtHi, dtLo);
                 var seq = m.Seq(dt, hi, lo);
                 var wideNeg = m.Neg(dt, seq);
-                var sliceLo = m.Slice(dtLo, wideNeg, 0);
-                var sliceHi = m.Slice(dtHi, wideNeg, dtLo.BitSize);
+                var sliceLo = m.Slice(wideNeg, dtLo, 0);
+                var sliceHi = m.Slice(wideNeg, dtHi, dtLo.BitSize);
                 ReplaceCondOfs(subNode, wideNeg);
                 Node.Replace(subNode, sliceHi);
                 Node.Replace(negLo2, sliceLo);
@@ -586,8 +593,8 @@ public class LongAddRewriter : INodeVisitor<Node?>
         var combinedType = CombineTypes(highExpr.DataType, lowExpr.DataType);
         var seq = m.Seq(combinedType, highInput, lowInput);
         var wideShift = m.Bin(combinedType, lowShift.Operator, null, seq, shiftAmount);
-        var sliceLow = m.Slice(lowExpr.DataType, wideShift, 0);
-        var sliceHigh = m.Slice(highExpr.DataType, wideShift, lowExpr.DataType.BitSize);
+        var sliceLow = m.Slice(wideShift, lowExpr.DataType, 0);
+        var sliceHigh = m.Slice(wideShift, highExpr.DataType, lowExpr.DataType.BitSize);
 
         replacements[orNode] = sliceLow;
         replacements[highShift] = sliceHigh;
@@ -643,6 +650,71 @@ public class LongAddRewriter : INodeVisitor<Node?>
             return op;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Starting from the shift marked by '*':
+    /// <code>
+    ///    v3_8 = SEQ(edx, eax)
+    ///  * v3_10 = v3_8 >>u cl
+    ///    eax_11 = SLICE(v3_10, word32, 0)
+    ///    ebx_16 = ebx >>u cl
+    ///    v3_13 = SEQ(ebx, edx)
+    ///    v3_14 = v3_13 >>u cl
+    ///    edx_15 = SLICE(v3_14, word32, 0)
+    ///    SCZO_17 = cond(edx_15)
+    /// </code>
+    /// <code>
+    ///    v3_8 = SEQ(edx, eax)
+    ///  * v3_10 = v3_8 >>u cl
+    ///    eax_11 = SLICE(v3_10, word32, 0)
+    ///    edx_12 = edx >>u cl
+    ///    SCZO_13 = cond(edx_12)
+    /// </code>
+    /// We want to fuse the following pattern:
+    /// <code>
+    ///    v3_8 = SEQ(edx, eax)
+    ///  * v3_10 = v3_8 >>u cl
+    ///    eax_11 = SLICE(v3_10, word32, 0)
+    ///    edx_12 = SLICE(v3_10, word32, 32)
+    ///    SCZO_13 = cond(v3_10)
+    /// </code>
+    /// 
+    /// </summary>
+    /// <param name="bin"></param>
+    /// <param name="newNode"></param>
+    /// <returns></returns>
+    private bool TryFuseShrd(BinaryNode shrd)
+    {
+        if (shrd.Left is not SeqNode seq)
+            return false;
+        var hiPart = seq.Inputs[1];
+        Debug.Assert(hiPart is not null);
+        foreach (var use in hiPart.Outputs)
+        {
+            if (use is not BinaryNode hiShift ||
+                hiShift.Operator != shrd.Operator)
+                continue;
+            // See if the hiShift is the low part of a SEQ
+            if (AreEqual(shrd.Right, hiShift.Right))
+            {
+                this.ReplaceCondOfs(hiShift, shrd);
+                int cbits = MeasureTail(seq);
+                Node.Replace(hiShift, m.Slice(shrd, hiShift.DataType, cbits));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int MeasureTail(SeqNode seq)
+    {
+        int cbits = 0;
+        for (int i = seq.Inputs.Count - 1; i >= 2; --i)
+        {
+            cbits += seq.Inputs[i]!.DataType.BitSize;
+        }
+        return cbits;
     }
 
     private static (Node highReg, Node? highImm) ExtractHighRegAndImm(Node highLeft)
@@ -771,23 +843,61 @@ public class LongAddRewriter : INodeVisitor<Node?>
             return PrimitiveType.Create(upper.Domain, totalBits);
     }
 
+    private static bool AreEqual(Node a, Node b)
+    {
+        if (a == b)
+            return true;
+        if (a is ConstantNode ca && b is ConstantNode cb)
+        {
+            var va = ca.Value;
+            var vb = cb.Value;
+            if (!va.IsValid || !vb.IsValid)
+                return false;
+            if (va.IsReal)
+            {
+                if (!vb.IsReal)
+                    return false;
+                return va.ToReal64() == vb.ToReal64();
+            }
+            if (vb.IsReal)
+                return false;
+            if (va is BigConstant ba)
+            {
+                return ba.ToBigInteger() == vb.ToBigInteger();
+            }
+            else if (vb is BigConstant bb)
+            {
+                return va.ToBigInteger() == bb.ToBigInteger();
+            }
+            else
+            {
+                return va.ToUInt64() == vb.ToUInt64();
+            }
+        }
+        return false;
+    }
+
     public Node? VisitAddressNode(AddressNode node) => null;
     public Node? VisitApplicationNode(ApplicationNode node) => null;
     public Node? VisitBinaryNode(BinaryNode node) => null;
     public Node? VisitBlockNode(BlockNode node) => null;
     public Node? VisitCallNode(CallNode node) => null;
+    public Node? VisitCastNode(CastNode node) => null;
     public Node? VisitCondNode(CondNode node) => null;
     public Node? VisitConstantNode(ConstantNode node) => null;
     public Node? VisitConversionNode(ConversionNode node) => null;
+    public Node? VisitDereferenceNode(DereferenceNode node) => null;
     public Node? VisitDefNode(DefNode node) => null;
     public Node? VisitEndNode(EndNode node) => null;
     public Node? VisitIfNode(IfNode node) => null;
     public Node? VisitLoadNode(LoadNode node) => null;
+    public Node? VisitMemberPointerSelectorNode(MemberPointerSelectorNode node) => null;
     public Node? VisitMemoryNode(MemoryNode node) => null;
     public Node? VisitOutArgumentNode(OutArgumentNode outArgumentNode) => null;
     public Node? VisitPhiNode(PhiNode node) => null;
     public Node? VisitProcedureConstantNode(ProcedureConstantNode node) => null;
     public Node? VisitReturnNode(ReturnNode node) => null;
+    public Node? VisitSegmentedPointerNode(SegmentedPointerNode node) => null;
     public Node? VisitSeqNode(SeqNode node) => null;
     public Node? VisitSideEffectNode(SideEffectNode node) => null;
     public Node? VisitSliceNode(SliceNode node) => null;

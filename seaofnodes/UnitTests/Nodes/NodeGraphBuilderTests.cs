@@ -1033,7 +1033,7 @@ m1:
     SCZO_14 = cond(r2_13)
 m2C:
     r2_15 = PHI(r2_13, r2_17, r2_38)
-    r2_17 = r2_15 >>u32 1<8>
+    r2_17 = r2_15 >>u 1<8>
     v19 = r2_17 == 0<32>
     SCZO_21 = PHI(SCZO_14, SCZO_21, SCZO_39)
     ctr_30 = PHI(ctr, ctr_30, ctr_33)
@@ -1094,7 +1094,23 @@ ProcedureBuilder_exit:
     {
         string sExpected =
         #region Expected    
-            @"@@@";
+            @"
+ProcedureBuilder_entry:
+    def edx:word32
+    def eax:word32
+    def cl:byte
+l1:
+    v3_8 = SEQ(edx, eax)
+    v3_10 = v3_8 >>u cl
+    eax_11 = SLICE(v3_10, word32, 0)
+    edx_12 = edx >>u cl
+    SCZO_13 = cond(edx_12)
+    return
+ProcedureBuilder_exit:
+    use eax:eax_11
+    use edx:edx_12
+    use CZSO:SCZO_13
+";
         #endregion
 
         RunTest(sExpected, m =>

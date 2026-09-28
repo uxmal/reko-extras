@@ -88,7 +88,7 @@ public class PeepholeOptimizerTests
         
         var result = peep.ISub(r3, r3);
 
-        Assert.That(result.ToString(), Is.EqualTo("0<32>"));
+        Assert.That(result.ToString(), Is.EqualTo("v3 = 0<32>"));
     }
 
     [Test]
@@ -98,7 +98,7 @@ public class PeepholeOptimizerTests
 
         var result = peep.ISub(r3, r3);
 
-        Assert.That(result.ToString(), Is.EqualTo("0<32>"));
+        Assert.That(result.ToString(), Is.EqualTo("v3 = 0<32>"));
     }
 
     [Test]

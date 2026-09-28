@@ -20,8 +20,14 @@ public sealed class ConstantNode : Node
 
     public override void Render(TextWriter sw)
     {
+        base.RenderReference(sw);
+        sw.Write(" = ");
         sw.Write(Value.ToString());
     }
+
+    public override void Accept(INodeVisitor visitor)
+        => visitor.VisitConstantNode(this);
+
 
     public override T Accept<T>(INodeVisitor<T> visitor)
         => visitor.VisitConstantNode(this);
