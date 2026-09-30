@@ -139,12 +139,12 @@ public class ProjectionPropagator
             /// <param name="slices"></param>
             private static bool AllAdjacent(SliceNode[] slices)
             {
-                int lsbLast = slices[0].Offset;
+                int lsbLast = (int)slices[0].Offset;
                 for (int i = 1; i < slices.Length; ++i)
                 {
-                    if (lsbLast != slices[i].Offset + slices[i].DataType.BitSize)
+                    if (lsbLast != (int)slices[i].Offset + (int)slices[i].DataType.BitSize)
                         return false;
-                    lsbLast = slices[i].Offset;
+                    lsbLast = (int)slices[i].Offset;
                 }
                 return true;
             }
@@ -276,7 +276,7 @@ public class ProjectionPropagator
                     var slices = sids.Select(AsSlice).ToArray();
                     if (slices.All(s => s is not null))
                     {
-                        if (AllSame(slices, (a, b) => cmp.Equals(a.Expression, b.Expression)) &&
+                        if (AllSame(slices, (a, b) => cmp.Equals(a?.Expression, b?.Expression)) &&
                             AllAdjacent(slices!))
                         {
                             trace.Verbose("Prpr: Fusing slices in {0}", procNode.Procedure.Name);

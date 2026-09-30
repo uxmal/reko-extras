@@ -6,7 +6,7 @@ namespace Reko.Extras.SeaOfNodes.Analysis;
 public partial class PeepholeOptimizer
 {
 
-    public Node Slice(Node input, DataType dt, int offset)
+    public Node Slice(Node input, DataType dt, long offset)
     {
         if (offset == 0 && dt.BitSize == input.DataType.BitSize)
         {

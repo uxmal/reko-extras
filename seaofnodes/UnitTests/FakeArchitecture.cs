@@ -50,6 +50,8 @@ public class FakeArchitecture : IProcessorArchitecture
 
     public int MemoryGranularity => 8;
 
+    public RegisterBank RegisterBank => throw new NotImplementedException();
+
     public MemoryMap_v1? MemoryMap { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
     public PrimitiveType PointerType => throw new NotImplementedException();
@@ -316,6 +318,11 @@ public class FakeArchitecture : IProcessorArchitecture
     }
 
     public bool TryRead(EndianImageReader rdr, PrimitiveType dt, [MaybeNullWhen(false)] out Constant value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public bool TryReadDataAddress(IMemory mem, Address addr, [MaybeNullWhen(false)] out Address adddress)
     {
         throw new NotImplementedException();
     }

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Platforms>AnyCPU;x64;x86</Platforms>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
@@ -16,7 +16,7 @@
   <ItemGroup>
     <PackageReference Include="LLVMSharp" Version="16.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.12.4" />
+    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.12.5" />
   </ItemGroup>
 
   <ItemGroup>

@@ -491,7 +491,7 @@ public partial class NodeGraphBuilder
     {
         if (appl.Procedure is ProcedureConstant pc)
         {
-            if (pc.Procedure.Name == CommonOps.ISubC.Name &&
+            if (pc.Procedure.IsInstanceOf(CommonOps.ISubC) &&
                 appl.Arguments[0] == appl.Arguments[1])
             {
                 // subc x,x is never used in a sub-subc pair,
@@ -951,7 +951,7 @@ public partial class NodeGraphBuilder
 
     private SliceNode MakeSlice(DataType dt, Node slicedValue, int offset)
     {
-        BitRange range = new(offset, offset + dt.BitSize);
+        BitRange range = new(offset, offset + (int)dt.BitSize);
         if (!this.availableSlices.TryGetValue(slicedValue, out var slices))
         {
             slices = [];
@@ -1137,7 +1137,7 @@ public partial class NodeGraphBuilder
         return Interval.Create(
             bitOffset,
             bitOffset +
-                dt.MeasureBitSize(arch.MemoryGranularity));
+                (int)dt.MeasureBitSize(arch.MemoryGranularity));
     }
 
     public Node VisitMemberPointerSelector(MemberPointerSelector mps)

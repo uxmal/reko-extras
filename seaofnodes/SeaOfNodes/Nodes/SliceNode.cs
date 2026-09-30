@@ -6,7 +6,7 @@ namespace Reko.Extras.SeaOfNodes.Nodes;
 
 public sealed class SliceNode : Node
 {
-    public SliceNode(int number, DataType dt, Node? cfNode, Node input, int offset)
+    public SliceNode(int number, DataType dt, Node? cfNode, Node input, long offset)
         : base(number, dt, cfNode, input)
     {
         this.Offset = offset;
@@ -15,7 +15,7 @@ public sealed class SliceNode : Node
     public override string Label => "Slice";
 
     public Node Expression => Inputs[1]!;
-    public int Offset { get; }
+    public long Offset { get; }
 
     public override void Render(TextWriter sw)
     {

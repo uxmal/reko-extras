@@ -86,12 +86,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
                 if (appl.Inputs[1] is ProcedureConstantNode pc)
                 {
                     Node? newNode = null;
-                    var name = pc.Procedure.Name;
-                    if (name == CommonOps.IAddC.Name)
+                    if (pc.Procedure.IsInstanceOf(CommonOps.IAddC))
                     {
                         newNode = TryFuseAddSub(appl, Operator.IAdd);
                     }
-                    else if (name == CommonOps.ISubC.Name)
+                    else if (pc.Procedure.IsInstanceOf(CommonOps.ISubC))
                     {
                         newNode = TryFuseAddSub(appl, Operator.ISub);
                         if (newNode is null)
@@ -99,11 +98,11 @@ public class LongAddRewriter : INodeVisitor<Node?>
                             newNode = this.TryFuseNegation(appl);
                         }
                     }
-                    else if (name == CommonOps.RorC.Name)
+                    else if (pc.Procedure.IsInstanceOf(CommonOps.RorC))
                     {
                         newNode = TryFuseSarRorC(appl);
                     }
-                    else if (name == CommonOps.RolC.Name)
+                    else if (pc.Procedure.IsInstanceOf(CommonOps.RolC))
                     {
                         newNode = TryFuseShlRolC(appl);
                     }
@@ -583,7 +582,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         if (lowInput is not Node lowExpr || shiftAmount is null || highInput is not Node highExpr || spillAmount is null)
             return false;
 
-        if (!MatchesComplementaryShiftAmount(spillAmount, shiftAmount, lowExpr.DataType.BitSize))
+        if (!MatchesComplementaryShiftAmount(spillAmount, shiftAmount, (int)lowExpr.DataType.BitSize))
             return false;
 
         var highShift = FindMatchingHighShift(highInput, shiftAmount, lowShift);
@@ -712,7 +711,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
         int cbits = 0;
         for (int i = seq.Inputs.Count - 1; i >= 2; --i)
         {
-            cbits += seq.Inputs[i]!.DataType.BitSize;
+            cbits += (int)seq.Inputs[i]!.DataType.BitSize;
         }
         return cbits;
     }
@@ -733,7 +732,7 @@ public class LongAddRewriter : INodeVisitor<Node?>
 
         if (hi is ConstantNode hc && lowPart is ConstantNode lc)
         {
-            var lowBits = lowType.BitSize;
+            var lowBits = (int)lowType.BitSize;
             var loMask = lowBits >= 64 ? ulong.MaxValue : ((1UL << lowBits) - 1UL);
             var value = (hc.Value.ToUInt64() << lowBits) | (lc.Value.ToUInt64() & loMask);
             return m.Const(Constant.Create(combinedType, value));

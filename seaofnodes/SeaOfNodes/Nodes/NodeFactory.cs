@@ -263,7 +263,7 @@ public class NodeFactory
         return new SideEffectNode(NextId(), cfNode, expNode);
     }
 
-    public SliceNode Slice(DataType dt, Node input, int offset)
+    public SliceNode Slice(DataType dt, Node input, long offset)
         => new SliceNode(NextId(), dt, null, input, offset);
 
     public ProcedureNode Start(Procedure proc)

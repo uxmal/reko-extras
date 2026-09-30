@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>ParallelScan.UnitTests</RootNamespace>
     <IsPackable>false</IsPackable>
   
@@ -11,7 +11,7 @@
     <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
     <PackageReference Include="NUnit" Version="4.3.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
-    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.12.4" />
+    <PackageReference Include="Reko.Decompiler.Runtime" Version="0.12.5" />
   </ItemGroup>
 
   <ItemGroup>

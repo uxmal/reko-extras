@@ -196,11 +196,11 @@ public class ConditionCodeEliminator : IAnalysis<ProcedureNode>
                 return PropagateUsesTowardDefinitions(slice.Expression, cc);
             case ApplicationNode { Procedure: ProcedureConstantNode pc }:
                 //$TODO: use .IsInstanceOf
-                if (pc.Procedure.Name == CommonOps.RorC.Name)
+                if (pc.Procedure.IsInstanceOf(CommonOps.RorC))
                 {
                     throw new NotImplementedException($"Unimplemented: {use}");
                 }
-                if (pc.Procedure.Name == CommonOps.IAddC.Name)
+                if (pc.Procedure.IsInstanceOf(CommonOps.IAddC))
                 {
                     // Replace the IAddC with (a + b + (cy <= 0)) to
                     // model how carry works (on most architectures, carry is set
@@ -211,7 +211,7 @@ public class ConditionCodeEliminator : IAnalysis<ProcedureNode>
                     cyNew = m.Convert(cyNew, PrimitiveType.Bool, use.Inputs[2]!.DataType);
                     return Node.Replace(use, m.IAdd(m.IAdd(use.Inputs[2]!, use.Inputs[3]!), cyNew));
                 }
-                if (pc.Procedure.Name == CommonOps.ISubC.Name)
+                if (pc.Procedure.IsInstanceOf(CommonOps.ISubC))
                 {
                     var cy = use.Inputs[4]!;
                     var cyNew = PropagateUsesTowardDefinitions(cy, ConditionCode.ULT);

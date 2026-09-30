@@ -55,7 +55,7 @@ public partial class PeepholeOptimizer
         for (int i = 0; i < newSeq.Count; ++i)
         {
             var c = (ConstantNode)newSeq[i];
-            value = (value << c.DataType.BitSize) | c.Value.ToBigInteger();
+            value = (value << (int)c.DataType.BitSize) | c.Value.ToBigInteger();
         }
         return m.Const(Constant.Create(dt, value));
     }
@@ -77,13 +77,13 @@ public partial class PeepholeOptimizer
                     curSlice = s;
                     slicedNode = s.Inputs[1]!;
                     dom = s.DataType.Domain;
-                    bitsize = s.DataType.BitSize;
-                    offset = s.Offset;
+                    bitsize = (int)s.DataType.BitSize;
+                    offset = (int)s.Offset;
                 }
                 else if (AreAdjacentSlices(curSlice, s))
                 {
-                    bitsize += s.DataType.BitSize;
-                    offset = s.Offset;
+                    bitsize += (int)s.DataType.BitSize;
+                    offset = (int)s.Offset;
                 }
                 else
                 {
@@ -158,7 +158,7 @@ public partial class PeepholeOptimizer
             var d = newSeq[i];
             var slice = this.Slice(fusedDef, d.DataType, bitOffset);
             Node.Replace(d, slice);
-            bitOffset += d.DataType.BitSize;
+            bitOffset += (int) d.DataType.BitSize;
         }
         return fusedDef;
     }
